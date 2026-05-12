@@ -6,10 +6,16 @@ import { getSession } from "@/lib/auth";
 import { getBalance, COST_PER_CALL } from "@/lib/points";
 import { getDb } from "@/lib/db";
 
-const openai = new OpenAI({
-  baseURL: "https://api.deepseek.com/v1",
-  apiKey: process.env.DEEPSEEK_API_KEY,
-});
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({
+      baseURL: "https://api.deepseek.com/v1",
+      apiKey: process.env.DEEPSEEK_API_KEY,
+    });
+  }
+  return _openai;
+}
 
 function generateClientName(kycData: Record<string, unknown> | null | undefined): string {
   if (!kycData) return "未命名客户";
@@ -114,7 +120,7 @@ export async function POST(request: NextRequest) {
 
     messages.push({ role: "user", content: question });
 
-    const stream = await openai.chat.completions.create({
+    const stream = await getOpenAI().chat.completions.create({
       model: "deepseek-v4-pro",
       messages: messages,
       stream: true,
