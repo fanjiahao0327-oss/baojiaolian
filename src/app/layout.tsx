@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import UserProvider from "@/components/UserProvider";
 import AppShell from "@/components/AppShell";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 export const metadata: Metadata = {
   title: "AI 保险教练",
@@ -16,9 +17,11 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="antialiased">
-        <UserProvider>
-          <AppShell>{children}</AppShell>
-        </UserProvider>
+        <ErrorBoundary>
+          <UserProvider>
+            <AppShell>{children}</AppShell>
+          </UserProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
