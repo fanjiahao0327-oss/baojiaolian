@@ -1,0 +1,19 @@
+# deps
+node_modules/
+
+# build
+.next/
+
+# env
+.env.local
+.env*.local
+
+# database
+data/
+
+# claude
+.claude/
+
+# IDE
+.DS_Store
+*.tsbuildinfo
