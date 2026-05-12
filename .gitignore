@@ -17,3 +17,4 @@ data/
 # IDE
 .DS_Store
 *.tsbuildinfo
+.vercel
