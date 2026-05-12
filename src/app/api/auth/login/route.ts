@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
+import { cookies } from "next/headers";
 import { sessionOptions, type SessionData } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { INITIAL_POINTS } from "@/lib/points";
@@ -22,20 +23,14 @@ export async function POST(request: NextRequest) {
 
   const isJson = contentType.includes("application/json");
 
-  const makeErrorResponse = (error: string, status: number) => {
-    if (isJson) return NextResponse.json({ error }, { status });
-    const host = request.headers.get("host") || "localhost:3000";
-    const protocol = request.headers.get("x-forwarded-proto") === "https" ? "https" : "http";
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error)}`, `${protocol}://${host}`), 302);
-  };
-
   if (!phone || !/^1\d{10}$/.test(phone)) {
-    return makeErrorResponse("请输入正确的手机号", 400);
+    if (isJson) return NextResponse.json({ error: "请输入正确的手机号" }, { status: 400 });
+    return NextResponse.redirect(new URL("/login?error=请输入正确的手机号", request.url), 302);
   }
 
-  // 短信服务未接入前，统一用 1234 验证
   if (code !== "1234") {
-    return makeErrorResponse("验证码错误", 400);
+    if (isJson) return NextResponse.json({ error: "验证码错误" }, { status: 400 });
+    return NextResponse.redirect(new URL("/login?error=验证码错误", request.url), 302);
   }
 
   const db = getDb();
@@ -56,17 +51,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (isJson) {
-    return NextResponse.json({ success: true });
-  }
-
-  const host = request.headers.get("host") || "localhost:3000";
-  const protocol = request.headers.get("x-forwarded-proto") === "https" ? "https" : "http";
-  const response = NextResponse.redirect(new URL("/", `${protocol}://${host}`), 302);
-  const session = await getIronSession<SessionData>(request, response, sessionOptions);
+  // 使用 App Router API 设置 session cookie
+  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
   session.userId = userId;
   session.phone = phone;
   await session.save();
 
-  return response;
+  if (isJson) {
+    return NextResponse.json({ success: true });
+  }
+
+  return NextResponse.redirect(new URL("/", request.url), 302);
 }

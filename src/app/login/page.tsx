@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 function LoginForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [counting, setCounting] = useState(false);
@@ -48,25 +49,46 @@ function LoginForm() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
     if (!phone || !code) {
       setSmsError("请填写手机号和验证码");
-      e.preventDefault();
       return;
     }
+    setSmsError("");
     setSubmitting(true);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, code }),
+      });
+
+      if (res.ok) {
+        // 登录成功，客户端跳转避免原生表单跳转的不稳定性
+        router.push("/");
+        router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({ error: "登录失败" }));
+        setSmsError(data.error || "登录失败，请重试");
+      }
+    } catch {
+      setSmsError("网络错误，请检查连接后重试");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-brand-gradient flex items-center justify-center p-4">
-      {/* 背景装饰 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
       </div>
 
       <div className="relative w-full max-w-sm">
-        {/* Logo 区域 */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white/15 backdrop-blur rounded-2xl mb-4 shadow-lg">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -78,14 +100,12 @@ function LoginForm() {
           <p className="text-sm text-white/60 mt-1.5">保险代理人的幕后智囊</p>
         </div>
 
-        {/* 登录卡片 */}
         <div className="bg-white rounded-2xl shadow-2xl p-6">
-          <form action="/api/auth/login" method="POST" onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">手机号</label>
               <input
                 type="tel"
-                name="phone"
                 maxLength={11}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-gray-50 hover:bg-white transition-colors"
                 placeholder="请输入手机号"
@@ -99,7 +119,6 @@ function LoginForm() {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  name="code"
                   maxLength={4}
                   className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-gray-50 hover:bg-white transition-colors"
                   placeholder="验证码"
@@ -117,7 +136,6 @@ function LoginForm() {
               </div>
             </div>
 
-            {/* 开发提示 */}
             <div className="flex items-center gap-1.5">
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-600 border border-amber-200">
                 内测
