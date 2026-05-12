@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { encrypt } from "@/lib/crypto";
 
 export async function GET() {
   const session = await getSession();
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
   const db = getDb();
   const result = db
     .prepare("INSERT INTO clients (user_id, name, kyc_snapshot) VALUES (?, ?, ?)")
-    .run(session.userId, name || "未命名客户", JSON.stringify(kycSnapshot || {}));
+    .run(session.userId, name || "未命名客户", encrypt(JSON.stringify(kycSnapshot || {})));
 
   return NextResponse.json({ id: Number(result.lastInsertRowid) }, { status: 201 });
 }

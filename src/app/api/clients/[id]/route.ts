@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { encrypt, decrypt } from "@/lib/crypto";
 
 export async function PUT(
   request: NextRequest,
@@ -30,7 +31,7 @@ export async function PUT(
   }
   if (kycSnapshot !== undefined) {
     db.prepare("UPDATE clients SET kyc_snapshot = ?, updated_at = datetime('now') WHERE id = ?")
-      .run(JSON.stringify(kycSnapshot), Number(id));
+      .run(encrypt(JSON.stringify(kycSnapshot)), Number(id));
   }
 
   return NextResponse.json({ success: true });
@@ -59,10 +60,11 @@ export async function GET(
     .prepare("SELECT id, title, created_at FROM conversations WHERE client_id = ? AND user_id = ? ORDER BY created_at DESC")
     .all(Number(id), session.userId);
 
-  // 在服务端解析 kyc_snapshot，避免客户端 JSON.parse 失败
+  // 服务端解密+解析 kyc_snapshot
   let kycSnapshot: Record<string, unknown> = {};
   try {
-    kycSnapshot = JSON.parse((client as Record<string, unknown>).kyc_snapshot as string);
+    const raw = decrypt((client as Record<string, unknown>).kyc_snapshot as string);
+    kycSnapshot = JSON.parse(raw);
   } catch {
     kycSnapshot = {};
   }

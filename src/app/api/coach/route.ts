@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth";
 import { getBalance, COST_PER_CALL } from "@/lib/points";
 import { getDb } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
+import { encrypt } from "@/lib/crypto";
 
 // 注入检测：匹配尝试提取系统指令、知识库来源、底层数据的输入
 const INJECTION_PATTERNS = [
@@ -90,11 +91,11 @@ export async function POST(request: NextRequest) {
     if (!resolvedClientId) {
       const result = db
         .prepare("INSERT INTO clients (user_id, name, kyc_snapshot) VALUES (?, ?, ?)")
-        .run(userId, generateClientName(safeKycData), JSON.stringify(safeKycData));
+        .run(userId, generateClientName(safeKycData), encrypt(JSON.stringify(safeKycData)));
       resolvedClientId = Number(result.lastInsertRowid);
     } else {
       db.prepare("UPDATE clients SET kyc_snapshot = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?")
-        .run(JSON.stringify(safeKycData), resolvedClientId, userId);
+        .run(encrypt(JSON.stringify(safeKycData)), resolvedClientId, userId);
     }
 
     // 处理对话记录

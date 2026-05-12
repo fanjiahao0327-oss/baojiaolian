@@ -7,8 +7,8 @@ export interface SessionData {
 }
 
 const SESSION_SECRET = process.env.SESSION_SECRET;
-if (!SESSION_SECRET) {
-  throw new Error("缺少环境变量 SESSION_SECRET，请检查 .env.local 配置");
+if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
+  throw new Error("SESSION_SECRET 必须至少 32 字符，请检查 .env.local 配置");
 }
 
 export const sessionOptions: SessionOptions = {
