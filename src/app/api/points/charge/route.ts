@@ -19,10 +19,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { amount } = await request.json();
+  const { amount, adminKey } = await request.json();
+
+  // 内测阶段：积分充值需管理员密钥
+  const configuredKey = process.env.ADMIN_KEY;
+  if (!configuredKey) {
+    return NextResponse.json(
+      { error: "充值功能暂未开放" },
+      { status: 403 }
+    );
+  }
+  if (!adminKey || adminKey !== configuredKey) {
+    return NextResponse.json(
+      { error: "无权操作，请联系管理员" },
+      { status: 403 }
+    );
+  }
+
   const parsed = parseInt(amount, 10);
-  if (!parsed || parsed <= 0 || parsed > 10000) {
-    return NextResponse.json({ error: "充值数量需在 1-10000 之间" }, { status: 400 });
+  if (!parsed || parsed <= 0 || parsed > 100) {
+    return NextResponse.json({ error: "充值数量需在 1-100 之间" }, { status: 400 });
   }
 
   const db = getDb();

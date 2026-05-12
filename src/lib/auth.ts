@@ -6,12 +6,19 @@ export interface SessionData {
   phone?: string;
 }
 
+const SESSION_SECRET = process.env.SESSION_SECRET;
+if (!SESSION_SECRET) {
+  throw new Error("缺少环境变量 SESSION_SECRET，请检查 .env.local 配置");
+}
+
 export const sessionOptions: SessionOptions = {
-  password: process.env.SESSION_SECRET || "a-very-long-secret-key-at-least-32-chars!!",
+  password: SESSION_SECRET,
   cookieName: "baojiaolian-session",
   cookieOptions: {
-    // 仅在真正部署 HTTPS 时开启 Secure
-    secure: process.env.NODE_ENV === "production" && !!process.env.FORCE_SECURE_COOKIE,
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 7, // 7 天
   },
 };
 
