@@ -513,20 +513,22 @@ export default function KYCWizard({ onSubmit, isLoading, clientRefreshKey, initi
       <div className="border-t border-gray-100" />
 
       {/* 当前步骤表单 */}
-      <StepForm
-        section={section}
-        step={step}
-        formData={formData}
-        expandedSections={expandedSections}
-        onToggleExpand={(s) => setExpandedSections((prev) => {
-          const next = new Set(prev);
-          if (next.has(s)) next.delete(s);
-          else next.add(s);
-          return next;
-        })}
-        onFieldChange={handleFieldChange}
-        onArrayToggle={handleArrayFieldToggle}
-      />
+      <div ref={contentRef} className="flex-1 overflow-y-auto px-4 md:px-6 py-4">
+        <StepForm
+          section={section}
+          step={step}
+          formData={formData}
+          expandedSections={expandedSections}
+          onToggleExpand={(s) => setExpandedSections((prev) => {
+            const next = new Set(prev);
+            if (next.has(s)) next.delete(s);
+            else next.add(s);
+            return next;
+          })}
+          onFieldChange={handleFieldChange}
+          onArrayToggle={handleArrayFieldToggle}
+        />
+      </div>
 
       {/* 导航按钮 */}
       <div className="px-4 md:px-6 py-4 border-t border-gray-100 flex gap-3 shrink-0">
