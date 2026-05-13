@@ -12,10 +12,15 @@ interface Props {
 }
 
 const EMPTY_FORM: KYCFormData = {
-  clientName: "", age: "", gender: "", city: "", maritalStatus: "", childrenCount: "", childrenDetail: "",
-  clientIndustry: "", clientPosition: "", clientWorkYears: "", spouseIndustry: "", spousePosition: "", careerStatus: "",
-  incomeSources: [], assets: [], expensePressure: "", annualIncome: "", stockAmount: "", savingsAmount: "",
+  clientName: "", age: "", gender: "", hometown: "", city: "", maritalStatus: "", childrenDetail: "",
+  personality: "", healthCondition: "", hobbies: "", parentsDetail: "",
+  clientIndustry: "", clientPosition: "", careerDevelopment: "", breadwinner: "",
+  spouseIndustry: "", spousePosition: "", monthlyExpense: "", majorExpensePlan: "",
+  incomeSources: [], incomeSourcesOther: "", fixedAssets: "",
+  annualIncome: "", liquidAssets: "", investmentAmount: "",
+  investmentStyle: "", riskTolerance: "", liabilities: "", expensePressure: "",
   medicalInsurance: "", criticalIllnessInsurance: "", accidentInsurance: "", termLifeInsurance: "", annuityInsurance: "", increasingLifeInsurance: "", otherInsurance: "", insuranceAttitude: "",
+  step1Notes: "", step2Notes: "", step3Notes: "", step4Notes: "",
   triggerScenario: "", clientOriginalWords: "",
   clientObjection: "", agentResponse: "",
   pastInteraction: "", recentChanges: "",
@@ -27,51 +32,64 @@ function getDraftKey(userId: number): string {
 
 const sections: SectionConfig[] = [
   {
-    title: "客户画像",
+    title: "客户画像与生活状态",
     fields: [
-      { key: "clientName", label: "客户名称", type: "text", required: true, placeholder: "例如：张先生、李姐、王总" },
-      { key: "age", label: "年龄", type: "number", required: true, placeholder: "请输入年龄" },
+      { key: "clientName", label: "姓名", type: "text", required: true, placeholder: "例如：张先生、李姐、王总" },
       { key: "gender", label: "性别", type: "radio", required: true, options: ["male", "female"] },
-      { key: "city", label: "所在城市", type: "text", required: true, placeholder: "例如：上海" },
-      { key: "maritalStatus", label: "婚姻状况", type: "radio", required: true, options: ["未婚", "已婚", "离异", "丧偶"] },
-      { key: "childrenCount", label: "子女数量", type: "number", required: true, placeholder: "无则填0" },
-      { key: "childrenDetail", label: "子女详情", type: "text", placeholder: "例如：儿子/8岁/公立小学；女儿/3岁/未入学" },
-      { key: "recentChanges", label: "近一年重大变化", type: "text", placeholder: "例如：换工作、搬家北京到上海、刚生了二胎、父亲去年生病住院" },
+      { key: "age", label: "年龄", type: "number", required: true, placeholder: "年龄决定生命周期定位：青年积累期 / 中年责任期 / 退休传承期" },
+      { key: "hometown", label: "籍贯", type: "text", placeholder: "例如：广东深圳" },
+      { key: "city", label: "工作&居住城市", type: "text", required: true, placeholder: "例如：上海" },
+      { key: "healthCondition", label: "身体情况", type: "text", placeholder: "直接影响核保与投保优先级，例如：健康 / 有高血压/糖尿病 / 曾患XX已康复" },
+      { key: "maritalStatus", label: "婚姻状况", type: "radio", required: true, options: ["未婚", "已婚", "离异", "丧偶", "再婚"] },
+      { key: "childrenDetail", label: "子女详情", type: "text", placeholder: "子女数量/年龄/就读阶段，例如：儿子/8岁/公立小学；女儿/3岁/未入学 / 无" },
+      { key: "parentsDetail", label: "父母情况", type: "text", placeholder: "是否健在、是否同住、赡养责任，例如：父母健在/同住/需赡养 / 父亲已故/母亲独居有退休金" },
+      { key: "personality", label: "性格特征", type: "text", placeholder: "MBTI/性格色彩/沟通偏好，例如：ISTJ 重视数据细节，需用条款佐证 / ENFP 关注愿景感受" },
+      { key: "hobbies", label: "兴趣爱好", type: "text", placeholder: "反映客户愿投入时间金钱的领域，例如：全球旅行、马拉松、收藏红酒、高尔夫" },
+      { key: "step1Notes", label: "如有补充", type: "text", placeholder: "代理人自行补充的其他信息" },
     ],
   },
   {
-    title: "职业与经济",
+    title: "工作与收支",
     fields: [
-      { key: "clientIndustry", label: "客户职业-行业", type: "text", required: true, placeholder: "例如：互联网、教育、医疗、制造业、个体经营" },
-      { key: "clientPosition", label: "客户职业-职位", type: "text", placeholder: "例如：中层管理、技术专家、企业主" },
-      { key: "clientWorkYears", label: "客户职业-从业年限", type: "number", placeholder: "单位：年" },
-      { key: "spouseIndustry", label: "配偶职业-行业", type: "text", placeholder: "例如：互联网、教育、医疗、制造业、个体经营" },
-      { key: "spousePosition", label: "配偶职业-职位", type: "text", placeholder: "例如：中层管理、技术专家、企业主" },
-      { key: "careerStatus", label: "职业状态感知", type: "select", required: true, options: ["稳定或上升期", "瓶颈期或面临裁员", "创业或自雇，生意波动较大", "已退休或全职家庭"] },
-    ],
-  },
-  {
-    title: "家庭财务",
-    fields: [
+      { key: "clientIndustry", label: "行业&公司", type: "text", placeholder: "判断收入的稳定性与可持续性，例如：互联网/字节跳动、教育/新东方" },
+      { key: "clientPosition", label: "职责&职位", type: "text", placeholder: "例如：技术专家/负责核心算法研发、企业主/独立经营" },
+      { key: "careerDevelopment", label: "职业发展空间", type: "select", options: ["稳定或上升期", "瓶颈期或面临裁员", "创业或自雇，生意波动较大", "已退休或全职家庭"] },
+      { key: "breadwinner", label: "家庭经济支柱", type: "select", options: ["客户本人", "配偶", "夫妻共同", "父母"], placeholder: "核心：一旦支柱倒下，家庭现金流会断裂多久" },
+      { key: "spouseIndustry", label: "配偶行业&公司", type: "text", placeholder: "例如：互联网/字节跳动、教育/新东方、全职家庭" },
+      { key: "spousePosition", label: "配偶职责&职位", type: "text", placeholder: "例如：中层管理/负责运营团队、技术专家" },
       { key: "incomeSources", label: "主要收入来源", type: "checkbox-group", options: ["工资收入", "经营收入", "房租收入", "投资分红", "其他"] },
-      { key: "assets", label: "资产感知", type: "checkbox-group", options: ["有自住房", "有投资房", "有一定积蓄", "有基金或股票等投资", "有企业股权"] },
       { key: "annualIncome", label: "家庭年收入（万元）", type: "number", placeholder: "例如：30（填大概数字即可）" },
-      { key: "stockAmount", label: "股市/基金投入（万元）", type: "number", placeholder: "例如：20（填大概数字即可）" },
-      { key: "savingsAmount", label: "现有积蓄（万元）", type: "number", placeholder: "例如：50（填大概数字即可）" },
+      { key: "monthlyExpense", label: "月度固定支出（万元）", type: "number", placeholder: "含房贷/车贷/生活开支，例如：1.5" },
+      { key: "majorExpensePlan", label: "未来大额支出计划", type: "textarea", placeholder: "购房/子女教育/医疗/养老，例如：3年内换房需200万首付、孩子5年后留学需100万" },
+      { key: "step2Notes", label: "如有补充", type: "text", placeholder: "代理人自行补充的其他信息" },
+    ],
+  },
+  {
+    title: "资产情况",
+    fields: [
+      { key: "fixedAssets", label: "固定资产", type: "text", placeholder: "例如：自住房1套、投资房1套、汽车1辆 — 高房产占比可能意味着流动性不足" },
+      { key: "liquidAssets", label: "流动资产合计（万元）", type: "number", placeholder: "现金+存款+短期理财，例如：50" },
+      { key: "investmentAmount", label: "投资金额（万元）", type: "number", placeholder: "含股票/基金/股权等，例如：20" },
+      { key: "investmentStyle", label: "投资偏好", type: "select", options: ["保守型（存款为主）", "稳健型（基金理财为主）", "进取型（股票/股权为主）"] },
+      { key: "riskTolerance", label: "风险承受能力", type: "select", options: ["低（不愿承担本金损失）", "中（可接受小幅波动）", "高（追求高收益）"], placeholder: "保险方案的储蓄/投资推荐不可逾越客户实际风险等级" },
+      { key: "liabilities", label: "负债情况", type: "text", placeholder: "流动负债+长期负债，例如：房贷200万/月供1.2万、信用卡5万、其他无" },
       { key: "expensePressure", label: "支出压力感知", type: "select", options: ["无明显经济压力", "有房贷或房租压力", "子女教育开销较大", "日常消费高难以存下钱"] },
+      { key: "recentChanges", label: "近一年重大变化", type: "text", placeholder: "例如：换工作、搬家、生子、家人重病，可能是保障需求的触发器" },
+      { key: "step3Notes", label: "如有补充", type: "text", placeholder: "代理人自行补充的其他信息" },
     ],
   },
   {
     title: "已有保障",
     fields: [
-      { key: "medicalInsurance", label: "医疗险", type: "text", placeholder: "例如：有，百万医疗，年交500元 / 无" },
-      { key: "criticalIllnessInsurance", label: "重疾险", type: "text", placeholder: "例如：有，50万保额，终身含身故，年交8000元 / 无" },
-      { key: "accidentInsurance", label: "意外险", type: "text", placeholder: "例如：有，100万保额，年交300元 / 无" },
-      { key: "termLifeInsurance", label: "定期寿险", type: "text", placeholder: "例如：有，200万保额，保至60岁，年交2000元 / 无" },
-      { key: "annuityInsurance", label: "年金险", type: "text", placeholder: "例如：有，养老年金，年交5万交10年，60岁起领 / 无" },
-      { key: "increasingLifeInsurance", label: "增额终身寿险", type: "text", placeholder: "例如：有，年交10万交5年，已交完 / 无" },
-      { key: "otherInsurance", label: "其他保险", type: "text", placeholder: "例如：有，企业团体险 / 有，惠民保 / 无" },
-      { key: "insuranceAttitude", label: "对已购保险的整体态度", type: "select", options: ["满意，配置比较全面", "买了但不太清楚保障内容", "觉得保额不够想补充", "没买过商业保险", "对保险持怀疑或排斥态度"] },
+      { key: "medicalInsurance", label: "医疗险", type: "text", placeholder: "保额 / 年交保费 / 购买初衷，例如：百万医疗/年交500元，担心大病住院花费" },
+      { key: "criticalIllnessInsurance", label: "重疾险", type: "text", placeholder: "保额 / 年交保费 / 购买初衷，例如：50万保额/终身含身故/年交8000元，弥补收入损失" },
+      { key: "accidentInsurance", label: "意外险", type: "text", placeholder: "保额 / 年交保费 / 购买初衷，例如：100万保额/年交300元" },
+      { key: "termLifeInsurance", label: "定期寿险", type: "text", placeholder: "保额 / 年交保费 / 购买初衷，例如：200万/保至60岁/年交2000元，房贷保障" },
+      { key: "annuityInsurance", label: "年金险", type: "text", placeholder: "年交 / 缴费期 / 领取方式 / 购买初衷，例如：年交5万×10年/60岁起领，补充养老" },
+      { key: "increasingLifeInsurance", label: "增额终身寿险", type: "text", placeholder: "年交 / 缴费期 / 购买初衷，例如：年交10万×5年/已交完，资产传承" },
+      { key: "otherInsurance", label: "其他保险", type: "text", placeholder: "例如：企业团体险、惠民保、车险等" },
+      { key: "insuranceAttitude", label: "对已购保险的态度", type: "select", options: ["满意，配置比较全面", "买了但不太清楚保障内容", "觉得保额不够想补充", "没买过商业保险", "对保险持怀疑或排斥态度"] },
+      { key: "step4Notes", label: "如有补充", type: "text", placeholder: "代理人自行补充的其他信息" },
     ],
   },
   {
@@ -385,29 +403,60 @@ export default function KYCWizard({ onSubmit, isLoading, clientRefreshKey, initi
         <div className="space-y-5">
           {section.fields.map((field) => (
             <div key={field.key}>
+              {/* Step 4：保障类保险 分组标题 */}
+              {field.key === "medicalInsurance" && (
+                <div className="pb-1.5">
+                  <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
+                    <span className="w-1 h-3 bg-blue-400 rounded-full" />
+                    保障类保险
+                  </p>
+                </div>
+              )}
+              {/* Step 4：理财类保险 分组标题 */}
+              {field.key === "annuityInsurance" && (
+                <div className="pt-3 pb-1.5 border-t border-gray-100">
+                  <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
+                    <span className="w-1 h-3 bg-amber-400 rounded-full" />
+                    理财类保险
+                  </p>
+                </div>
+              )}
+
               <label htmlFor={`field-${field.key}`} className="block text-sm font-medium text-gray-700 mb-1.5">
                 {field.label}
                 {field.required && <span className="text-red-400 ml-0.5">*</span>}
               </label>
 
               {field.type === "checkbox-group" ? (
-                <div className="flex flex-wrap gap-2">
-                  {field.options!.map((opt) => (
-                    <label key={opt} className={`flex items-center gap-2 px-3.5 py-2 border rounded-xl cursor-pointer transition-colors text-sm
-                      ${(formData[field.key] as string[]).includes(opt)
-                        ? "bg-brand-50 border-brand-300 text-brand-700"
-                        : "border-gray-200 hover:bg-gray-50 text-gray-600"}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={(formData[field.key] as string[]).includes(opt)}
-                        onChange={() => handleArrayFieldToggle(field.key as ArrayField, opt)}
-                        className="sr-only"
-                      />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {field.options!.map((opt) => (
+                      <label key={opt} className={`flex items-center gap-2 px-3.5 py-2 border rounded-xl cursor-pointer transition-colors text-sm
+                        ${(formData[field.key] as string[]).includes(opt)
+                          ? "bg-brand-50 border-brand-300 text-brand-700"
+                          : "border-gray-200 hover:bg-gray-50 text-gray-600"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={(formData[field.key] as string[]).includes(opt)}
+                          onChange={() => handleArrayFieldToggle(field.key as ArrayField, opt)}
+                          className="sr-only"
+                        />
+                        {opt}
+                      </label>
+                    ))}
+                  </div>
+                  {/* 选了"其他"时显示补充输入框 */}
+                  {field.key === "incomeSources" && (formData.incomeSources as string[]).includes("其他") && (
+                    <input
+                      type="text"
+                      className="w-full px-3.5 py-2.5 mt-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 bg-gray-50 hover:bg-white transition-colors text-sm"
+                      placeholder="请说明其他收入来源"
+                      value={formData.incomeSourcesOther}
+                      onChange={(e) => handleFieldChange("incomeSourcesOther", e.target.value)}
+                    />
+                  )}
+                </>
               ) : (
                 <FieldRenderer
                   field={field}

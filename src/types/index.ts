@@ -2,22 +2,32 @@ export interface KYCFormData {
   clientName: string;
   age: string;
   gender: string;
+  hometown: string;
   city: string;
   maritalStatus: string;
-  childrenCount: string;
   childrenDetail: string;
+  personality: string;
+  healthCondition: string;
+  hobbies: string;
+  parentsDetail: string;
   clientIndustry: string;
   clientPosition: string;
-  clientWorkYears: string;
+  careerDevelopment: string;
+  breadwinner: string;
   spouseIndustry: string;
   spousePosition: string;
-  careerStatus: string;
+  monthlyExpense: string;
+  majorExpensePlan: string;
   incomeSources: string[];
-  assets: string[];
-  expensePressure: string;
+  incomeSourcesOther: string;
+  fixedAssets: string;
   annualIncome: string;
-  stockAmount: string;
-  savingsAmount: string;
+  liquidAssets: string;
+  investmentAmount: string;
+  investmentStyle: string;
+  riskTolerance: string;
+  liabilities: string;
+  expensePressure: string;
   medicalInsurance: string;
   criticalIllnessInsurance: string;
   accidentInsurance: string;
@@ -26,6 +36,10 @@ export interface KYCFormData {
   increasingLifeInsurance: string;
   otherInsurance: string;
   insuranceAttitude: string;
+  step1Notes: string;
+  step2Notes: string;
+  step3Notes: string;
+  step4Notes: string;
   triggerScenario: string;
   clientOriginalWords: string;
   clientObjection: string;
@@ -34,7 +48,7 @@ export interface KYCFormData {
   recentChanges: string;
 }
 
-export type ArrayField = "incomeSources" | "assets";
+export type ArrayField = "incomeSources";
 
 export interface Message {
   role: "user" | "coach";

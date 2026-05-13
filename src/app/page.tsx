@@ -9,43 +9,65 @@ import ConversationList from "@/components/ConversationList";
 
 function buildUserContent(formData: KYCFormData): string {
   const kv = (label: string, value: string) => `- ${label}：${value || "未填写"}`;
+  const csv = (label: string, values: string[], other?: string) => {
+    const parts = [...values];
+    if (other) parts.push(`其他：${other}`);
+    return `- ${label}：${parts.length > 0 ? parts.join(" / ") : "未填写"}`;
+  };
   return `客户信息：
 
-## 客户画像
+## 客户画像与生活状态
 ${kv("姓名", formData.clientName)}
-${kv("年龄", formData.age)}
 ${kv("性别", formData.gender === "male" ? "男" : formData.gender === "female" ? "女" : "")}
-${kv("所在城市", formData.city)}
+${kv("年龄", formData.age)}
+${kv("籍贯", formData.hometown)}
+${kv("工作&居住城市", formData.city)}
+${kv("身体情况", formData.healthCondition)}
 ${kv("婚姻状况", formData.maritalStatus)}
-${kv("子女数量", formData.childrenCount)}
 ${kv("子女详情", formData.childrenDetail)}
-${kv("近一年重大变化", formData.recentChanges)}
+${kv("父母情况", formData.parentsDetail)}
+${kv("性格特征", formData.personality)}
+${kv("兴趣爱好", formData.hobbies)}
+${kv("补充信息", formData.step1Notes)}
 
-## 职业与经济基础
-${kv("客户职业-行业", formData.clientIndustry)}
-${kv("客户职业-职位", formData.clientPosition)}
-${kv("客户职业-从业年限", formData.clientWorkYears)}
-${kv("配偶职业-行业", formData.spouseIndustry)}
-${kv("配偶职业-职位", formData.spousePosition)}
-${kv("职业状态感知", formData.careerStatus)}
-
-## 家庭财务感知
-- 主要收入来源：${formData.incomeSources.length > 0 ? formData.incomeSources.join(" / ") : "未填写"}
-- 资产感知：${formData.assets.length > 0 ? formData.assets.join(" / ") : "未填写"}
+## 工作与收支
+${kv("行业&公司", formData.clientIndustry)}
+${kv("职责&职位", formData.clientPosition)}
+${kv("职业发展空间", formData.careerDevelopment)}
+${kv("家庭经济支柱", formData.breadwinner)}
+${kv("配偶行业&公司", formData.spouseIndustry)}
+${kv("配偶职责&职位", formData.spousePosition)}
+${csv("主要收入来源", formData.incomeSources.filter(s => s !== "其他"), formData.incomeSources.includes("其他") ? formData.incomeSourcesOther : undefined)}
 ${kv("家庭年收入（万元）", formData.annualIncome)}
-${kv("股市/基金投入（万元）", formData.stockAmount)}
-${kv("现有积蓄（万元）", formData.savingsAmount)}
-${kv("支出压力感知", formData.expensePressure)}
+${kv("月度固定支出（万元）", formData.monthlyExpense)}
+${kv("未来大额支出计划", formData.majorExpensePlan)}
+${kv("补充信息", formData.step2Notes)}
 
-## 已有保障情况
+## 资产情况
+${kv("固定资产", formData.fixedAssets)}
+${kv("流动资产合计（万元）", formData.liquidAssets)}
+${kv("投资金额（万元）", formData.investmentAmount)}
+${kv("投资偏好", formData.investmentStyle)}
+${kv("风险承受能力", formData.riskTolerance)}
+${kv("负债情况", formData.liabilities)}
+${kv("支出压力感知", formData.expensePressure)}
+${kv("近一年重大变化", formData.recentChanges)}
+${kv("补充信息", formData.step3Notes)}
+
+## 保障类保险
 ${kv("医疗险", formData.medicalInsurance)}
 ${kv("重疾险", formData.criticalIllnessInsurance)}
 ${kv("意外险", formData.accidentInsurance)}
 ${kv("定期寿险", formData.termLifeInsurance)}
+
+## 理财类保险
 ${kv("年金险", formData.annuityInsurance)}
 ${kv("增额终身寿险", formData.increasingLifeInsurance)}
+
+## 其他保险及态度
 ${kv("其他保险", formData.otherInsurance)}
-${kv("对已购保险的整体态度", formData.insuranceAttitude)}
+${kv("对已购保险的态度", formData.insuranceAttitude)}
+${kv("补充信息", formData.step4Notes)}
 
 ## 本次面谈入口
 ${kv("触发场景", formData.triggerScenario)}
@@ -86,6 +108,7 @@ export default function Home() {
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
   const [clientRefreshKey, setClientRefreshKey] = useState(0);
   const [initialClientId, setInitialClientId] = useState<number | null>(null);
+  const [conversationId, setConversationId] = useState<number | null>(null);
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -118,6 +141,9 @@ export default function Home() {
       throw new Error("积分不足");
     }
     if (!response.ok) throw new Error("请求失败");
+
+    const cid = response.headers.get("X-Conversation-Id");
+    if (cid) setConversationId(Number(cid));
 
     const reader = response.body?.getReader();
     const decoder = new TextDecoder();
@@ -192,7 +218,8 @@ export default function Home() {
     await sendFollowUp(question);
   };
 
-  const handleLoadHistory = (msgs: Message[]) => {
+  const handleLoadHistory = (convId: number, msgs: Message[]) => {
+    setConversationId(convId);
     setMessages(msgs);
     setHasSubmitted(true);
     setShowHistory(false);
@@ -272,6 +299,7 @@ export default function Home() {
               hasSubmitted={hasSubmitted}
               suggestedQuestions={suggestedQuestions}
               onSuggestedQuestionClick={(q) => sendFollowUp(q)}
+              conversationId={conversationId}
             />
           </div>
         </div>

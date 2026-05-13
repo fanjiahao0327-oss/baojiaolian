@@ -20,12 +20,25 @@ interface ClientDetail {
 
 function kycFieldLabel(key: string): string {
   const map: Record<string, string> = {
-    clientName: "名称", age: "年龄", gender: "性别", city: "城市",
-    maritalStatus: "婚姻", childrenCount: "子女数", childrenDetail: "子女详情",
-    clientIndustry: "行业", clientPosition: "职位", clientWorkYears: "从业年限",
-    spouseIndustry: "配偶行业", spousePosition: "配偶职位", careerStatus: "职业状态",
-    annualIncome: "家庭年收入(万)", stockAmount: "股市投入(万)", savingsAmount: "积蓄(万)",
-    expensePressure: "支出压力", insuranceAttitude: "保险态度",
+    clientName: "姓名", age: "年龄", gender: "性别", hometown: "籍贯", city: "工作&居住城市",
+    healthCondition: "身体情况", maritalStatus: "婚姻", childrenDetail: "子女详情",
+    parentsDetail: "父母情况", personality: "性格特征", hobbies: "兴趣爱好",
+    step1Notes: "补充信息",
+    clientIndustry: "行业&公司", clientPosition: "职责&职位",
+    careerDevelopment: "职业发展", breadwinner: "经济支柱",
+    spouseIndustry: "配偶行业&公司", spousePosition: "配偶职责&职位",
+    incomeSources: "收入来源", incomeSourcesOther: "收入来源-其他", annualIncome: "家庭年收入(万)",
+    monthlyExpense: "月度固定支出(万)", majorExpensePlan: "未来大额支出",
+    step2Notes: "补充信息",
+    fixedAssets: "固定资产", liquidAssets: "流动资产(万)", investmentAmount: "投资金额(万)",
+    investmentStyle: "投资偏好", riskTolerance: "风险承受能力",
+    liabilities: "负债情况", expensePressure: "支出压力",
+    step3Notes: "补充信息",
+    medicalInsurance: "医疗险", criticalIllnessInsurance: "重疾险",
+    accidentInsurance: "意外险", termLifeInsurance: "定期寿险",
+    annuityInsurance: "年金险", increasingLifeInsurance: "增额终身寿",
+    otherInsurance: "其他保险", insuranceAttitude: "保险态度",
+    step4Notes: "补充信息",
     triggerScenario: "触发场景", recentChanges: "重大变化",
   };
   return map[key] || key;
@@ -99,12 +112,12 @@ export default function ClientsPage() {
 
   const kycFields = selected?.kyc_snapshot
     ? Object.entries(selected.kyc_snapshot).filter(
-        ([k]) => !["incomeSources", "assets"].includes(k)
+        ([k]) => !["incomeSources"].includes(k)
       )
     : [];
 
   const arrayFields = selected?.kyc_snapshot
-    ? (["incomeSources", "assets"] as const).filter(
+    ? (["incomeSources"] as const).filter(
         (k) => selected.kyc_snapshot[k]
       )
     : [];

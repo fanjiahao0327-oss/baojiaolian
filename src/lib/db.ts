@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.VERCEL ? "/tmp" : path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "app.db");
 
 let db: Database.Database | null = null;
@@ -49,6 +49,15 @@ function initTables(database: Database.Database) {
       status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','won','lost')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS feedbacks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      conversation_id INTEGER REFERENCES conversations(id),
+      message_idx INTEGER NOT NULL,
+      rating TEXT NOT NULL CHECK(rating IN ('helpful','unhelpful')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
   `);

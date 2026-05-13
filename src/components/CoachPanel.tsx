@@ -16,6 +16,7 @@ interface Props {
   hasSubmitted: boolean;
   suggestedQuestions: string[];
   onSuggestedQuestionClick: (question: string) => void;
+  conversationId?: number | null;
 }
 
 function renderMarkdown(text: string) {
@@ -32,6 +33,7 @@ export default function CoachPanel({
   hasSubmitted,
   suggestedQuestions,
   onSuggestedQuestionClick,
+  conversationId,
 }: Props) {
   const responseRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -75,7 +77,15 @@ export default function CoachPanel({
   }, []);
 
   const handleFeedback = (ts: number, type: "helpful" | "unhelpful") => {
-    setFeedbackGiven((prev) => ({ ...prev, [ts]: prev[ts] === type ? null : type }));
+    const newState = feedbackGiven[ts] === type ? null : type;
+    setFeedbackGiven((prev) => ({ ...prev, [ts]: newState }));
+    if (newState) {
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId: conversationId ?? null, messageIdx: ts, rating: type }),
+      }).catch(() => {});
+    }
   };
 
   return (

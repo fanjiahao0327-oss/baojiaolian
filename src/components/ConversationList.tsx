@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { ConversationSummary, Message } from "@/types";
 
 interface Props {
-  onSelect: (messages: Message[]) => void;
+  onSelect: (id: number, messages: Message[]) => void;
   onClose: () => void;
   active: boolean;
 }
@@ -43,7 +43,7 @@ export default function ConversationList({ onSelect, onClose, active }: Props) {
       const res = await fetch(`/api/conversations/${id}`);
       if (res.ok) {
         const data = await res.json();
-        onSelect(data.messages);
+        onSelect(data.id, data.messages);
       }
     } catch {
       console.error("[ConversationList] load error");
