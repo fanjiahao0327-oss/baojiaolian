@@ -59,6 +59,7 @@ export interface FieldConfig {
   required?: boolean;
   placeholder?: string;
   options?: string[];
+  priority?: "recommended" | "optional";
 }
 
 export interface SectionConfig {
