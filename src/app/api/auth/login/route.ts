@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions, type SessionData } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { getDb, row, rows } from "@/lib/db";
 import { INITIAL_POINTS } from "@/lib/points";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -44,22 +44,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.redirect(new URL("/login?error=验证码错误", request.url), 302);
     }
 
-    const db = getDb();
-
-    const existing = db.prepare("SELECT id FROM users WHERE phone = ?").get(phone) as { id: number } | undefined;
+    const sql = getDb();
+    const existingRows = await sql`SELECT id FROM users WHERE phone = ${phone}`;
+    const existing = rows<{ id: number }>(existingRows)[0];
 
     let userId: number;
     if (existing) {
       userId = existing.id;
-      db.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(userId);
+      await sql`UPDATE users SET last_login_at = NOW() WHERE id = ${userId}`;
     } else {
-      const result = db.prepare("INSERT INTO users (phone) VALUES (?)").run(phone);
-      userId = Number(result.lastInsertRowid);
-      db.prepare("INSERT INTO point_transactions (user_id, amount, type, description) VALUES (?, ?, 'charge', ?)").run(
-        userId,
-        INITIAL_POINTS,
-        "新用户赠送积分"
-      );
+      const result = await sql`INSERT INTO users (phone) VALUES (${phone}) RETURNING id`;
+      userId = row<{ id: number }>(result).id;
+      await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${userId}, ${INITIAL_POINTS}, 'charge', '新用户赠送积分')`;
     }
 
     if (isJson) {

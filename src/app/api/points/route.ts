@@ -1,7 +1,7 @@
+import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getBalance } from "@/lib/points";
 import { getDb } from "@/lib/db";
-import { NextResponse } from "next/server";
 
 export async function GET() {
   const session = await getSession();
@@ -9,13 +9,11 @@ export async function GET() {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
-  const db = getDb();
-  const transactions = db
-    .prepare("SELECT id, amount, type, description, created_at FROM point_transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 50")
-    .all(session.userId);
+  const sql = getDb();
+  const transactions = await sql`SELECT id, amount, type, description, created_at FROM point_transactions WHERE user_id = ${session.userId} ORDER BY created_at DESC LIMIT 50`;
 
   return NextResponse.json({
-    balance: getBalance(session.userId),
+    balance: await getBalance(session.userId),
     transactions,
   });
 }

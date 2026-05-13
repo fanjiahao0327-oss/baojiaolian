@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { getDb, row } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 
 export async function GET() {
@@ -9,10 +9,8 @@ export async function GET() {
     return NextResponse.json({ error: "请先登录" }, { status: 401 });
   }
 
-  const db = getDb();
-  const rows = db
-    .prepare("SELECT id, name, updated_at FROM clients WHERE user_id = ? ORDER BY updated_at DESC")
-    .all(session.userId);
+  const sql = getDb();
+  const rows = await sql`SELECT id, name, updated_at FROM clients WHERE user_id = ${session.userId} ORDER BY updated_at DESC`;
 
   return NextResponse.json(rows);
 }
@@ -26,10 +24,8 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { name, kycSnapshot } = body;
 
-  const db = getDb();
-  const result = db
-    .prepare("INSERT INTO clients (user_id, name, kyc_snapshot) VALUES (?, ?, ?)")
-    .run(session.userId, name || "未命名客户", encrypt(JSON.stringify(kycSnapshot || {})));
+  const sql = getDb();
+  const result = await sql`INSERT INTO clients (user_id, name, kyc_snapshot) VALUES (${session.userId}, ${name || "未命名客户"}, ${encrypt(JSON.stringify(kycSnapshot || {}))}) RETURNING id`;
 
-  return NextResponse.json({ id: Number(result.lastInsertRowid) }, { status: 201 });
+  return NextResponse.json({ id: Number(row<{ id: number }>(result).id) }, { status: 201 });
 }

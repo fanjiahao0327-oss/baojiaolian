@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { getDb, rows } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -12,34 +12,24 @@ export async function GET(request: NextRequest) {
   const statusFilter = searchParams.get("status");
   const clientIdFilter = searchParams.get("client_id");
 
-  const db = getDb();
-  let sql = `SELECT c.id, c.title, c.messages, c.created_at, c.status, cl.name as client_name
+  const sql = getDb();
+  let query = sql`SELECT c.id, c.title, c.messages, c.created_at, c.status, cl.name as client_name
     FROM conversations c
     LEFT JOIN clients cl ON c.client_id = cl.id
-    WHERE c.user_id = ?`;
-  const params: unknown[] = [session.userId];
+    WHERE c.user_id = ${session.userId}`;
 
   if (statusFilter) {
-    sql += " AND c.status = ?";
-    params.push(statusFilter);
+    query = sql`${query} AND c.status = ${statusFilter}`;
   }
   if (clientIdFilter) {
-    sql += " AND c.client_id = ?";
-    params.push(Number(clientIdFilter));
+    query = sql`${query} AND c.client_id = ${Number(clientIdFilter)}`;
   }
 
-  sql += " ORDER BY c.updated_at DESC LIMIT 50";
+  query = sql`${query} ORDER BY c.updated_at DESC LIMIT 50`;
 
-  const rows = db.prepare(sql).all(...params) as {
-    id: number;
-    title: string;
-    messages: string;
-    created_at: string;
-    status: string;
-    client_name: string | null;
-  }[];
+  const rows = await query;
 
-  const list = rows.map((row) => {
+  const list = (rows as { id: number; title: string; messages: string; created_at: string; status: string; client_name: string | null }[]).map((row) => {
     const msgs = JSON.parse(row.messages);
     const firstUserMsg = msgs.find((m: { role: string }) => m.role === "user");
     const preview = firstUserMsg
@@ -71,15 +61,12 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "参数错误" }, { status: 400 });
   }
 
-  const db = getDb();
-  const conv = db
-    .prepare("SELECT id FROM conversations WHERE id = ? AND user_id = ?")
-    .get(id, session.userId);
-
-  if (!conv) {
+  const sql = getDb();
+  const checkRows = await sql`SELECT id FROM conversations WHERE id = ${Number(id)} AND user_id = ${session.userId}`;
+  if (rows(checkRows).length === 0) {
     return NextResponse.json({ error: "对话不存在" }, { status: 404 });
   }
 
-  db.prepare("UPDATE conversations SET status = ? WHERE id = ?").run(status, id);
+  await sql`UPDATE conversations SET status = ${status} WHERE id = ${Number(id)}`;
   return NextResponse.json({ success: true });
 }

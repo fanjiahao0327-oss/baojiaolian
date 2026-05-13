@@ -14,10 +14,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "参数错误" }, { status: 400 });
   }
 
-  const db = getDb();
-  db.prepare(
-    "INSERT INTO feedbacks (user_id, conversation_id, message_idx, rating) VALUES (?, ?, ?, ?)"
-  ).run(session.userId, conversationId || null, messageIdx ?? -1, rating);
+  const sql = getDb();
+  await sql`INSERT INTO feedbacks (user_id, conversation_id, message_idx, rating) VALUES (${session.userId}, ${conversationId || null}, ${messageIdx ?? -1}, ${rating})`;
 
   return NextResponse.json({ success: true });
 }

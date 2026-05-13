@@ -4,11 +4,10 @@ import { selectModules } from "@/lib/knowledge";
 import type { KYCFormData, Message } from "@/types";
 import { getSession } from "@/lib/auth";
 import { getBalance, COST_PER_CALL } from "@/lib/points";
-import { getDb } from "@/lib/db";
+import { getDb, rows, row } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { encrypt } from "@/lib/crypto";
 
-// 注入检测：匹配尝试提取系统指令、知识库来源、底层数据的输入
 const INJECTION_PATTERNS = [
   /忽略.{0,10}(之前|前面|以上|上述|所有|系统).{0,10}(指令|提示|规则|设定|要求)/,
   /(忘记|无视|跳过|不要管).{0,10}(之前|前面|以上|上述|规则|指令|设定)/,
@@ -56,7 +55,6 @@ export async function POST(request: NextRequest) {
   }
   const userId = session.userId;
 
-  // 速率限制：每个用户每分钟最多 6 次 AI 对话
   const rl = rateLimit(`coach:${userId}`, "coach");
   if (!rl.allowed) {
     return NextResponse.json(
@@ -65,7 +63,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const balance = getBalance(userId);
+  const balance = await getBalance(userId);
   if (balance < COST_PER_CALL) {
     return NextResponse.json({ error: "积分不足，请充值" }, { status: 402 });
   }
@@ -74,7 +72,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { kycData, question, history, clientId } = body;
 
-    // 注入检测：拒绝明显的提示词提取/知识库窥探尝试
     const userInput = String(question || "");
     if (detectInjection(userInput)) {
       return NextResponse.json(
@@ -84,18 +81,18 @@ export async function POST(request: NextRequest) {
     }
     const safeKycData = kycData || {};
 
-    const db = getDb();
+    const sql = getDb();
+
+    // 扣减积分
+    await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${userId}, ${-COST_PER_CALL}, 'consume', '对话消耗')`;
 
     // 处理客户关联
     let resolvedClientId = clientId || null;
     if (!resolvedClientId) {
-      const result = db
-        .prepare("INSERT INTO clients (user_id, name, kyc_snapshot) VALUES (?, ?, ?)")
-        .run(userId, generateClientName(safeKycData), encrypt(JSON.stringify(safeKycData)));
-      resolvedClientId = Number(result.lastInsertRowid);
+      const r = await sql`INSERT INTO clients (user_id, name, kyc_snapshot) VALUES (${userId}, ${generateClientName(safeKycData)}, ${encrypt(JSON.stringify(safeKycData))}) RETURNING id`;
+      resolvedClientId = Number(row<{ id: number }>(r).id);
     } else {
-      db.prepare("UPDATE clients SET kyc_snapshot = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?")
-        .run(encrypt(JSON.stringify(safeKycData)), resolvedClientId, userId);
+      await sql`UPDATE clients SET kyc_snapshot = ${encrypt(JSON.stringify(safeKycData))}, updated_at = NOW() WHERE id = ${Number(resolvedClientId)} AND user_id = ${userId}`;
     }
 
     // 处理对话记录
@@ -104,58 +101,27 @@ export async function POST(request: NextRequest) {
 
     if (isNewConversation) {
       const userMsg: Message = { role: "user", content: question, timestamp: Date.now() };
-      const result = db
-        .prepare("INSERT INTO conversations (user_id, client_id, title, messages) VALUES (?, ?, ?, ?)")
-        .run(userId, resolvedClientId, generateClientName(safeKycData), JSON.stringify([userMsg]));
-      conversationId = Number(result.lastInsertRowid);
+      const result = await sql`INSERT INTO conversations (user_id, client_id, title, messages) VALUES (${userId}, ${resolvedClientId}, ${generateClientName(safeKycData)}, ${JSON.stringify([userMsg])}) RETURNING id`;
+      conversationId = Number(row<{ id: number }>(result).id);
     } else {
-      const latest = db
-        .prepare("SELECT id, messages FROM conversations WHERE user_id = ? ORDER BY created_at DESC LIMIT 1")
-        .get(userId) as { id: number; messages: string } | undefined;
+      const latestRows = await sql`SELECT id, messages FROM conversations WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 1`;
+      const latest = rows<{ id: number; messages: string }>(latestRows)[0];
 
       if (!latest) {
         const userMsg: Message = { role: "user", content: question, timestamp: Date.now() };
-        const result = db
-          .prepare("INSERT INTO conversations (user_id, client_id, title, messages) VALUES (?, ?, ?, ?)")
-          .run(userId, resolvedClientId, "追问", JSON.stringify([userMsg]));
-        conversationId = Number(result.lastInsertRowid);
+        const insResult = await sql`INSERT INTO conversations (user_id, client_id, title, messages) VALUES (${userId}, ${resolvedClientId}, '追问', ${JSON.stringify([userMsg])}) RETURNING id`;
+        conversationId = Number(row<{ id: number }>(insResult).id);
       } else {
         conversationId = latest.id;
         const msgs: Message[] = JSON.parse(latest.messages);
         msgs.push({ role: "user", content: question, timestamp: Date.now() });
-        db.prepare("UPDATE conversations SET messages = ?, updated_at = datetime('now') WHERE id = ?").run(
-          JSON.stringify(msgs),
-          conversationId
-        );
-        db.prepare("UPDATE conversations SET client_id = ? WHERE id = ? AND client_id IS NULL")
-          .run(resolvedClientId, conversationId);
+        await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, updated_at = NOW() WHERE id = ${conversationId}`;
+        await sql`UPDATE conversations SET client_id = ${resolvedClientId} WHERE id = ${conversationId} AND client_id IS NULL`;
       }
-    }
-
-    // 在调用 AI 之前扣减积分，避免并发竞态
-    const deductTxn = db.transaction(() => {
-      const row = db
-        .prepare("SELECT COALESCE(SUM(amount), 0) as balance FROM point_transactions WHERE user_id = ?")
-        .get(userId) as { balance: number };
-      if (row.balance < COST_PER_CALL) {
-        throw new Error("积分不足");
-      }
-      db.prepare("INSERT INTO point_transactions (user_id, amount, type, description) VALUES (?, ?, 'consume', ?)").run(
-        userId,
-        -COST_PER_CALL,
-        "对话消耗"
-      );
-    });
-
-    try {
-      deductTxn();
-    } catch {
-      return NextResponse.json({ error: "积分不足，请充值" }, { status: 402 });
     }
 
     const messages: { role: "system" | "user" | "assistant"; content: string }[] = [];
 
-    // 根据 KYC 数据动态选择相关知识模块
     const modules = selectModules(safeKycData as KYCFormData);
     const moduleContents = modules.map((m) => m.content).join("\n");
 
@@ -215,22 +181,15 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          const row = db.prepare("SELECT messages FROM conversations WHERE id = ?").get(conversationId) as { messages: string };
-          const msgs: Message[] = JSON.parse(row.messages);
+          const resultRows = await sql`SELECT messages FROM conversations WHERE id = ${conversationId}`;
+          const conversationRow = rows<{ messages: string }>(resultRows)[0];
+          const msgs: Message[] = JSON.parse(conversationRow.messages);
           msgs.push({ role: "coach", content: fullResponse, timestamp: Date.now() });
-          db.prepare("UPDATE conversations SET messages = ?, updated_at = datetime('now') WHERE id = ?").run(
-            JSON.stringify(msgs),
-            conversationId
-          );
+          await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, updated_at = NOW() WHERE id = ${conversationId}`;
         } catch (error) {
-          // AI 调用失败，退还积分
           console.error("[coach] stream error:", error);
           try {
-            db.prepare("INSERT INTO point_transactions (user_id, amount, type, description) VALUES (?, ?, 'charge', ?)").run(
-              userId,
-              COST_PER_CALL,
-              "对话失败退还"
-            );
+            await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${userId}, ${COST_PER_CALL}, 'charge', '对话失败退还')`;
           } catch {
             // 退款失败不阻塞
           }

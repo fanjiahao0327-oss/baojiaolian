@@ -10,7 +10,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
-  // 按用户限频：每分钟 10 次
   const rl = rateLimit(`points:${session.userId}`, "points");
   if (!rl.allowed) {
     return NextResponse.json(
@@ -21,7 +20,6 @@ export async function POST(request: NextRequest) {
 
   const { amount, adminKey } = await request.json();
 
-  // 内测阶段：积分充值需管理员密钥
   const configuredKey = process.env.ADMIN_KEY;
   if (!configuredKey) {
     return NextResponse.json(
@@ -41,12 +39,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "充值数量需在 1-100 之间" }, { status: 400 });
   }
 
-  const db = getDb();
-  db.prepare("INSERT INTO point_transactions (user_id, amount, type, description) VALUES (?, ?, 'charge', ?)").run(
-    session.userId,
-    parsed,
-    `充值 ${parsed} 积分`
-  );
+  const sql = getDb();
+  await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${session.userId}, ${parsed}, 'charge', ${`充值 ${parsed} 积分`})`;
 
-  return NextResponse.json({ balance: getBalance(session.userId) });
+  return NextResponse.json({ balance: await getBalance(session.userId) });
 }

@@ -11,6 +11,6 @@ export async function GET() {
   return NextResponse.json({
     userId: session.userId,
     phone: session.phone,
-    balance: getBalance(session.userId),
+    balance: await getBalance(session.userId),
   });
 }
