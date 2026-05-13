@@ -1,7 +1,7 @@
 import { getDb } from "@/lib/db";
 
 export const COST_PER_CALL = 1;
-export const INITIAL_POINTS = 10;
+export const INITIAL_POINTS = 50;
 
 export function getBalance(userId: number): number {
   const db = getDb();
