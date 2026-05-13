@@ -12,8 +12,12 @@ export async function GET(
   }
 
   const { id } = await params;
+  const numId = Number(id);
+  if (isNaN(numId) || numId <= 0) {
+    return NextResponse.json({ error: "参数错误" }, { status: 400 });
+  }
   const sql = getDb();
-  const convRows = await sql`SELECT id, title, messages, created_at FROM conversations WHERE id = ${Number(id)} AND user_id = ${session.userId}`;
+  const convRows = await sql`SELECT id, title, messages, created_at FROM conversations WHERE id = ${numId} AND user_id = ${session.userId}`;
   if (rows(convRows).length === 0) {
     return NextResponse.json({ error: "对话不存在" }, { status: 404 });
   }

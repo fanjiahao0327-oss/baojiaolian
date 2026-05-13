@@ -13,20 +13,24 @@ export async function PUT(
   }
 
   const { id } = await params;
+  const numId = Number(id);
+  if (isNaN(numId) || numId <= 0) {
+    return NextResponse.json({ error: "参数错误" }, { status: 400 });
+  }
   const body = await request.json();
   const { name, kycSnapshot } = body;
 
   const sql = getDb();
-  const checkRows = await sql`SELECT id FROM clients WHERE id = ${Number(id)} AND user_id = ${session.userId}`;
+  const checkRows = await sql`SELECT id FROM clients WHERE id = ${numId} AND user_id = ${session.userId}`;
   if (rows(checkRows).length === 0) {
     return NextResponse.json({ error: "客户不存在" }, { status: 404 });
   }
 
   if (name !== undefined) {
-    await sql`UPDATE clients SET name = ${name}, updated_at = NOW() WHERE id = ${Number(id)}`;
+    await sql`UPDATE clients SET name = ${name}, updated_at = NOW() WHERE id = ${numId}`;
   }
   if (kycSnapshot !== undefined) {
-    await sql`UPDATE clients SET kyc_snapshot = ${encrypt(JSON.stringify(kycSnapshot))}, updated_at = NOW() WHERE id = ${Number(id)}`;
+    await sql`UPDATE clients SET kyc_snapshot = ${encrypt(JSON.stringify(kycSnapshot))}, updated_at = NOW() WHERE id = ${numId}`;
   }
 
   return NextResponse.json({ success: true });
@@ -42,14 +46,18 @@ export async function GET(
   }
 
   const { id } = await params;
+  const numId = Number(id);
+  if (isNaN(numId) || numId <= 0) {
+    return NextResponse.json({ error: "参数错误" }, { status: 400 });
+  }
   const sql = getDb();
-  const clientRows = await sql`SELECT id, name, kyc_snapshot, created_at, updated_at FROM clients WHERE id = ${Number(id)} AND user_id = ${session.userId}`;
+  const clientRows = await sql`SELECT id, name, kyc_snapshot, created_at, updated_at FROM clients WHERE id = ${numId} AND user_id = ${session.userId}`;
   if (rows(clientRows).length === 0) {
     return NextResponse.json({ error: "客户不存在" }, { status: 404 });
   }
   const client = rows(clientRows)[0];
 
-  const conversations = await sql`SELECT id, title, created_at FROM conversations WHERE client_id = ${Number(id)} AND user_id = ${session.userId} ORDER BY created_at DESC`;
+  const conversations = await sql`SELECT id, title, created_at FROM conversations WHERE client_id = ${numId} AND user_id = ${session.userId} ORDER BY created_at DESC`;
 
   let kycSnapshot: Record<string, unknown> = {};
   try {
