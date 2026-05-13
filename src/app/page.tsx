@@ -20,7 +20,6 @@ function buildUserContent(formData: KYCFormData): string {
 ${kv("姓名", formData.clientName)}
 ${kv("性别", formData.gender === "male" ? "男" : formData.gender === "female" ? "女" : "")}
 ${kv("年龄", formData.age)}
-${kv("籍贯", formData.hometown)}
 ${kv("工作&居住城市", formData.city)}
 ${kv("身体情况", formData.healthCondition)}
 ${kv("婚姻状况", formData.maritalStatus)}
@@ -51,22 +50,13 @@ ${kv("投资偏好", formData.investmentStyle)}
 ${kv("风险承受能力", formData.riskTolerance)}
 ${kv("负债情况", formData.liabilities)}
 ${kv("支出压力感知", formData.expensePressure)}
-${kv("近一年重大变化", formData.recentChanges)}
 ${kv("补充信息", formData.step3Notes)}
 
-## 保障类保险
-${kv("医疗险", formData.medicalInsurance)}
-${kv("重疾险", formData.criticalIllnessInsurance)}
-${kv("意外险", formData.accidentInsurance)}
-${kv("定期寿险", formData.termLifeInsurance)}
-
-## 理财类保险
-${kv("年金险", formData.annuityInsurance)}
-${kv("增额终身寿险", formData.increasingLifeInsurance)}
-
-## 其他保险及态度
+## 已有保障
+${kv("保障类保险", formData.protectionInsurance)}
+${kv("储蓄类保险", formData.savingsInsurance)}
 ${kv("其他保险", formData.otherInsurance)}
-${kv("对已购保险的态度", formData.insuranceAttitude)}
+${kv("对保险的态度", formData.insuranceAttitude)}
 ${kv("补充信息", formData.step4Notes)}
 
 ## 本次面谈入口

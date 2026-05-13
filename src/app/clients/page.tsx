@@ -20,7 +20,7 @@ interface ClientDetail {
 
 function kycFieldLabel(key: string): string {
   const map: Record<string, string> = {
-    clientName: "姓名", age: "年龄", gender: "性别", hometown: "籍贯", city: "工作&居住城市",
+    clientName: "姓名", age: "年龄", gender: "性别", city: "工作&居住城市",
     healthCondition: "身体情况", maritalStatus: "婚姻", childrenDetail: "子女详情",
     parentsDetail: "父母情况", personality: "性格特征", hobbies: "兴趣爱好",
     step1Notes: "补充信息",
@@ -34,12 +34,10 @@ function kycFieldLabel(key: string): string {
     investmentStyle: "投资偏好", riskTolerance: "风险承受能力",
     liabilities: "负债情况", expensePressure: "支出压力",
     step3Notes: "补充信息",
-    medicalInsurance: "医疗险", criticalIllnessInsurance: "重疾险",
-    accidentInsurance: "意外险", termLifeInsurance: "定期寿险",
-    annuityInsurance: "年金险", increasingLifeInsurance: "增额终身寿",
-    otherInsurance: "其他保险", insuranceAttitude: "保险态度",
+    protectionInsurance: "保障类保险", savingsInsurance: "储蓄类保险",
+    otherInsurance: "其他保险", insuranceAttitude: "对保险的态度",
     step4Notes: "补充信息",
-    triggerScenario: "触发场景", recentChanges: "重大变化",
+    triggerScenario: "触发场景",
   };
   return map[key] || key;
 }

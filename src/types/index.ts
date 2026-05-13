@@ -2,7 +2,6 @@ export interface KYCFormData {
   clientName: string;
   age: string;
   gender: string;
-  hometown: string;
   city: string;
   maritalStatus: string;
   childrenDetail: string;
@@ -28,12 +27,8 @@ export interface KYCFormData {
   riskTolerance: string;
   liabilities: string;
   expensePressure: string;
-  medicalInsurance: string;
-  criticalIllnessInsurance: string;
-  accidentInsurance: string;
-  termLifeInsurance: string;
-  annuityInsurance: string;
-  increasingLifeInsurance: string;
+  protectionInsurance: string;
+  savingsInsurance: string;
   otherInsurance: string;
   insuranceAttitude: string;
   step1Notes: string;
@@ -45,7 +40,6 @@ export interface KYCFormData {
   clientObjection: string;
   agentResponse: string;
   pastInteraction: string;
-  recentChanges: string;
 }
 
 export type ArrayField = "incomeSources";

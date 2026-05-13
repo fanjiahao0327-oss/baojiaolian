@@ -830,8 +830,7 @@ export function selectModules(kycData: KYCFormData | null | undefined): Knowledg
   }
 
   // DRG与医疗险：涉及保障类需求时加载（客户有医疗险信息、或触发了健康/保障相关场景）
-  const hasMedicalInfo = d.medicalInsurance || d.criticalIllnessInsurance ||
-    d.accidentInsurance || d.termLifeInsurance;
+  const hasMedicalInfo = d.protectionInsurance || d.otherInsurance || d.savingsInsurance;
   const isHealthScenario = d.triggerScenario && (
     d.triggerScenario.includes("主动咨询") || d.triggerScenario.includes("保障")
   );

@@ -12,18 +12,18 @@ interface Props {
 }
 
 const EMPTY_FORM: KYCFormData = {
-  clientName: "", age: "", gender: "", hometown: "", city: "", maritalStatus: "", childrenDetail: "",
+  clientName: "", age: "", gender: "", city: "", maritalStatus: "", childrenDetail: "",
   personality: "", healthCondition: "", hobbies: "", parentsDetail: "",
   clientIndustry: "", clientPosition: "", careerDevelopment: "", breadwinner: "",
   spouseIndustry: "", spousePosition: "", monthlyExpense: "", majorExpensePlan: "",
   incomeSources: [], incomeSourcesOther: "", fixedAssets: "",
   annualIncome: "", liquidAssets: "", investmentAmount: "",
   investmentStyle: "", riskTolerance: "", liabilities: "", expensePressure: "",
-  medicalInsurance: "", criticalIllnessInsurance: "", accidentInsurance: "", termLifeInsurance: "", annuityInsurance: "", increasingLifeInsurance: "", otherInsurance: "", insuranceAttitude: "",
+  protectionInsurance: "", savingsInsurance: "", otherInsurance: "", insuranceAttitude: "",
   step1Notes: "", step2Notes: "", step3Notes: "", step4Notes: "",
   triggerScenario: "", clientOriginalWords: "",
   clientObjection: "", agentResponse: "",
-  pastInteraction: "", recentChanges: "",
+  pastInteraction: "",
 };
 
 function getDraftKey(userId: number): string {
@@ -37,7 +37,6 @@ const sections: SectionConfig[] = [
       { key: "clientName", label: "姓名", type: "text", required: true, placeholder: "例如：张先生、李姐、王总" },
       { key: "gender", label: "性别", type: "radio", required: true, options: ["male", "female"] },
       { key: "age", label: "年龄", type: "number", required: true, placeholder: "年龄决定生命周期定位：青年积累期 / 中年责任期 / 退休传承期" },
-      { key: "hometown", label: "籍贯", type: "text", placeholder: "例如：广东深圳" },
       { key: "city", label: "工作&居住城市", type: "text", required: true, placeholder: "例如：上海" },
       { key: "healthCondition", label: "身体情况", type: "text", placeholder: "直接影响核保与投保优先级，例如：健康 / 有高血压/糖尿病 / 曾患XX已康复" },
       { key: "maritalStatus", label: "婚姻状况", type: "radio", required: true, options: ["未婚", "已婚", "离异", "丧偶", "再婚"] },
@@ -74,21 +73,16 @@ const sections: SectionConfig[] = [
       { key: "riskTolerance", label: "风险承受能力", type: "select", options: ["低（不愿承担本金损失）", "中（可接受小幅波动）", "高（追求高收益）"], placeholder: "保险方案的储蓄/投资推荐不可逾越客户实际风险等级" },
       { key: "liabilities", label: "负债情况", type: "text", placeholder: "流动负债+长期负债，例如：房贷200万/月供1.2万、信用卡5万、其他无" },
       { key: "expensePressure", label: "支出压力感知", type: "select", options: ["无明显经济压力", "有房贷或房租压力", "子女教育开销较大", "日常消费高难以存下钱"] },
-      { key: "recentChanges", label: "近一年重大变化", type: "text", placeholder: "例如：换工作、搬家、生子、家人重病，可能是保障需求的触发器" },
       { key: "step3Notes", label: "如有补充", type: "text", placeholder: "代理人自行补充的其他信息" },
     ],
   },
   {
     title: "已有保障",
     fields: [
-      { key: "medicalInsurance", label: "医疗险", type: "text", placeholder: "保额 / 年交保费 / 购买初衷，例如：百万医疗/年交500元，担心大病住院花费" },
-      { key: "criticalIllnessInsurance", label: "重疾险", type: "text", placeholder: "保额 / 年交保费 / 购买初衷，例如：50万保额/终身含身故/年交8000元，弥补收入损失" },
-      { key: "accidentInsurance", label: "意外险", type: "text", placeholder: "保额 / 年交保费 / 购买初衷，例如：100万保额/年交300元" },
-      { key: "termLifeInsurance", label: "定期寿险", type: "text", placeholder: "保额 / 年交保费 / 购买初衷，例如：200万/保至60岁/年交2000元，房贷保障" },
-      { key: "annuityInsurance", label: "年金险", type: "text", placeholder: "年交 / 缴费期 / 领取方式 / 购买初衷，例如：年交5万×10年/60岁起领，补充养老" },
-      { key: "increasingLifeInsurance", label: "增额终身寿险", type: "text", placeholder: "年交 / 缴费期 / 购买初衷，例如：年交10万×5年/已交完，资产传承" },
-      { key: "otherInsurance", label: "其他保险", type: "text", placeholder: "例如：企业团体险、惠民保、车险等" },
-      { key: "insuranceAttitude", label: "对已购保险的态度", type: "select", options: ["满意，配置比较全面", "买了但不太清楚保障内容", "觉得保额不够想补充", "没买过商业保险", "对保险持怀疑或排斥态度"] },
+      { key: "protectionInsurance", label: "保障类保险", type: "text", placeholder: "例如：百万医疗/年交500元；重疾险50万保额/年交8000元；意外险100万/年交300元；定期寿险200万/保至60岁" },
+      { key: "savingsInsurance", label: "储蓄类保险", type: "text", placeholder: "例如：年金险年交5万×10年/60岁起领；增额终身寿年交10万×5年/资产传承" },
+      { key: "otherInsurance", label: "其他保险", type: "text", placeholder: "例如：企业团体险、惠民保等" },
+      { key: "insuranceAttitude", label: "对保险的态度", type: "select", options: ["满意，配置比较全面", "买了但不太清楚保障内容", "觉得保额不够想补充", "没买过商业保险", "对保险持怀疑或排斥态度"] },
       { key: "step4Notes", label: "如有补充", type: "text", placeholder: "代理人自行补充的其他信息" },
     ],
   },
@@ -403,25 +397,6 @@ export default function KYCWizard({ onSubmit, isLoading, clientRefreshKey, initi
         <div className="space-y-5">
           {section.fields.map((field) => (
             <div key={field.key}>
-              {/* Step 4：保障类保险 分组标题 */}
-              {field.key === "medicalInsurance" && (
-                <div className="pb-1.5">
-                  <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                    <span className="w-1 h-3 bg-blue-400 rounded-full" />
-                    保障类保险
-                  </p>
-                </div>
-              )}
-              {/* Step 4：理财类保险 分组标题 */}
-              {field.key === "annuityInsurance" && (
-                <div className="pt-3 pb-1.5 border-t border-gray-100">
-                  <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                    <span className="w-1 h-3 bg-amber-400 rounded-full" />
-                    理财类保险
-                  </p>
-                </div>
-              )}
-
               <label htmlFor={`field-${field.key}`} className="block text-sm font-medium text-gray-700 mb-1.5">
                 {field.label}
                 {field.required && <span className="text-red-400 ml-0.5">*</span>}
