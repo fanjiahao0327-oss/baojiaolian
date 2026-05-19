@@ -37,12 +37,15 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (
+  // API 路由由各 handler 自行鉴权（Node.js Runtime，crypto 可用）
+  // 不在 Edge 中间件验 token，避免 crypto 模块不可用的问题
+  const isApiRoute = pathname.startsWith("/api/");
+  const isPublicPath =
     pathname.startsWith("/login") ||
-    pathname.startsWith("/api/auth") ||
     pathname.startsWith("/admin") ||
-    pathname.startsWith("/api/admin")
-  ) {
+    pathname.startsWith("/api/admin");
+
+  if (isPublicPath || isApiRoute) {
     const res = NextResponse.next();
     res.headers.set("Content-Security-Policy", CSP_HEADER);
     res.headers.set("X-Content-Type-Options", "nosniff");
