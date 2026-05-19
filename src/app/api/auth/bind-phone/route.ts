@@ -64,10 +64,14 @@ export async function POST(request: NextRequest) {
     }
 
     step = "3-updateDB";
-    console.log("[bind-phone] step4: update DB, phone=", phone);
+    console.log("[bind-phone] step3: update DB, phone=", phone);
     const sql = getDb();
+
+    // 如果该手机号已被其他用户绑定，先清掉旧绑定
+    await sql`UPDATE users SET phone = NULL WHERE phone = ${phone} AND id != ${session.userId}`;
+    // 将手机号绑定到当前用户
     await sql`UPDATE users SET phone = ${phone}, updated_at = NOW() WHERE id = ${session.userId}`;
-    console.log("[bind-phone] step4: DB updated");
+    console.log("[bind-phone] step3: DB updated");
 
     step = "4-saveSession";
     console.log("[bind-phone] step5: save session");
