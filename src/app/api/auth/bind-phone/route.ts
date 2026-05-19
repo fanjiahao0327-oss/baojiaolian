@@ -22,7 +22,10 @@ function decryptPhone(encryptedData: string, iv: string, sessionKey: string): st
 }
 
 export async function POST(request: NextRequest) {
+  // 用这个变量追踪进度，出错时返回给前端方便调试
+  let step = "0-start";
   try {
+    step = "0-getSession";
     console.log("[bind-phone] step0: getSession start");
     const session = await getSession();
     console.log("[bind-phone] step0: userId=", session.userId);
@@ -31,6 +34,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 });
     }
 
+    step = "1-parseBody";
     console.log("[bind-phone] step1: parse body");
     const body = await request.json();
     console.log("[bind-phone] step1: body keys=", Object.keys(body).join(","));
@@ -38,11 +42,12 @@ export async function POST(request: NextRequest) {
     let phone: string | null = null;
 
     if (body.code) {
+      step = "2-getPhoneByCode";
       console.log("[bind-phone] step2: calling getPhoneByCode");
       phone = await getPhoneByCode(body.code);
       console.log("[bind-phone] step2: result=", phone ? "ok" : "null");
-    }
-    else if (body.encryptedData && body.iv) {
+    } else if (body.encryptedData && body.iv) {
+      step = "2-decryptPhone";
       console.log("[bind-phone] step2: decryptPhone (old API)");
       if (!session.sessionKey) {
         return NextResponse.json({ error: "请重新登录" }, { status: 400 });
@@ -58,18 +63,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "获取手机号失败，请重新授权" }, { status: 400 });
     }
 
+    step = "3-updateDB";
     console.log("[bind-phone] step4: update DB, phone=", phone);
     const sql = getDb();
     await sql`UPDATE users SET phone = ${phone}, updated_at = NOW() WHERE id = ${session.userId}`;
+    console.log("[bind-phone] step4: DB updated");
 
+    step = "4-saveSession";
     console.log("[bind-phone] step5: save session");
     session.phone = phone;
     await session.save();
+    console.log("[bind-phone] step5: session saved");
 
     console.log("[bind-phone] step6: done");
     return NextResponse.json({ phone });
   } catch (e) {
-    console.error("[bind-phone] catch:", (e as Error).message, (e as Error).stack);
-    return NextResponse.json({ error: "绑定失败" }, { status: 500 });
+    const errMsg = (e as Error).message || "unknown";
+    const errStack = (e as Error).stack || "";
+    console.error("[bind-phone] catch:", errMsg, errStack);
+    // 临时返回详细错误信息，方便调试
+    return NextResponse.json(
+      { error: `绑定失败 [${step}]: ${errMsg}`, detail: errStack.split("\n").slice(0, 3).join(" | ") },
+      { status: 500 }
+    );
   }
 }
