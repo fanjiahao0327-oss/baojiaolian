@@ -16,6 +16,7 @@ interface Props {
   hasSubmitted: boolean;
   suggestedQuestions: string[];
   onSuggestedQuestionClick: (question: string) => void;
+  onStopGeneration?: () => void;
   conversationId?: number | null;
 }
 
@@ -33,6 +34,7 @@ export default function CoachPanel({
   hasSubmitted,
   suggestedQuestions,
   onSuggestedQuestionClick,
+  onStopGeneration,
   conversationId,
 }: Props) {
   const responseRef = useRef<HTMLDivElement>(null);
@@ -199,13 +201,23 @@ export default function CoachPanel({
             {currentStreamingContent && (
               <div className="animate-fade-in">
                 <div className="max-w-[95%] bg-white border border-brand-100 rounded-2xl rounded-bl-md shadow-sm px-4 py-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[11px] font-semibold text-green-600">AI 教练</span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse-dot" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse-dot" style={{ animationDelay: "0.2s" }} />
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse-dot" style={{ animationDelay: "0.4s" }} />
-                    </span>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-semibold text-green-600">AI 教练</span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse-dot" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse-dot" style={{ animationDelay: "0.2s" }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse-dot" style={{ animationDelay: "0.4s" }} />
+                      </span>
+                    </div>
+                    {onStopGeneration && (
+                      <button
+                        onClick={onStopGeneration}
+                        className="px-2.5 py-1 text-[11px] font-medium text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-red-200"
+                      >
+                        停止生成
+                      </button>
+                    )}
                   </div>
                   <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: renderMarkdown(currentStreamingContent) }} />
                 </div>

@@ -1,9 +1,11 @@
 import { getIronSession, SessionOptions } from "iron-session";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { verifyToken } from "@/lib/token";
 
 export interface SessionData {
   userId?: number;
   phone?: string;
+  sessionKey?: string;
 }
 
 const SESSION_SECRET = process.env.SESSION_SECRET;
@@ -24,5 +26,24 @@ export const sessionOptions: SessionOptions = {
 
 export async function getSession() {
   const cookieStore = await cookies();
-  return getIronSession<SessionData>(cookieStore, sessionOptions);
+  const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+
+  // 小程序 token 认证回退：Cookie session 不存在时，从 Authorization header 恢复
+  if (!session.userId) {
+    try {
+      const headersList = await headers();
+      const authHeader = headersList.get("Authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        const token = authHeader.slice(7);
+        const userId = verifyToken(token);
+        if (userId) {
+          session.userId = userId;
+        }
+      }
+    } catch {
+      // headers() 在非 HTTP 上下文中可能不可用，静默跳过
+    }
+  }
+
+  return session;
 }

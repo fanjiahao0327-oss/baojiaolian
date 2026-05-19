@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import type { UserInfo } from "@/types";
 
 interface AuthContextValue {
@@ -18,6 +19,7 @@ export function useAuth() {
 export default function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const pathname = usePathname();
 
   const refresh = async () => {
     try {
@@ -37,7 +39,7 @@ export default function UserProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [pathname]);
 
   return (
     <AuthContext.Provider value={{ user, loading, refresh }}>

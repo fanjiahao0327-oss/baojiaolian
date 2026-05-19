@@ -1,0 +1,149 @@
+<!-- 教练页 -->
+<view class="page">
+
+  <!-- 授权覆盖层（登录或绑定手机号） -->
+  <view class="auth-overlay" wx:if="{{!isLoggedIn || needBindPhone}}">
+    <view class="auth-card">
+      <text class="auth-icon">🛡️</text>
+      <text class="auth-title">展业智教练</text>
+      <text class="auth-desc" wx:if="{{!isLoggedIn}}">AI 驱动的保险销售教练</text>
+      <text class="auth-desc" wx:else>为保障服务安全，请授权绑定手机号</text>
+
+      <!-- 未登录 → 微信一键登录 -->
+      <button wx:if="{{!isLoggedIn}}" class="auth-btn" bindtap="handleWechatLogin" loading="{{logining}}" disabled="{{logining}}">
+        微信一键登录
+      </button>
+
+      <!-- 已登录、未绑定 → 授权手机号 -->
+      <button wx:else class="auth-btn" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumber">
+        授权手机号
+      </button>
+    </view>
+  </view>
+
+  <!-- 正常页面内容 -->
+  <block wx:if="{{isLoggedIn && !needBindPhone}}">
+  <!-- 顶部 Tab + 客户选择 -->
+  <view class="top-bar">
+    <view class="tabs">
+      <view class="tab-item {{tab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">信息填写</view>
+      <view class="tab-item {{tab === 'coach' ? 'active' : ''}}" data-tab="coach" bindtap="switchTab">教练指导</view>
+    </view>
+    <view class="client-picker-btn" bindtap="toggleClientPicker">
+      <text>{{selectedClientId ? '已选客户' : '选择客户'}}</text>
+      <text class="arrow">▾</text>
+    </view>
+  </view>
+
+  <!-- 客户选择弹出层 -->
+  <view class="picker-overlay" wx:if="{{showClientPicker}}" bindtap="toggleClientPicker"></view>
+  <view class="picker-popup {{showClientPicker ? 'show' : ''}}">
+    <view class="picker-title">选择客户</view>
+    <view class="picker-option" data-id="" bindtap="selectClient">+ 新建客户</view>
+    <view class="picker-option" wx:for="{{clients}}" wx:key="id" data-id="{{item.id}}" bindtap="selectClient">{{item.name}}</view>
+  </view>
+
+  <!-- KYC 步骤式表单 -->
+  <view class="form-area" wx:if="{{tab === 'form'}}">
+    <!-- 步骤进度条 -->
+    <view class="step-progress">
+      <view class="step-dot {{index <= currentStep ? 'done' : ''}} {{index === currentStep ? 'current' : ''}}" wx:for="{{sections}}" wx:key="title" wx:for-index="index">
+        <text class="step-num">{{index < currentStep ? '✓' : index + 1}}</text>
+      </view>
+      <view class="step-line {{index < currentStep ? 'done' : ''}}" wx:for="{{sections.length - 1}}" wx:key="*this" wx:for-index="index"></view>
+    </view>
+    <view class="step-label">{{sections[currentStep].title}}（{{currentStep + 1}}/{{sections.length}}）</view>
+
+    <!-- 当前步骤字段 -->
+    <view class="section">
+      <view class="section-body">
+        <view class="field" wx:for="{{sections[currentStep].fields}}" wx:key="key" wx:for-item="f">
+          <view class="label">{{f.label}}<text wx:if="{{f.required}}" class="required">*</text></view>
+
+          <!-- radio -->
+          <view class="radio-group" wx:if="{{f.type === 'radio'}}">
+            <view
+              class="radio-item {{formData[f.key] === opt ? 'checked' : ''}}"
+              wx:for="{{f.options}}"
+              wx:key="*this"
+              wx:for-item="opt"
+              data-key="{{f.key}}"
+              data-val="{{opt}}"
+              bindtap="onFieldChange"
+            >
+              <text>{{opt === 'male' ? '男' : opt === 'female' ? '女' : opt}}</text>
+            </view>
+          </view>
+
+          <!-- textarea -->
+          <textarea wx:elif="{{f.type === 'textarea'}}" class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
+
+          <!-- number -->
+          <input wx:elif="{{f.type === 'number'}}" class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+
+          <!-- text default -->
+          <input wx:else class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 步骤导航按钮 -->
+    <view class="step-nav">
+      <button class="btn-outline" wx:if="{{currentStep > 0}}" bindtap="prevStep">← 上一步</button>
+      <view wx:else></view>
+      <button class="btn-primary" wx:if="{{currentStep < sections.length - 1}}" bindtap="nextStep">下一步 →</button>
+      <button class="btn-primary submit-btn" wx:else bindtap="submitForm" disabled="{{isLoading}}" loading="{{isLoading}}">
+        {{isLoading ? '教练诊断中...' : '提交给保险教练诊断'}}
+      </button>
+    </view>
+  </view>
+
+  <!-- 教练对话区 -->
+  <view class="chat-area" wx:if="{{tab === 'coach'}}">
+    <scroll-view scroll-y class="chat-scroll" scroll-into-view="{{scrollIntoView}}" enhanced show-scrollbar="{{false}}" bindscroll="onChatScroll" style="height: {{chatScrollHeight}}px;">
+      <view class="empty-chat" wx:if="{{!hasSubmitted}}">
+        <text class="empty-icon">💬</text>
+        <text>请先填写客户信息并提交</text>
+        <text class="sub-text">教练将在此生成诊断和推演方案</text>
+      </view>
+
+      <view class="msg-list" wx:else>
+        <view class="msg-item" wx:for="{{messages}}" wx:key="timestamp" id="msg-{{index}}">
+          <view class="msg-user {{item.role === 'user' ? 'right' : 'left'}}">
+            <view class="msg-role">{{item.role === 'user' ? '代理人' : 'AI 教练'}}</view>
+            <view class="msg-bubble {{item.role === 'user' ? 'user-bubble' : 'coach-bubble'}}">
+              <text class="msg-text" wx:if="{{item.role === 'user'}}" selectable>{{item.content}}</text>
+              <rich-text wx:else nodes="{{item.content}}" class="msg-rich"></rich-text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 加载中 -->
+        <view class="msg-item" wx:if="{{isLoading}}">
+          <view class="msg-user left">
+            <view class="msg-role">AI 教练</view>
+            <view class="msg-bubble coach-bubble">
+              <text class="loading-stage">{{loadingText}}</text>
+              <view class="typing-dots">
+                <view class="dot"></view><view class="dot"></view><view class="dot"></view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 滚到底部按钮 -->
+    <view class="scroll-bottom-btn {{scrollToBottom ? 'show' : ''}}" bindtap="scrollChatToBottom">
+      <text class="scroll-bottom-arrow">↓</text>
+    </view>
+
+    <!-- 追问输入区 -->
+    <view class="chat-input" wx:if="{{hasSubmitted}}">
+      <input class="follow-input" value="{{followUp}}" bindinput="onFollowUpInput" placeholder="输入追问内容..." confirm-type="send" bindconfirm="sendFollowUp" disabled="{{isLoading}}" />
+      <button class="btn-primary send-btn" bindtap="sendFollowUp" disabled="{{!followUp || isLoading}}">发送</button>
+    </view>
+  </view>
+
+  </block>
+</view>

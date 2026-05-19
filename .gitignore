@@ -8,6 +8,9 @@ node_modules/
 .env.local
 .env*.local
 
+# certs
+certs/
+
 # database
 data/
 

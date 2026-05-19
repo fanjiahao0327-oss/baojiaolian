@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import type { KYCFormData, Message } from "@/types";
 import KYCWizard from "@/components/KYCWizard";
 import CoachPanel from "@/components/CoachPanel";
-import ConversationList from "@/components/ConversationList";
+import { useAuth } from "@/components/UserProvider";
+import ConfirmModal from "@/components/ConfirmModal";
 
 function buildUserContent(formData: KYCFormData): string {
   const kv = (label: string, value: string) => `- ${label}：${value || "未填写"}`;
@@ -17,10 +18,10 @@ function buildUserContent(formData: KYCFormData): string {
   return `客户信息：
 
 ## 客户画像与生活状态
-${kv("姓名", formData.clientName)}
+${kv("名称", formData.clientName)}
 ${kv("性别", formData.gender === "male" ? "男" : formData.gender === "female" ? "女" : "")}
 ${kv("年龄", formData.age)}
-${kv("工作&居住城市", formData.city)}
+${kv("所在城市", formData.city)}
 ${kv("身体情况", formData.healthCondition)}
 ${kv("婚姻状况", formData.maritalStatus)}
 ${kv("子女详情", formData.childrenDetail)}
@@ -30,11 +31,13 @@ ${kv("兴趣爱好", formData.hobbies)}
 ${kv("补充信息", formData.step1Notes)}
 
 ## 工作与收支
-${kv("行业&公司", formData.clientIndustry)}
+${kv("行业", formData.clientIndustry)}
+${kv("公司", formData.clientCompany)}
 ${kv("职责&职位", formData.clientPosition)}
 ${kv("职业发展空间", formData.careerDevelopment)}
 ${kv("家庭经济支柱", formData.breadwinner)}
-${kv("配偶行业&公司", formData.spouseIndustry)}
+${kv("配偶行业", formData.spouseIndustry)}
+${kv("配偶公司", formData.spouseCompany)}
 ${kv("配偶职责&职位", formData.spousePosition)}
 ${csv("主要收入来源", formData.incomeSources.filter(s => s !== "其他"), formData.incomeSources.includes("其他") ? formData.incomeSourcesOther : undefined)}
 ${kv("家庭年收入（万元）", formData.annualIncome)}
@@ -74,18 +77,52 @@ ${kv("代理人当时的回应方式简述", formData.agentResponse)}
 function parseSuggestedQuestions(content: string): string[] {
   const match = content.match(/\[SUGGESTED_QUESTIONS\]\s*([\s\S]*)$/);
   if (!match || !match[1].trim()) return [];
-  const raw = match[1].trim();
+  // 剔除末尾的合规免责声明
+  const raw = match[1]
+    .replace(/> ⚠️ .*$/m, "")
+    .replace(/⚠️\s*以上内容为 AI 生成的销售沟通参考建议[\s\S]*$/, "")
+    .trim();
+  if (!raw) return [];
   const numbered = raw.split(/\d+\.\s+/).map((s) => s.trim()).filter((s) => s.length > 0);
   if (numbered.length > 1) return numbered;
   return raw.split(/\n+/).map((s) => s.trim()).filter((s) => s.length > 0);
 }
 
 function stripSuggestedQuestions(content: string): string {
-  return content.replace(/\n*\[SUGGESTED_QUESTIONS\][\s\S]*$/, "");
+  // 先移除 [SUGGESTED_QUESTIONS] 及之后所有内容（包含免责声明）
+  let cleaned = content.replace(/\n*\[SUGGESTED_QUESTIONS\][\s\S]*$/, "");
+  // 再移除可能残留的合规免责声明行
+  cleaned = cleaned.replace(/\n*> ⚠️ 以上内容为 AI 生成的销售沟通参考建议[\s\S]*$/, "");
+  return cleaned;
+}
+
+function parseKycUpdate(content: string): Record<string, string> | null {
+  const match = content.match(/\[KYC_UPDATE\]\s*(\{[\s\S]*?\})\s*(?=\[SUGGESTED_QUESTIONS\]|$)/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (typeof parsed === "object" && parsed !== null && Object.keys(parsed).length > 0) {
+      return parsed;
+    }
+  } catch { /* JSON 解析失败 */ }
+  return null;
+}
+
+function stripKycUpdate(content: string): string {
+  return content.replace(/\n*\[KYC_UPDATE\]\s*\{[\s\S]*?\}\s*(?=\[SUGGESTED_QUESTIONS\]|$)/, "");
+}
+
+async function saveKycUpdate(clientId: number, updates: Record<string, string>) {
+  await fetch(`/api/clients/${clientId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kycSnapshot: updates }),
+  });
 }
 
 export default function Home() {
   const router = useRouter();
+  const { user } = useAuth();
   const formDataRef = useRef<KYCFormData | null>(null);
   const clientIdRef = useRef<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -93,26 +130,81 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [currentStreamingContent, setCurrentStreamingContent] = useState("");
-  const [showHistory, setShowHistory] = useState(false);
   const [mobileTab, setMobileTab] = useState<"form" | "coach">("form");
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
   const [clientRefreshKey, setClientRefreshKey] = useState(0);
   const [initialClientId, setInitialClientId] = useState<number | null>(null);
   const [conversationId, setConversationId] = useState<number | null>(null);
+  const [kycUpdateMsg, setKycUpdateMsg] = useState("");
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const cid = sp.get("clientId");
+    const vid = sp.get("convId");
     if (cid) {
-      setInitialClientId(Number(cid));
-      window.history.replaceState({}, "", "/");
+      const numCid = Number(cid);
+      setInitialClientId(numCid);
+      clientIdRef.current = numCid;
+      // 从 API 拉取最新客户档案写入 formDataRef，确保追问时发送最新数据
+      fetch(`/api/clients/${numCid}?_=${Date.now()}`, { cache: "no-store" })
+        .then((r) => r.ok ? r.json() : null)
+        .then((client) => {
+          if (client?.kyc_snapshot) {
+            formDataRef.current = client.kyc_snapshot;
+          }
+        })
+        .catch(() => {});
     }
+
+    const loadConv = async (convId: number) => {
+      try {
+        const res = await fetch(`/api/conversations/${convId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.messages?.length) {
+          setConversationId(data.id);
+          setMessages(data.messages);
+          setHasSubmitted(true);
+          setMobileTab("coach");
+          // 如果 URL 中没有 clientId，从对话记录中恢复
+          if (!clientIdRef.current && data.clientId) {
+            clientIdRef.current = data.clientId;
+            fetch(`/api/clients/${data.clientId}?_=${Date.now()}`, { cache: "no-store" })
+              .then((r) => r.ok ? r.json() : null)
+              .then((client) => {
+                if (client?.kyc_snapshot) {
+                  formDataRef.current = client.kyc_snapshot;
+                }
+              })
+              .catch(() => {});
+          }
+        }
+      } catch { /* 静默 */ }
+    };
+
+    if (vid) {
+      loadConv(Number(vid));
+    } else if (cid) {
+      // 没有指定对话 → 自动加载该客户的最新对话
+      fetch(`/api/conversations?client_id=${cid}`)
+        .then((r) => r.ok ? r.json() : [])
+        .then((list: { id: number }[]) => {
+          if (list.length > 0) loadConv(list[0].id);
+        })
+        .catch(() => {});
+    }
+    if (cid || vid) window.history.replaceState({}, "", "/");
   }, []);
 
   const doFetch = async (question: string, history: Message[] = []) => {
+    const controller = new AbortController();
+    abortRef.current = controller;
     const response = await fetch("/api/coach", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
       body: JSON.stringify({
         kycData: formDataRef.current,
         question,
@@ -126,8 +218,7 @@ export default function Home() {
       throw new Error("未登录");
     }
     if (response.status === 402) {
-      const goRecharge = confirm("积分不足，是否前往充值？");
-      if (goRecharge) router.push("/points");
+      setShowRechargeModal(true);
       throw new Error("积分不足");
     }
     if (!response.ok) throw new Error("请求失败");
@@ -149,6 +240,48 @@ export default function Home() {
     return fullContent;
   };
 
+  const processResponse = async (content: string) => {
+    // 提取并保存 KYC 更新
+    const kycUpdate = parseKycUpdate(content);
+    if (kycUpdate && clientIdRef.current) {
+      try {
+        await saveKycUpdate(clientIdRef.current, kycUpdate);
+        const fields = Object.keys(kycUpdate).map((k) => {
+          const labels: Record<string, string> = {
+            clientName: "名称", gender: "性别", age: "年龄", city: "所在城市",
+            maritalStatus: "婚姻", childrenDetail: "子女详情", healthCondition: "身体情况",
+            parentsDetail: "父母情况", personality: "性格特征", hobbies: "兴趣爱好",
+            clientIndustry: "行业", clientCompany: "公司", clientPosition: "职责&职位",
+            careerDevelopment: "职业发展", breadwinner: "经济支柱",
+            spouseIndustry: "配偶行业", spouseCompany: "配偶公司", spousePosition: "配偶职责&职位",
+            annualIncome: "家庭年收入", monthlyExpense: "月度固定支出", majorExpensePlan: "未来大额支出",
+            fixedAssets: "固定资产", liquidAssets: "流动资产", liabilities: "负债情况",
+            investmentAmount: "投资金额", investmentStyle: "投资偏好", riskTolerance: "风险承受能力",
+            expensePressure: "支出压力",
+            protectionInsurance: "保障类保险", savingsInsurance: "储蓄类保险",
+            insuranceAttitude: "对保险的态度", otherInsurance: "其他保险",
+            triggerScenario: "触发场景", clientOriginalWords: "客户原话",
+            clientObjection: "客户异议", agentResponse: "代理人回应", pastInteraction: "历史互动",
+            step1Notes: "补充信息", step2Notes: "补充信息", step3Notes: "补充信息", step4Notes: "补充信息",
+          };
+          return labels[k] || k;
+        });
+        setKycUpdateMsg(`已自动更新客户档案：${fields.join("、")}`);
+        setTimeout(() => setKycUpdateMsg(""), 5000);
+      } catch { /* 静默 */ }
+    }
+    return stripKycUpdate(stripSuggestedQuestions(content));
+  };
+
+  const stopGeneration = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    setIsLoading(false);
+    setCurrentStreamingContent("");
+  };
+
   const handleSubmit = async (formData: KYCFormData, clientId: number | null) => {
     formDataRef.current = formData;
     clientIdRef.current = clientId;
@@ -163,14 +296,17 @@ export default function Home() {
     try {
       const content = await doFetch(question);
       const ts = Date.now();
-      const displayContent = stripSuggestedQuestions(content);
+      const displayContent = await processResponse(content);
       setMessages([
         { role: "user", content: question, timestamp: ts },
         { role: "coach", content: displayContent, timestamp: ts + 1 },
       ]);
       setSuggestedQuestions(parseSuggestedQuestions(content));
       setClientRefreshKey((k) => k + 1);
+      // 提交成功后清除草稿
+      if (user) localStorage.removeItem(`kyc_draft_${user.userId}`);
     } catch (e) {
+      if ((e as Error).name === "AbortError") return;
       if ((e as Error).message === "积分不足" || (e as Error).message === "未登录") return;
       setMessages([{ role: "coach", content: "抱歉，发生了错误，请稍后重试。", timestamp: Date.now() }]);
     } finally {
@@ -189,10 +325,11 @@ export default function Home() {
 
     try {
       const content = await doFetch(question, messages);
-      const displayContent = stripSuggestedQuestions(content);
+      const displayContent = await processResponse(content);
       setMessages((prev) => [...prev, { role: "coach", content: displayContent, timestamp: Date.now() }]);
       setSuggestedQuestions(parseSuggestedQuestions(content));
     } catch (e) {
+      if ((e as Error).name === "AbortError") return;
       if ((e as Error).message === "积分不足" || (e as Error).message === "未登录") return;
       setMessages((prev) => [...prev, { role: "coach", content: "抱歉，发生了错误，请稍后重试。", timestamp: Date.now() }]);
     } finally {
@@ -206,16 +343,6 @@ export default function Home() {
     const question = followUpQuestion.trim();
     setFollowUpQuestion("");
     await sendFollowUp(question);
-  };
-
-  const handleLoadHistory = (convId: number, msgs: Message[]) => {
-    setConversationId(convId);
-    setMessages(msgs);
-    setHasSubmitted(true);
-    setShowHistory(false);
-    setSuggestedQuestions([]);
-    setCurrentStreamingContent("");
-    setMobileTab("coach");
   };
 
   return (
@@ -268,17 +395,14 @@ export default function Home() {
         {/* 右侧：教练面板 */}
         <div className={`md:block md:w-1/2 ${mobileTab === "coach" ? "block" : "hidden"} w-full h-full overflow-hidden`}>
           <div className="h-full bg-warm-gradient p-3 md:p-4 overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between mb-2 shrink-0">
-              <button
-                onClick={() => setShowHistory(true)}
-                className="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            {kycUpdateMsg && (
+              <div className="mb-2 px-3 py-2 bg-green-50 border border-green-200 rounded-xl text-xs text-green-700 flex items-center gap-2 animate-fade-in">
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                历史对话
-              </button>
-            </div>
+                {kycUpdateMsg}
+              </div>
+            )}
             <CoachPanel
               messages={messages}
               currentStreamingContent={currentStreamingContent}
@@ -289,17 +413,22 @@ export default function Home() {
               hasSubmitted={hasSubmitted}
               suggestedQuestions={suggestedQuestions}
               onSuggestedQuestionClick={(q) => sendFollowUp(q)}
+              onStopGeneration={stopGeneration}
               conversationId={conversationId}
             />
           </div>
         </div>
       </div>
 
-      <ConversationList
-        active={showHistory}
-        onSelect={handleLoadHistory}
-        onClose={() => setShowHistory(false)}
-      />
+      {showRechargeModal && (
+        <ConfirmModal
+          message="积分不足，是否前往充值？"
+          confirmLabel="去充值"
+          onConfirm={() => { setShowRechargeModal(false); router.push("/points"); }}
+          onCancel={() => setShowRechargeModal(false)}
+        />
+      )}
+
     </main>
   );
 }

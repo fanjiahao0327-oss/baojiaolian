@@ -1,0 +1,83 @@
+<view class="page">
+  <!-- 骨架屏 -->
+  <block wx:if="{{loading}}">
+    <view class="skeleton-card">
+      <view class="sk-row">
+        <view class="sk-avatar"></view>
+        <view class="sk-col flex-1">
+          <view class="skeleton-line w-40"></view>
+          <view class="skeleton-line w-25"></view>
+        </view>
+      </view>
+    </view>
+    <view class="skeleton-card h-120"></view>
+    <view class="skeleton-card" wx:for="{{[1,2,3]}}" wx:key="*this">
+      <view class="skeleton-line w-60"></view>
+      <view class="skeleton-line w-80"></view>
+    </view>
+  </block>
+
+  <block wx:else>
+    <!-- 用户信息 -->
+    <view class="user-card">
+      <view class="user-avatar">{{avatarText}}</view>
+      <view class="user-info">
+        <text class="user-phone">{{displayPhone}}</text>
+        <button wx:if="{{!phone}}" class="btn-phone" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumber">绑定手机号</button>
+        <text wx:else class="phone-bound">已绑定 ✓</text>
+      </view>
+    </view>
+
+    <!-- 积分余额 -->
+    <view class="balance-card">
+      <text class="balance-label">可用积分</text>
+      <text class="balance-num">{{balance}}</text>
+    </view>
+
+    <!-- 套餐列表 -->
+    <view class="section-title">充值套餐</view>
+    <view class="pkg-card {{selectedIdx === index ? 'selected' : ''}}" wx:for="{{packages}}" wx:key="points" data-idx="{{index}}" bindtap="selectPackage">
+      <view class="pkg-info">
+        <text class="pkg-points">{{item.points}} 积分</text>
+        <text class="pkg-price">¥{{item.price}}</text>
+        <text class="pkg-per">{{item.perPoint}}</text>
+      </view>
+      <view class="pkg-check {{selectedIdx === index ? 'checked' : ''}}">
+        <text wx:if="{{selectedIdx === index}}">✓</text>
+      </view>
+    </view>
+
+    <!-- 积分明细 -->
+    <view class="section-title" wx:if="{{transactions.length > 0}}">积分明细</view>
+    <view class="tx-card" wx:for="{{transactions}}" wx:key="id">
+      <view class="tx-left">
+        <text class="tx-desc">{{item.description}}</text>
+        <text class="tx-time">{{item.timeText}}</text>
+      </view>
+      <text class="tx-amount {{item.amount > 0 ? 'positive' : 'negative'}}">{{item.amount > 0 ? '+' : ''}}{{item.amount}}</text>
+    </view>
+
+    <!-- 使用说明 -->
+    <view class="tips">
+      <text class="tips-title">计费规则</text>
+      <text>• 2000 Token = 1 积分</text>
+      <text>• 最低 5 积分发起对话</text>
+      <text>• 按实际消耗扣分</text>
+    </view>
+  </block>
+
+  <!-- 支付确认弹窗 -->
+  <view class="modal-overlay" wx:if="{{showPayModal}}" bindtap="closePayModal"></view>
+  <view class="modal" wx:if="{{showPayModal}}">
+    <view class="modal-title">确认充值</view>
+    <view class="modal-pkg">{{selectedPkg.points}} 积分</view>
+    <view class="modal-price">¥{{selectedPkg.price}}</view>
+    <view class="modal-desc">将使用微信支付进行付款</view>
+    <view class="modal-btns">
+      <button class="btn-outline" bindtap="closePayModal">取消</button>
+      <button class="btn-primary" bindtap="startPay" loading="{{paying}}" disabled="{{paying}}">
+        {{paying ? '支付中...' : '微信支付'}}
+      </button>
+    </view>
+  </view>
+</view>

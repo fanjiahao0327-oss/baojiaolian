@@ -75,9 +75,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (err) {
     console.error("[login] error:", err);
-    const message = process.env.NODE_ENV === "development"
-      ? `服务器错误: ${err instanceof Error ? err.message : String(err)}`
-      : "服务器错误，请稍后重试";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "服务器错误，请稍后重试" }, { status: 500 });
   }
 }

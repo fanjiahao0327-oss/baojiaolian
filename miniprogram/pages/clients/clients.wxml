@@ -1,0 +1,86 @@
+<view class="page">
+  <!-- 列表视图 -->
+  <view wx:if="{{!selected}}">
+    <!-- 骨架屏 -->
+    <view wx:if="{{loading && clients.length === 0}}">
+      <view class="skeleton-card" wx:for="{{[1,2,3,4]}}" wx:key="*this">
+        <view class="skeleton-line w-50"></view>
+        <view class="skeleton-line w-30"></view>
+      </view>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty" wx:elif="{{!loading && clients.length === 0}}">
+      <text class="empty-icon">📋</text>
+      <text>暂无客户</text>
+      <text class="empty-sub">在「教练」页创建你的第一位客户吧</text>
+    </view>
+
+    <!-- 客户列表 -->
+    <view wx:else>
+      <view class="client-card" wx:for="{{clients}}" wx:key="id" data-id="{{item.id}}" bindtap="viewClient">
+        <view class="c-left">
+          <text class="c-name">{{item.name}}</text>
+          <view class="c-tags" wx:if="{{item.age || item.gender || item.city}}">
+            <text class="c-tag" wx:if="{{item.gender}}">{{item.gender}}</text>
+            <text class="c-tag" wx:if="{{item.age}}">{{item.age}}岁</text>
+            <text class="c-tag" wx:if="{{item.city}}">{{item.city}}</text>
+          </view>
+        </view>
+        <view class="c-right">
+          <text class="c-time">{{item.updated_at}}</text>
+          <text class="c-arrow">→</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 详情视图 -->
+  <view wx:if="{{selected}}">
+    <view class="detail-header">
+      <view class="back-btn" bindtap="goBack">← 返回</view>
+      <view class="header-actions">
+        <block wx:if="{{editing}}">
+          <button class="btn-outline sm" bindtap="cancelEdit">取消</button>
+          <button class="btn-primary sm" bindtap="saveKyc">保存</button>
+        </block>
+        <block wx:else>
+          <button class="btn-outline sm" bindtap="enterEdit">编辑</button>
+          <button class="btn-primary sm" bindtap="continueCoach">继续诊断</button>
+        </block>
+      </view>
+    </view>
+    <view class="d-name">{{selected.name}}</view>
+
+    <view class="kyc-section" wx:for="{{sections}}" wx:key="title" wx:for-index="idx">
+      <view class="s-header" data-idx="{{idx}}" bindtap="toggleSection">
+        <text class="s-arrow">{{collapsedSections[idx] ? '▶' : '▼'}}</text>
+        <text class="s-title">{{item.title}}</text>
+      </view>
+      <view class="s-body" wx:if="{{!collapsedSections[idx]}}">
+        <!-- 编辑模式 -->
+        <block wx:if="{{editing}}">
+          <view class="field" wx:for="{{item.items}}" wx:key="key" wx:for-item="fi">
+            <text class="label">{{fi.label}}</text>
+            <!-- 长文本 → textarea -->
+            <textarea wx:if="{{fi._isLong}}" class="textarea" value="{{editData[fi.key]}}" data-key="{{fi.key}}" bindinput="onEditField" auto-height maxlength="500" />
+            <!-- 数字 → number input -->
+            <input wx:elif="{{fi._isNumber}}" class="input" type="number" value="{{editData[fi.key]}}" data-key="{{fi.key}}" bindinput="onEditField" />
+            <!-- 其他 → text -->
+            <input wx:else class="input" value="{{editData[fi.key]}}" data-key="{{fi.key}}" bindinput="onEditField" />
+          </view>
+        </block>
+        <!-- 展示模式（支持长文本折叠） -->
+        <block wx:else>
+          <view class="kv-row" wx:for="{{item.items}}" wx:key="key" wx:for-item="fi">
+            <text class="kv-label">{{fi.label}}</text>
+            <view class="kv-value-wrap">
+              <text class="kv-value {{fi._truncated && !fi._expanded ? 'truncated' : ''}}">{{fi.value}}</text>
+              <text wx:if="{{fi._truncated}}" class="expand-link" data-key="{{fi.key}}" data-idx="{{idx}}" catchtap="toggleValueExpand">{{fi._expanded ? '收起' : '展开'}}</text>
+            </view>
+          </view>
+        </block>
+      </view>
+    </view>
+  </view>
+</view>

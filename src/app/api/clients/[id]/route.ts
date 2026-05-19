@@ -36,6 +36,34 @@ export async function PUT(
   return NextResponse.json({ success: true });
 }
 
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession();
+  if (!session.userId) {
+    return NextResponse.json({ error: "请先登录" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const numId = Number(id);
+  if (isNaN(numId) || numId <= 0) {
+    return NextResponse.json({ error: "参数错误" }, { status: 400 });
+  }
+
+  const sql = getDb();
+  const checkRows = await sql`SELECT id FROM clients WHERE id = ${numId} AND user_id = ${session.userId}`;
+  if (rows(checkRows).length === 0) {
+    return NextResponse.json({ error: "客户不存在" }, { status: 404 });
+  }
+
+  // 解除关联对话（不删除对话记录）
+  await sql`UPDATE conversations SET client_id = NULL WHERE client_id = ${numId} AND user_id = ${session.userId}`;
+  await sql`DELETE FROM clients WHERE id = ${numId} AND user_id = ${session.userId}`;
+
+  return NextResponse.json({ success: true });
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

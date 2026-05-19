@@ -14,8 +14,8 @@ interface Props {
 const EMPTY_FORM: KYCFormData = {
   clientName: "", age: "", gender: "", city: "", maritalStatus: "", childrenDetail: "",
   personality: "", healthCondition: "", hobbies: "", parentsDetail: "",
-  clientIndustry: "", clientPosition: "", careerDevelopment: "", breadwinner: "",
-  spouseIndustry: "", spousePosition: "", monthlyExpense: "", majorExpensePlan: "",
+  clientIndustry: "", clientCompany: "", clientPosition: "", careerDevelopment: "", breadwinner: "",
+  spouseIndustry: "", spouseCompany: "", spousePosition: "", monthlyExpense: "", majorExpensePlan: "",
   incomeSources: [], incomeSourcesOther: "", fixedAssets: "",
   annualIncome: "", liquidAssets: "", investmentAmount: "",
   investmentStyle: "", riskTolerance: "", liabilities: "", expensePressure: "",
@@ -30,60 +30,86 @@ function getDraftKey(userId: number): string {
   return `kyc_draft_${userId}`;
 }
 
+// 基于 GB/T 4754-2017 国民经济行业分类 20 大门类，参照平安/国寿投保页面常用选项
+const INDUSTRY_OPTIONS = [
+  "互联网/IT/通信",           // I  信息传输、软件和信息技术服务业
+  "金融/保险/证券",           // J  金融业
+  "教育/培训",               // P  教育
+  "医疗/健康/医药",           // Q  卫生和社会工作
+  "制造业",                  // C  制造业
+  "汽车/机械",               // C  制造业（保险高频细分）
+  "房地产/建筑/装修",         // E/K 建筑业+房地产业
+  "零售/电商/贸易",           // F  批发和零售业
+  "餐饮/旅游/酒店",           // H  住宿和餐饮业
+  "政府/事业单位/公务员",      // S  公共管理、社会保障和社会组织
+  "能源/电力/采矿/化工",      // B/D 采矿业+电力热力燃气
+  "物流/运输/交通",           // G  交通运输、仓储和邮政业
+  "文化/传媒/广告",           // R  文化、体育和娱乐业（内容侧）
+  "体育/健身/娱乐",           // R  文化、体育和娱乐业（体验侧）
+  "农业/林业/渔业",           // A  农、林、牧、渔业
+  "法律/咨询/审计",           // L  租赁和商务服务业
+  "科研/技术服务",            // M  科学研究和技术服务业
+  "家政/居民服务",            // O  居民服务、修理和其他服务业
+  "水利/环境/公共设施",        // N  水利、环境和公共设施管理业
+  "其他",                    // T  国际组织等
+];
+
 const sections: SectionConfig[] = [
   {
     title: "客户画像与生活状态",
     fields: [
-      { key: "clientName", label: "姓名", type: "text", required: true, priority: "recommended", placeholder: "例如：张先生、李姐、王总" },
+      { key: "clientName", label: "名称", type: "text", required: true, priority: "recommended", placeholder: "例如：张先生、李姐、王总" },
       { key: "gender", label: "性别", type: "radio", required: true, priority: "recommended", options: ["male", "female"] },
       { key: "age", label: "年龄", type: "number", required: true, priority: "recommended", placeholder: "年龄决定生命周期定位：青年积累期 / 中年责任期 / 退休传承期" },
-      { key: "city", label: "工作&居住城市", type: "text", required: true, priority: "recommended", placeholder: "例如：上海" },
-      { key: "healthCondition", label: "身体情况", type: "text", priority: "recommended", placeholder: "直接影响核保与投保优先级，例如：健康 / 有高血压/糖尿病 / 曾患XX已康复" },
+      { key: "city", label: "所在城市", type: "text", required: true, priority: "recommended", placeholder: "例如：上海" },
+      { key: "healthCondition", label: "身体情况", type: "textarea", priority: "recommended", placeholder: "直接影响核保与投保优先级，例如：健康 / 有高血压/糖尿病 / 曾患XX已康复" },
       { key: "maritalStatus", label: "婚姻状况", type: "radio", required: true, priority: "recommended", options: ["未婚", "已婚", "离异", "丧偶", "再婚"] },
-      { key: "childrenDetail", label: "子女详情", type: "text", priority: "recommended", placeholder: "子女数量/年龄/就读阶段，例如：儿子/8岁/公立小学；女儿/3岁/未入学 / 无" },
-      { key: "parentsDetail", label: "父母情况", type: "text", priority: "optional", placeholder: "是否健在、是否同住、赡养责任，例如：父母健在/同住/需赡养 / 父亲已故/母亲独居有退休金" },
-      { key: "personality", label: "性格特征", type: "text", priority: "optional", placeholder: "MBTI/性格色彩/沟通偏好，例如：ISTJ 重视数据细节，需用条款佐证 / ENFP 关注愿景感受" },
-      { key: "hobbies", label: "兴趣爱好", type: "text", priority: "optional", placeholder: "反映客户愿投入时间金钱的领域，例如：全球旅行、马拉松、收藏红酒、高尔夫" },
-      { key: "step1Notes", label: "如有补充", type: "text", priority: "optional", placeholder: "代理人自行补充的其他信息" },
+      { key: "childrenDetail", label: "子女详情", type: "textarea", priority: "recommended", placeholder: "子女数量/年龄/就读阶段，例如：儿子/8岁/公立小学；女儿/3岁/未入学 / 无" },
+      { key: "parentsDetail", label: "父母情况", type: "textarea", priority: "optional", placeholder: "是否健在、是否同住、赡养责任，例如：父母健在/同住/需赡养 / 父亲已故/母亲独居有退休金" },
+      { key: "personality", label: "性格特征", type: "textarea", priority: "optional", placeholder: "MBTI/性格色彩/沟通偏好，例如：ISTJ 重视数据细节，需用条款佐证 / ENFP 关注愿景感受" },
+      { key: "hobbies", label: "兴趣爱好", type: "textarea", priority: "optional", placeholder: "反映客户愿投入时间金钱的领域，例如：全球旅行、马拉松、收藏红酒、高尔夫" },
+      { key: "step1Notes", label: "如有补充", type: "textarea", priority: "optional", placeholder: "代理人自行补充的其他信息" },
     ],
   },
   {
     title: "工作与收支",
     fields: [
-      { key: "clientIndustry", label: "行业&公司", type: "text", priority: "recommended", placeholder: "判断收入的稳定性与可持续性，例如：互联网/字节跳动、教育/新东方" },
+      { key: "clientIndustry", label: "行业", type: "select", priority: "recommended", options: INDUSTRY_OPTIONS },
+      { key: "clientCompany", label: "公司", type: "text", priority: "recommended", placeholder: "公司名称，例如：字节跳动、新东方" },
       { key: "clientPosition", label: "职责&职位", type: "text", priority: "recommended", placeholder: "例如：技术专家/负责核心算法研发、企业主/独立经营" },
       { key: "careerDevelopment", label: "职业发展空间", type: "select", priority: "recommended", options: ["稳定或上升期", "瓶颈期或面临裁员", "创业或自雇，生意波动较大", "已退休或全职家庭"] },
       { key: "breadwinner", label: "家庭经济支柱", type: "select", priority: "recommended", options: ["客户本人", "配偶", "夫妻共同", "父母"], placeholder: "核心：一旦支柱倒下，家庭现金流会断裂多久" },
       { key: "incomeSources", label: "主要收入来源", type: "checkbox-group", priority: "recommended", options: ["工资收入", "经营收入", "房租收入", "投资分红", "其他"] },
       { key: "annualIncome", label: "家庭年收入（万元）", type: "number", priority: "recommended", placeholder: "例如：30（填大概数字即可）" },
-      { key: "spouseIndustry", label: "配偶行业&公司", type: "text", priority: "optional", placeholder: "例如：互联网/字节跳动、教育/新东方、全职家庭" },
+      { key: "spouseIndustry", label: "配偶行业", type: "select", priority: "optional", options: INDUSTRY_OPTIONS },
+      { key: "spouseCompany", label: "配偶公司", type: "text", priority: "optional", placeholder: "例如：字节跳动、新东方、全职家庭主妇/夫" },
       { key: "spousePosition", label: "配偶职责&职位", type: "text", priority: "optional", placeholder: "例如：中层管理/负责运营团队、技术专家" },
       { key: "monthlyExpense", label: "月度固定支出（万元）", type: "number", priority: "optional", placeholder: "含房贷/车贷/生活开支，例如：1.5" },
-      { key: "majorExpensePlan", label: "未来大额支出计划", type: "textarea", priority: "optional", placeholder: "购房/子女教育/医疗/养老，例如：3年内换房需200万首付、孩子5年后留学需100万" },
-      { key: "step2Notes", label: "如有补充", type: "text", priority: "optional", placeholder: "代理人自行补充的其他信息" },
+      { key: "majorExpensePlan", label: "未来大额支出计划", type: "textarea", priority: "recommended", placeholder: "购房/子女教育/医疗/养老，例如：3年内换房需200万首付、孩子5年后留学需100万" },
+      { key: "step2Notes", label: "如有补充", type: "textarea", priority: "optional", placeholder: "代理人自行补充的其他信息" },
     ],
   },
   {
     title: "资产情况",
     fields: [
-      { key: "fixedAssets", label: "固定资产", type: "text", priority: "recommended", placeholder: "例如：自住房1套、投资房1套、汽车1辆 — 高房产占比可能意味着流动性不足" },
+      { key: "fixedAssets", label: "固定资产", type: "textarea", priority: "recommended", placeholder: "例如：自住房1套、投资房1套、汽车1辆 — 高房产占比可能意味着流动性不足" },
       { key: "liquidAssets", label: "流动资产合计（万元）", type: "number", priority: "recommended", placeholder: "现金+存款+短期理财，例如：50" },
-      { key: "liabilities", label: "负债情况", type: "text", priority: "recommended", placeholder: "流动负债+长期负债，例如：房贷200万/月供1.2万、信用卡5万、其他无" },
+      { key: "liabilities", label: "负债情况", type: "textarea", priority: "recommended", placeholder: "流动负债+长期负债，例如：房贷200万/月供1.2万、信用卡5万、其他无" },
       { key: "investmentAmount", label: "投资金额（万元）", type: "number", priority: "optional", placeholder: "含股票/基金/股权等，例如：20" },
       { key: "investmentStyle", label: "投资偏好", type: "select", priority: "optional", options: ["保守型（存款为主）", "稳健型（基金理财为主）", "进取型（股票/股权为主）"] },
       { key: "riskTolerance", label: "风险承受能力", type: "select", priority: "optional", options: ["低（不愿承担本金损失）", "中（可接受小幅波动）", "高（追求高收益）"], placeholder: "保险方案的储蓄/投资推荐不可逾越客户实际风险等级" },
       { key: "expensePressure", label: "支出压力感知", type: "select", priority: "optional", options: ["无明显经济压力", "有房贷或房租压力", "子女教育开销较大", "日常消费高难以存下钱"] },
-      { key: "step3Notes", label: "如有补充", type: "text", priority: "optional", placeholder: "代理人自行补充的其他信息" },
+      { key: "step3Notes", label: "如有补充", type: "textarea", priority: "optional", placeholder: "代理人自行补充的其他信息" },
     ],
   },
   {
     title: "已有保障",
     fields: [
-      { key: "protectionInsurance", label: "保障类保险", type: "text", priority: "recommended", placeholder: "例如：百万医疗/年交500元；重疾险50万保额/年交8000元；意外险100万/年交300元；定期寿险200万/保至60岁" },
-      { key: "savingsInsurance", label: "储蓄类保险", type: "text", priority: "recommended", placeholder: "例如：年金险年交5万×10年/60岁起领；增额终身寿年交10万×5年/资产传承" },
+      { key: "protectionInsurance", label: "保障类保险", type: "textarea", priority: "recommended", placeholder: "例如：百万医疗/年交500元；重疾险50万保额/年交8000元；意外险100万/年交300元；定期寿险200万/保至60岁" },
+      { key: "savingsInsurance", label: "储蓄类保险", type: "textarea", priority: "recommended", placeholder: "例如：年金险年交5万×10年/60岁起领；增额终身寿年交10万×5年/资产传承" },
       { key: "insuranceAttitude", label: "对保险的态度", type: "select", priority: "recommended", options: ["满意，配置比较全面", "买了但不太清楚保障内容", "觉得保额不够想补充", "没买过商业保险", "对保险持怀疑或排斥态度"] },
       { key: "otherInsurance", label: "其他保险", type: "text", priority: "optional", placeholder: "例如：企业团体险、惠民保等" },
-      { key: "step4Notes", label: "如有补充", type: "text", priority: "optional", placeholder: "代理人自行补充的其他信息" },
+      { key: "step4Notes", label: "如有补充", type: "textarea", priority: "optional", placeholder: "代理人自行补充的其他信息" },
     ],
   },
   {
@@ -175,7 +201,7 @@ function FieldRenderer({ field, value, onChange }: {
       return (
         <textarea
           id={id}
-          className={`${inputClass} h-24 resize-none`}
+          className={`${inputClass} h-16 resize-none`}
           placeholder={field.placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -393,8 +419,22 @@ export default function KYCWizard({ onSubmit, isLoading, clientRefreshKey, initi
     }
     const id = Number(clientIdStr);
     setSelectedClientId(id);
+
+    // 优先从 sessionStorage 读取（"继续诊断此客户"写入的最新数据）
+    const bootstrapKey = `kyc_bootstrap_${id}`;
+    const bootstrapped = sessionStorage.getItem(bootstrapKey);
+    if (bootstrapped) {
+      try {
+        const snapshot = JSON.parse(bootstrapped);
+        sessionStorage.removeItem(bootstrapKey);
+        setFormData({ ...EMPTY_FORM, ...snapshot });
+        if (user) localStorage.removeItem(getDraftKey(user.userId));
+        return;
+      } catch { /* 解析失败，走 API */ }
+    }
+
     try {
-      const res = await fetch(`/api/clients/${id}`);
+      const res = await fetch(`/api/clients/${id}?_=${Date.now()}`, { cache: "no-store" });
       if (res.ok) {
         const client = await res.json();
         if (client.kyc_snapshot) {
@@ -402,6 +442,8 @@ export default function KYCWizard({ onSubmit, isLoading, clientRefreshKey, initi
             ? JSON.parse(client.kyc_snapshot)
             : client.kyc_snapshot;
           setFormData({ ...EMPTY_FORM, ...snapshot });
+          // 清除旧草稿，防止旧数据覆盖新加载的客户档案
+          if (user) localStorage.removeItem(getDraftKey(user.userId));
         }
       }
     } catch {
@@ -433,8 +475,6 @@ export default function KYCWizard({ onSubmit, isLoading, clientRefreshKey, initi
       }
       return;
     }
-    // 清除草稿
-    if (user) localStorage.removeItem(getDraftKey(user.userId));
     onSubmit(formData, selectedClientId);
   };
 

@@ -28,11 +28,14 @@ export async function initDB() {
   await s`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
-      phone TEXT UNIQUE NOT NULL,
+      phone TEXT UNIQUE,
+      wechat_openid TEXT UNIQUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await s`ALTER TABLE users ADD COLUMN IF NOT EXISTS wechat_openid TEXT UNIQUE`;
+  await s`ALTER TABLE users ALTER COLUMN phone DROP NOT NULL`;
 
   await s`
     CREATE TABLE IF NOT EXISTS clients (
@@ -64,10 +67,15 @@ export async function initDB() {
       title TEXT NOT NULL DEFAULT '',
       messages TEXT NOT NULL DEFAULT '[]',
       status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','won','lost')),
+      total_input_tokens INTEGER NOT NULL DEFAULT 0,
+      total_output_tokens INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  await s`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS total_input_tokens INTEGER NOT NULL DEFAULT 0`;
+  await s`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS total_output_tokens INTEGER NOT NULL DEFAULT 0`;
 
   await s`
     CREATE TABLE IF NOT EXISTS feedbacks (
@@ -77,6 +85,23 @@ export async function initDB() {
       message_idx INTEGER NOT NULL,
       rating TEXT NOT NULL CHECK(rating IN ('helpful','unhelpful')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await s`
+    CREATE TABLE IF NOT EXISTS payment_orders (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      order_no TEXT UNIQUE NOT NULL,
+      points INTEGER NOT NULL,
+      amount_cents INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','paid','cancelled','expired')),
+      payment_method TEXT DEFAULT 'wechat',
+      payment_ref TEXT DEFAULT '',
+      admin_note TEXT DEFAULT '',
+      paid_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '24 hours')
     )
   `;
 }

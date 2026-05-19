@@ -36,6 +36,7 @@ const DEFAULT_CONFIGS: Record<string, RateLimitConfig> = {
   "send-code": { maxRequests: 3, windowMs: 60_000 },  // 1分钟3次
   login: { maxRequests: 5, windowMs: 60_000 },        // 1分钟5次
   points: { maxRequests: 10, windowMs: 60_000 },       // 1分钟10次
+  payment: { maxRequests: 5, windowMs: 600_000 },      // 10分钟5次
 };
 
 export function rateLimit(

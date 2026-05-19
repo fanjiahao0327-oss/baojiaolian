@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { getDb, row } from "@/lib/db";
-import { encrypt } from "@/lib/crypto";
+import { getDb, rows, row } from "@/lib/db";
+import { encrypt, decrypt } from "@/lib/crypto";
 
 export async function GET() {
   const session = await getSession();
@@ -10,9 +10,30 @@ export async function GET() {
   }
 
   const sql = getDb();
-  const rows = await sql`SELECT id, name, updated_at FROM clients WHERE user_id = ${session.userId} ORDER BY updated_at DESC`;
+  const rawRows = await sql`SELECT id, name, kyc_snapshot, updated_at FROM clients WHERE user_id = ${session.userId} ORDER BY updated_at DESC`;
 
-  return NextResponse.json(rows);
+  const list = rows(rawRows).map((r: Record<string, unknown>) => {
+    let age = "";
+    let gender = "";
+    let city = "";
+    try {
+      const kyc = JSON.parse(decrypt(r.kyc_snapshot as string));
+      if (kyc.age) age = String(kyc.age);
+      if (kyc.gender) gender = kyc.gender === "male" ? "男" : kyc.gender === "female" ? "女" : String(kyc.gender);
+      if (kyc.city) city = String(kyc.city);
+    } catch { /* decrypt failed, leave empty */ }
+
+    return {
+      id: r.id,
+      name: r.name,
+      age,
+      gender,
+      city,
+      updated_at: r.updated_at,
+    };
+  });
+
+  return NextResponse.json(list);
 }
 
 export async function POST(request: NextRequest) {

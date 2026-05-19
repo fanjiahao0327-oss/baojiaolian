@@ -3,10 +3,10 @@ import OpenAI from "openai";
 import { selectModules } from "@/lib/knowledge";
 import type { KYCFormData, Message } from "@/types";
 import { getSession } from "@/lib/auth";
-import { getBalance, COST_PER_CALL } from "@/lib/points";
+import { getBalance, MIN_BALANCE, calcPoints } from "@/lib/points";
 import { getDb, rows, row } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
-import { encrypt } from "@/lib/crypto";
+import { encrypt, decrypt } from "@/lib/crypto";
 
 const INJECTION_PATTERNS = [
   /忽略.{0,10}(之前|前面|以上|上述|所有|系统).{0,10}(指令|提示|规则|设定|要求)/,
@@ -37,6 +37,66 @@ function getOpenAI(): OpenAI {
   return _openai;
 }
 
+function buildKycContext(kycData: Record<string, unknown>): string {
+  const kv = (label: string, val: unknown) => `- ${label}：${val || "未填写"}`;
+  const d = kycData || {};
+  const genderLabel = d.gender === "male" ? "男" : d.gender === "female" ? "女" : "未填写";
+  return `# 当前客户档案（每次会话自动同步最新数据，此信息优先于对话历史中的旧数据）
+
+## 客户画像与生活状态
+${kv("名称", d.clientName)}
+${kv("性别", genderLabel)}
+${kv("年龄", d.age)}
+${kv("所在城市", d.city)}
+${kv("身体情况", d.healthCondition)}
+${kv("婚姻状况", d.maritalStatus)}
+${kv("子女详情", d.childrenDetail)}
+${kv("父母情况", d.parentsDetail)}
+${kv("性格特征", d.personality)}
+${kv("兴趣爱好", d.hobbies)}
+${kv("补充信息", d.step1Notes)}
+
+## 工作与收支
+${kv("行业", d.clientIndustry)}
+${kv("公司", d.clientCompany)}
+${kv("职责&职位", d.clientPosition)}
+${kv("职业发展空间", d.careerDevelopment)}
+${kv("家庭经济支柱", d.breadwinner)}
+${kv("配偶行业", d.spouseIndustry)}
+${kv("配偶公司", d.spouseCompany)}
+${kv("配偶职责&职位", d.spousePosition)}
+${kv("家庭年收入（万元）", d.annualIncome)}
+${kv("月度固定支出（万元）", d.monthlyExpense)}
+${kv("未来大额支出计划", d.majorExpensePlan)}
+${kv("补充信息", d.step2Notes)}
+
+## 资产情况
+${kv("固定资产", d.fixedAssets)}
+${kv("流动资产合计（万元）", d.liquidAssets)}
+${kv("负债情况", d.liabilities)}
+${kv("投资金额（万元）", d.investmentAmount)}
+${kv("投资偏好", d.investmentStyle)}
+${kv("风险承受能力", d.riskTolerance)}
+${kv("支出压力感知", d.expensePressure)}
+${kv("补充信息", d.step3Notes)}
+
+## 已有保障
+${kv("保障类保险", d.protectionInsurance)}
+${kv("储蓄类保险", d.savingsInsurance)}
+${kv("对保险的态度", d.insuranceAttitude)}
+${kv("其他保险", d.otherInsurance)}
+${kv("补充信息", d.step4Notes)}
+
+## 面谈入口
+${kv("触发场景", d.triggerScenario)}
+${kv("客户原话或背景描述", d.clientOriginalWords)}
+${kv("历史互动摘要", d.pastInteraction)}
+
+## 当前卡点
+${kv("客户异议/卡点", d.clientObjection)}
+${kv("代理人回应", d.agentResponse)}`;
+}
+
 function generateClientName(kycData: Record<string, unknown> | null | undefined): string {
   if (!kycData) return "未命名客户";
   const name = (kycData.clientName as string)?.trim();
@@ -64,13 +124,13 @@ export async function POST(request: NextRequest) {
   }
 
   const balance = await getBalance(userId);
-  if (balance < COST_PER_CALL) {
+  if (balance < MIN_BALANCE) {
     return NextResponse.json({ error: "积分不足，请充值" }, { status: 402 });
   }
 
   try {
     const body = await request.json();
-    const { kycData, question, history, clientId } = body;
+    const { kycData, question, history, clientId, noStream } = body;
 
     const userInput = String(question || "");
     if (detectInjection(userInput)) {
@@ -79,20 +139,44 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const safeKycData = kycData || {};
-
+    const frontendKyc: Record<string, unknown> = (kycData as Record<string, unknown>) || {};
+    let safeKycData: Record<string, unknown> = {};
     const sql = getDb();
 
-    // 扣减积分
-    await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${userId}, ${-COST_PER_CALL}, 'consume', '对话消耗')`;
+    // --- 解析 clientId ---
+    let resolvedClientId: number | null = (clientId && Number(clientId) > 0) ? Number(clientId) : null;
 
-    // 处理客户关联
-    let resolvedClientId = clientId || null;
+    // 如果前端没传 clientId，尝试从最近一条对话中恢复
     if (!resolvedClientId) {
-      const r = await sql`INSERT INTO clients (user_id, name, kyc_snapshot) VALUES (${userId}, ${generateClientName(safeKycData)}, ${encrypt(JSON.stringify(safeKycData))}) RETURNING id`;
+      const recentConv = await sql`SELECT client_id FROM conversations WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 1`;
+      const recent = rows<{ client_id: number | null }>(recentConv)[0];
+      if (recent?.client_id) {
+        resolvedClientId = recent.client_id;
+      }
+    }
+
+    if (!resolvedClientId) {
+      // --- 完全新客户：用前端数据创建 ---
+      safeKycData = { ...frontendKyc };
+      const r = await sql`INSERT INTO clients (user_id, name, kyc_snapshot)
+        VALUES (${userId}, ${generateClientName(frontendKyc)}, ${encrypt(JSON.stringify(frontendKyc))})
+        RETURNING id`;
       resolvedClientId = Number(row<{ id: number }>(r).id);
     } else {
-      await sql`UPDATE clients SET kyc_snapshot = ${encrypt(JSON.stringify(safeKycData))}, updated_at = NOW() WHERE id = ${Number(resolvedClientId)} AND user_id = ${userId}`;
+      // --- 已有客户：DB 是唯一数据源，不从前端覆盖 ---
+      const clientRows = await sql`SELECT kyc_snapshot FROM clients WHERE id = ${resolvedClientId} AND user_id = ${userId}`;
+      const clientRow = rows<{ kyc_snapshot: string }>(clientRows)[0];
+      if (clientRow) {
+        try {
+          safeKycData = JSON.parse(decrypt(clientRow.kyc_snapshot));
+        } catch { /* 解密失败 */ }
+      }
+      // 只有首次提交时才把前端表单数据写回 DB（首次提交 frontendKyc 是权威的）
+      const isFirstSubmit = !history || (Array.isArray(history) && history.length === 0);
+      if (isFirstSubmit && Object.keys(frontendKyc).length > 0) {
+        safeKycData = { ...safeKycData, ...frontendKyc };
+        await sql`UPDATE clients SET kyc_snapshot = ${encrypt(JSON.stringify(safeKycData))}, updated_at = NOW() WHERE id = ${resolvedClientId} AND user_id = ${userId}`;
+      }
     }
 
     // 处理对话记录
@@ -122,8 +206,9 @@ export async function POST(request: NextRequest) {
 
     const messages: { role: "system" | "user" | "assistant"; content: string }[] = [];
 
-    const modules = selectModules(safeKycData as KYCFormData);
+    const modules = selectModules(safeKycData as unknown as KYCFormData);
     const moduleContents = modules.map((m) => m.content).join("\n");
+    const kycContext = buildKycContext(safeKycData);
 
     const systemPrompt = `${moduleContents}
 
@@ -144,6 +229,13 @@ export async function POST(request: NextRequest) {
 3. **充分的共情铺垫：** 充分利用 KYC 中的"职业状态感知"字段——如果客户标注了瓶颈期/面临裁员/职业焦虑等信息，这就是最佳共情切入点。用「积极包装的消极假设」技巧：先肯定成就→再表达理解→把不安正常化→温和探问。
 4. **话术三条底线检查：** 每条话术输出前检查：恐惧检查（客户会感到被威胁吗）、事实检查（话术中的事件在KYC中有依据吗）、姿态检查（代理人站在客户旁边还是上面）。
 5. **输出末尾：** 用 [SUGGESTED_QUESTIONS] 标签提供 2-3 个代理人可以继续追问你的建议问题。
+6. **KYC 自动更新：** 当代理人在追问中明确提供了客户的新信息或更正信息时，在 [SUGGESTED_QUESTIONS] 之前用 [KYC_UPDATE] 标签输出需要更新的字段（JSON 格式）。如果本轮没有新信息则不输出此标签。
+
+[KYC_UPDATE] 输出规则：
+- 只输出代理人本轮明确提到的新信息或对已有信息的更正，不要推测或编造
+- 字段键名仅限于以下列表：clientName, age, gender, city, maritalStatus, childrenDetail, personality, healthCondition, hobbies, parentsDetail, step1Notes, clientIndustry, clientCompany, clientPosition, careerDevelopment, breadwinner, spouseIndustry, spouseCompany, spousePosition, annualIncome, monthlyExpense, majorExpensePlan, step2Notes, fixedAssets, liquidAssets, investmentAmount, investmentStyle, riskTolerance, liabilities, expensePressure, step3Notes, protectionInsurance, savingsInsurance, otherInsurance, insuranceAttitude, step4Notes, triggerScenario, clientOriginalWords, clientObjection, agentResponse, pastInteraction
+- 如果代理人提到的新信息是对现有字段的补充而非完全替换，请用"补充：XXX"的格式，保留原有信息
+- JSON 必须是合法可解析的单行格式
 `;
 
     messages.push({ role: "system", content: systemPrompt });
@@ -151,29 +243,81 @@ export async function POST(request: NextRequest) {
     if (history && Array.isArray(history) && history.length > 0) {
       for (const msg of history) {
         if (msg.role === "user") {
+          if (detectInjection(String(msg.content || ""))) {
+            return NextResponse.json(
+              { error: "抱歉，无法处理此问题。如需帮助请联系作者。" },
+              { status: 400 }
+            );
+          }
           messages.push({ role: "user", content: msg.content });
         } else if (msg.role === "coach") {
           messages.push({ role: "assistant", content: msg.content });
         }
       }
+      // 追问时，注入 DB 最新客户档案作为用户消息，覆盖历史中的旧数据
+      messages.push({ role: "user", content: `[档案同步] 客户档案已更新为最新数据，如下：\n\n${kycContext}` });
     }
 
     messages.push({ role: "user", content: question });
 
+    // 小程序不支持 SSE，支持非流式模式
+    if (noStream) {
+      const completion = await getOpenAI().chat.completions.create({
+        model: "deepseek-v4-pro",
+        messages: messages,
+        stream: false,
+        temperature: 0.7,
+      });
+
+      const fullResponse = completion.choices[0]?.message?.content || "";
+      const usage = completion.usage;
+      const promptTokens = usage?.prompt_tokens || 0;
+      const completionTokens = usage?.completion_tokens || 0;
+
+      // 保存对话
+      const resultRows = await sql`SELECT messages FROM conversations WHERE id = ${conversationId}`;
+      const conversationRow = rows<{ messages: string }>(resultRows)[0];
+      const msgs: Message[] = JSON.parse(conversationRow.messages);
+      msgs.push({ role: "coach", content: fullResponse, timestamp: Date.now() });
+      const consumed = calcPoints(promptTokens, completionTokens);
+      const finalBalance = await getBalance(userId);
+      const deduct = Math.min(consumed, finalBalance);
+      if (deduct > 0) {
+        await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${userId}, ${-deduct}, 'consume', ${'对话消耗 ' + promptTokens + '/' + completionTokens + ' tokens'})`;
+      }
+      await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, total_input_tokens = total_input_tokens + ${promptTokens}, total_output_tokens = total_output_tokens + ${completionTokens}, updated_at = NOW() WHERE id = ${conversationId}`;
+
+      return NextResponse.json({
+        content: fullResponse,
+        conversationId,
+        promptTokens,
+        completionTokens,
+      });
+    }
+
+    // 流式模式（Web 端使用）
     const stream = await getOpenAI().chat.completions.create({
       model: "deepseek-v4-pro",
       messages: messages,
       stream: true,
+      stream_options: { include_usage: true },
       temperature: 0.7,
     });
 
     const encoder = new TextEncoder();
     let fullResponse = "";
+    let usage: { prompt_tokens: number; completion_tokens: number } | null = null;
 
     const streamable = new ReadableStream({
       async start(controller) {
         try {
           for await (const chunk of stream) {
+            if (chunk.usage) {
+              usage = {
+                prompt_tokens: chunk.usage.prompt_tokens || 0,
+                completion_tokens: chunk.usage.completion_tokens || 0,
+              };
+            }
             const content = chunk.choices[0]?.delta?.content || "";
             if (content) {
               fullResponse += content;
@@ -185,15 +329,23 @@ export async function POST(request: NextRequest) {
           const conversationRow = rows<{ messages: string }>(resultRows)[0];
           const msgs: Message[] = JSON.parse(conversationRow.messages);
           msgs.push({ role: "coach", content: fullResponse, timestamp: Date.now() });
-          await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, updated_at = NOW() WHERE id = ${conversationId}`;
+          if (usage) {
+            const consumed = calcPoints(usage.prompt_tokens, usage.completion_tokens);
+            const finalBalance = await getBalance(userId);
+            const deduct = Math.min(consumed, finalBalance);
+            if (deduct > 0) {
+              await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${userId}, ${-deduct}, 'consume', ${'对话消耗 ' + usage.prompt_tokens + '/' + usage.completion_tokens + ' tokens'})`;
+            }
+            const inputCost = (usage.prompt_tokens / 1_000_000) * 1.74;
+            const outputCost = (usage.completion_tokens / 1_000_000) * 3.48;
+            console.log(`[coach] conv=${conversationId} tokens: in=${usage.prompt_tokens} out=${usage.completion_tokens} | cost $${(inputCost + outputCost).toFixed(5)} | deduct=${deduct}pts`);
+            await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, total_input_tokens = total_input_tokens + ${usage.prompt_tokens}, total_output_tokens = total_output_tokens + ${usage.completion_tokens}, updated_at = NOW() WHERE id = ${conversationId}`;
+          } else {
+            await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, updated_at = NOW() WHERE id = ${conversationId}`;
+          }
         } catch (error) {
           console.error("[coach] stream error:", error);
-          try {
-            await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${userId}, ${COST_PER_CALL}, 'charge', '对话失败退还')`;
-          } catch {
-            // 退款失败不阻塞
-          }
-          controller.enqueue(encoder.encode("抱歉，AI 服务暂时不可用，积分已退还，请稍后重试。"));
+          controller.enqueue(encoder.encode("抱歉，AI 服务暂时不可用，未消耗积分，请稍后重试。"));
         } finally {
           controller.close();
         }

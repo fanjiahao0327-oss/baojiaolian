@@ -10,10 +10,12 @@ export interface KYCFormData {
   hobbies: string;
   parentsDetail: string;
   clientIndustry: string;
+  clientCompany: string;
   clientPosition: string;
   careerDevelopment: string;
   breadwinner: string;
   spouseIndustry: string;
+  spouseCompany: string;
   spousePosition: string;
   monthlyExpense: string;
   majorExpensePlan: string;

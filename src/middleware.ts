@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions, type SessionData } from "@/lib/auth";
+import { verifyToken } from "@/lib/token";
 
 // API 请求体大小限制：100KB
 const MAX_BODY_SIZE = 100 * 1024;
@@ -9,7 +10,7 @@ const MAX_BODY_SIZE = 100 * 1024;
 // CSP 策略
 const CSP_HEADER = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self'",
@@ -38,18 +39,35 @@ export async function middleware(request: NextRequest) {
 
   if (
     pathname.startsWith("/login") ||
-    pathname.startsWith("/api/auth")
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/api/admin")
   ) {
     const res = NextResponse.next();
     res.headers.set("Content-Security-Policy", CSP_HEADER);
     res.headers.set("X-Content-Type-Options", "nosniff");
     res.headers.set("X-Frame-Options", "DENY");
     res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
     return res;
   }
 
   const unsafeResponse = NextResponse.next();
   const session = await getIronSession<SessionData>(request, unsafeResponse, sessionOptions);
+
+  // Cookie session 不存在时，尝试从 Authorization header 恢复
+  if (!session.userId) {
+    const authHeader = request.headers.get("Authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.slice(7);
+      const userId = verifyToken(token);
+      if (userId) {
+        session.userId = userId;
+        await session.save();
+        unsafeResponse.headers.set("X-Token-Refreshed", "1");
+      }
+    }
+  }
 
   if (!session.userId) {
     if (pathname.startsWith("/api/")) {
@@ -62,6 +80,7 @@ export async function middleware(request: NextRequest) {
   unsafeResponse.headers.set("X-Content-Type-Options", "nosniff");
   unsafeResponse.headers.set("X-Frame-Options", "DENY");
   unsafeResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  unsafeResponse.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
 
   return unsafeResponse;
 }
