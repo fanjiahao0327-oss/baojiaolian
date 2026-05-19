@@ -132,8 +132,17 @@ Page({
       isLoggedIn: app.globalData.isLogin,
       needBindPhone: app.globalData.needBindPhone,
     });
-    if (app.globalData.isLogin) {
+    if (app.globalData.isLogin && app.globalData.loginReady) {
       this.loadClients();
+    } else if (!app.globalData.loginReady) {
+      // autoLogin 还未完成，等完成后再检查
+      var self = this;
+      var check = setInterval(function () {
+        if (getApp().globalData.loginReady) {
+          clearInterval(check);
+          self.checkLoginState();
+        }
+      }, 100);
     }
   },
 

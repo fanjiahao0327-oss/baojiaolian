@@ -6,6 +6,7 @@ App({
     isLogin: false,
     apiBase: "https://baojiaolian.com.cn",
     needBindPhone: false,
+    loginReady: false,
   },
 
   onLaunch() {
@@ -17,6 +18,7 @@ App({
       var token = auth.getToken();
       if (!token) {
         this.globalData.isLogin = false;
+        this.globalData.loginReady = true;
         return;
       }
       var res = await this.request("/api/auth/me");
@@ -30,6 +32,7 @@ App({
     } catch (e) {
       this.globalData.isLogin = false;
     }
+    this.globalData.loginReady = true;
   },
 
   async wechatLogin() {

@@ -28,6 +28,19 @@ Page({
   },
 
   async loadData() {
+    // 等待 autoLogin 完成，避免 401
+    var app = getApp();
+    if (!app.globalData.loginReady) {
+      var self = this;
+      await new Promise(function (resolve) {
+        var check = setInterval(function () {
+          if (getApp().globalData.loginReady) {
+            clearInterval(check);
+            resolve();
+          }
+        }, 100);
+      });
+    }
     try {
       const [userRes, pointsRes] = await Promise.allSettled([
         api.get("/api/auth/me"),
