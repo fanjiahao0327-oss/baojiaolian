@@ -36,6 +36,7 @@ export async function initDB() {
   `;
   await s`ALTER TABLE users ADD COLUMN IF NOT EXISTS wechat_openid TEXT UNIQUE`;
   await s`ALTER TABLE users ALTER COLUMN phone DROP NOT NULL`;
+  await s`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
 
   await s`
     CREATE TABLE IF NOT EXISTS clients (
