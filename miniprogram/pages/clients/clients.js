@@ -49,6 +49,8 @@ const NUMBER_FIELDS = new Set([
 Page({
   data: {
     clients: [],
+    allClients: [],
+    searchText: "",
     loading: true,
     selected: null,
     sections: [],
@@ -72,12 +74,42 @@ Page({
   loadClients() {
     this.setData({ loading: true });
     return api.get("/api/clients").then((list) => {
-      const formatted = (list || []).map((c) => ({
-        ...c,
-        updated_at: c.updated_at ? this.formatTime(c.updated_at) : "",
-      }));
-      this.setData({ clients: formatted, loading: false });
-    }).catch(() => this.setData({ loading: false }));
+      var raw = list || [];
+      raw.sort(function (a, b) {
+        var ta = a.updated_at || a.created_at || "";
+        var tb = b.updated_at || b.created_at || "";
+        return tb.localeCompare(ta);
+      });
+      var formatted = raw.map(function (c) {
+        var obj = {};
+        for (var k in c) obj[k] = c[k];
+        obj.updated_at = c.updated_at ? this.formatTime(c.updated_at) : "";
+        return obj;
+      }.bind(this));
+      this.setData({ allClients: formatted, loading: false });
+      this.filterClients();
+    }.bind(this)).catch(function () {
+      this.setData({ loading: false });
+    }.bind(this));
+  },
+
+  onSearchInput(e) {
+    var val = e.detail.value !== undefined ? e.detail.value : (e.currentTarget.dataset.val || "");
+    this.setData({ searchText: val });
+    this.filterClients();
+  },
+
+  filterClients() {
+    var keyword = this.data.searchText.trim().toLowerCase();
+    var list = this.data.allClients;
+    if (keyword) {
+      list = list.filter(function (c) {
+        return (c.name && c.name.toLowerCase().indexOf(keyword) >= 0) ||
+               (c.phone && c.phone.indexOf(keyword) >= 0) ||
+               (c.city && c.city.toLowerCase().indexOf(keyword) >= 0);
+      });
+    }
+    this.setData({ clients: list });
   },
 
   formatTime(iso) {
@@ -115,13 +147,12 @@ Page({
   },
 
   buildSections(kyc) {
-    return KYC_DISPLAY_SECTIONS.map((sec) => ({
-      title: sec.title,
-      items: sec.fields.map((key) => {
-        const val = this.formatVal(key, kyc[key]);
-        const truncated = val && val.length > 40;
+    return KYC_DISPLAY_SECTIONS.map(function (sec) {
+      var items = sec.fields.map(function (key) {
+        var val = this.formatVal(key, kyc[key]);
+        var truncated = val && val.length > 40;
         return {
-          key,
+          key: key,
           label: sec.labels[key] || key,
           value: val,
           _truncated: truncated,
@@ -129,8 +160,13 @@ Page({
           _isLong: LONG_TEXT_FIELDS.has(key),
           _isNumber: NUMBER_FIELDS.has(key),
         };
-      }).filter((it) => it.value),
-    }));
+      }.bind(this)).filter(function (it) { return it.value && it.value !== "未填写"; });
+      return {
+        title: sec.title,
+        items: items,
+        _isEmpty: items.length === 0,
+      };
+    }.bind(this));
   },
 
   formatVal(key, val) {
@@ -141,20 +177,29 @@ Page({
   },
 
   toggleValueExpand(e) {
-    const { key, idx } = e.currentTarget.dataset;
-    const sections = [...this.data.sections];
-    const items = sections[idx].items;
-    const item = items.find((it) => it.key === key);
-    if (item) item._expanded = !item._expanded;
-    this.setData({ sections });
+    var key = e.currentTarget.dataset.key;
+    var idx = e.currentTarget.dataset.idx;
+    var sections = JSON.parse(JSON.stringify(this.data.sections));
+    var items = sections[idx].items;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].key === key) {
+        items[i]._expanded = !items[i]._expanded;
+        break;
+      }
+    }
+    this.setData({ sections: sections });
   },
 
   enterEdit() {
-    const editData = {};
-    Object.entries(this.data.selected.kyc_snapshot || {}).forEach(([k, v]) => {
+    var editData = {};
+    var kyc = this.data.selected.kyc_snapshot || {};
+    var keys = Object.keys(kyc);
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var v = kyc[k];
       editData[k] = Array.isArray(v) ? v.join("、") : (v !== undefined && v !== null ? String(v) : "");
-    });
-    this.setData({ editing: true, editData, collapsedSections: {} });
+    }
+    this.setData({ editing: true, editData: editData, collapsedSections: {} });
   },
 
   cancelEdit() { this.setData({ editing: false }); },

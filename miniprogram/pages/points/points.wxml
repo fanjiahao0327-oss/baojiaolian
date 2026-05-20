@@ -66,18 +66,4 @@
     </view>
   </block>
 
-  <!-- 支付确认弹窗 -->
-  <view class="modal-overlay" wx:if="{{showPayModal}}" bindtap="closePayModal"></view>
-  <view class="modal" wx:if="{{showPayModal}}">
-    <view class="modal-title">确认充值</view>
-    <view class="modal-pkg">{{selectedPkg.points}} 积分</view>
-    <view class="modal-price">¥{{selectedPkg.price}}</view>
-    <view class="modal-desc">将使用微信支付进行付款</view>
-    <view class="modal-btns">
-      <button class="btn-outline" bindtap="closePayModal">取消</button>
-      <button class="btn-primary" bindtap="startPay" loading="{{paying}}" disabled="{{paying}}">
-        {{paying ? '支付中...' : '微信支付'}}
-      </button>
-    </view>
-  </view>
 </view>

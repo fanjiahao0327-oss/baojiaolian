@@ -5,7 +5,7 @@
   <view class="auth-overlay" wx:if="{{!isLoggedIn || needBindPhone}}">
     <view class="auth-card">
       <text class="auth-icon">🛡️</text>
-      <text class="auth-title">展业智教练</text>
+      <text class="auth-title">领展智教练</text>
       <text class="auth-desc" wx:if="{{!isLoggedIn}}">AI 驱动的保险销售教练</text>
       <text class="auth-desc" wx:else>为保障服务安全，请授权绑定手机号</text>
 
@@ -29,9 +29,15 @@
       <view class="tab-item {{tab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">信息填写</view>
       <view class="tab-item {{tab === 'coach' ? 'active' : ''}}" data-tab="coach" bindtap="switchTab">教练指导</view>
     </view>
-    <view class="client-picker-btn" bindtap="toggleClientPicker">
-      <text>{{selectedClientId ? '已选客户' : '选择客户'}}</text>
-      <text class="arrow">▾</text>
+    <view class="top-right">
+      <view class="balance-tag" wx:if="{{balance >= 0}}">
+        <text class="balance-dot"></text>
+        <text>{{balance}} 积分</text>
+      </view>
+      <view class="client-picker-btn" bindtap="toggleClientPicker">
+        <text>{{selectedClientId ? '已选客户' : '选择客户'}}</text>
+        <text class="arrow">▾</text>
+      </view>
     </view>
   </view>
 
@@ -197,9 +203,15 @@
   <view class="chat-area" wx:if="{{tab === 'coach'}}">
     <scroll-view scroll-y class="chat-scroll" scroll-into-view="{{scrollIntoView}}" enhanced show-scrollbar="{{false}}" bindscroll="onChatScroll" style="height: {{chatScrollHeight}}px;">
       <view class="empty-chat" wx:if="{{!hasSubmitted}}">
-        <text class="empty-icon">💬</text>
-        <text>请先填写客户信息并提交</text>
-        <text class="sub-text">教练将在此生成诊断和推演方案</text>
+        <text class="empty-icon">🧑‍🏫</text>
+        <text class="empty-title">AI 保险教练已就绪</text>
+        <text class="empty-desc">填写客户 KYC 信息后提交，教练将为你生成</text>
+        <view class="empty-features">
+          <text class="ef-item">✅ 卡点诊断</text>
+          <text class="ef-item">✅ 推演方向</text>
+          <text class="ef-item">✅ 建议话术</text>
+        </view>
+        <text class="empty-hint">切换到「信息填写」开始吧 →</text>
       </view>
 
       <view class="msg-list" wx:else>
@@ -209,6 +221,7 @@
             <view class="msg-bubble {{item.role === 'user' ? 'user-bubble' : 'coach-bubble'}}">
               <text class="msg-text" wx:if="{{item.role === 'user'}}" selectable>{{item.content}}</text>
               <rich-text wx:else nodes="{{item.content}}" class="msg-rich"></rich-text>
+              <view wx:if="{{item.role === 'coach'}}" class="copy-btn" data-idx="{{index}}" catchtap="copyCoachMsg">复制</view>
             </view>
           </view>
         </view>

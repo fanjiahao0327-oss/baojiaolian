@@ -1,5 +1,8 @@
 const api = require("../../utils/api");
 
+var DRAFT_KEY = "coach_form_draft";
+var DRAFT_DEBOUNCE = 3000;
+
 // 基于 GB/T 4754-2017 国民经济行业分类 20 大门类
 const INDUSTRY_OPTIONS = [
   "互联网/IT/通信", "金融/保险/证券", "教育/培训", "医疗/健康/医药",
@@ -156,13 +159,47 @@ Page({
     needBindPhone: false,
     logining: false,
     expandedSections: {},
+    balance: -1,
   },
 
   onLoad() {
     this._loadingTimer = null;
+    this._draftTimer = null;
     this._stageIndex = 0;
     this.checkLoginState();
     this.calcChatHeight();
+    this.restoreDraft();
+  },
+
+  restoreDraft() {
+    try {
+      var draft = wx.getStorageSync(DRAFT_KEY);
+      if (draft && draft.formData && draft.clientId === undefined) {
+        var restored = JSON.parse(JSON.stringify(EMPTY_FORM));
+        for (var k in draft.formData) {
+          if (draft.formData.hasOwnProperty(k)) restored[k] = draft.formData[k];
+        }
+        if (!Array.isArray(restored.incomeSources)) restored.incomeSources = [];
+        this.setData({ formData: restored });
+      }
+    } catch (e) { /* ignore */ }
+  },
+
+  saveDraft() {
+    var self = this;
+    if (self._draftTimer) clearTimeout(self._draftTimer);
+    self._draftTimer = setTimeout(function () {
+      try {
+        wx.setStorageSync(DRAFT_KEY, {
+          formData: self.data.formData,
+          clientId: self.data.selectedClientId || null,
+        });
+      } catch (e) { /* ignore */ }
+    }, DRAFT_DEBOUNCE);
+  },
+
+  clearDraft() {
+    try { wx.removeStorageSync(DRAFT_KEY); } catch (e) { /* ignore */ }
   },
 
   onShow() {
@@ -183,6 +220,7 @@ Page({
     });
     if (app.globalData.isLogin && app.globalData.loginReady) {
       this.loadClients();
+      this.loadBalance();
     } else if (!app.globalData.loginReady) {
       var self = this;
       var check = setInterval(function () {
@@ -266,6 +304,7 @@ Page({
       var data = {};
       data["formData." + key] = options[idx];
       this.setData(data);
+      this.saveDraft();
     }
   },
 
@@ -283,6 +322,7 @@ Page({
     var data = {};
     data["formData." + key] = next;
     this.setData(data);
+    this.saveDraft();
   },
 
   loadClientAndHistory(id) {
@@ -336,21 +376,57 @@ Page({
     }.bind(this)).catch(function () {});
   },
 
+  loadBalance() {
+    api.get("/api/points").then(function (res) {
+      this.setData({ balance: res.balance || 0 });
+    }.bind(this)).catch(function () {});
+  },
+
   toggleClientPicker() {
     this.setData({ showClientPicker: !this.data.showClientPicker });
   },
 
-  selectClient(e) {
-    var id = e.currentTarget.dataset.id;
+  _formHasData() {
+    var fd = this.data.formData;
+    for (var i = 0; i < SECTIONS.length; i++) {
+      var fields = SECTIONS[i].fields;
+      for (var j = 0; j < fields.length; j++) {
+        var v = fd[fields[j].key];
+        if (Array.isArray(v) ? v.length > 0 : (v && String(v).trim())) return true;
+      }
+    }
+    return false;
+  },
+
+  _confirmSwitchClient(id) {
+    var self = this;
     if (!id) {
-      this.setData({
+      self.setData({
         selectedClientId: null,
         formData: JSON.parse(JSON.stringify(EMPTY_FORM)),
         showClientPicker: false,
       });
+      self.clearDraft();
       return;
     }
-    this.loadClientAndHistory(id);
+    self.loadClientAndHistory(id);
+  },
+
+  selectClient(e) {
+    var self = this;
+    var id = e.currentTarget.dataset.id;
+    if (self._formHasData()) {
+      self.setData({ showClientPicker: false });
+      wx.showModal({
+        title: "切换客户",
+        content: "切换客户会丢失当前填写内容，是否继续？",
+        success: function (res) {
+          if (res.confirm) self._confirmSwitchClient(id);
+        },
+      });
+    } else {
+      self._confirmSwitchClient(id);
+    }
   },
 
   onFieldChange(e) {
@@ -359,6 +435,7 @@ Page({
     var data = {};
     data["formData." + key] = val;
     this.setData(data);
+    this.saveDraft();
   },
 
   nextStep() {
@@ -424,6 +501,7 @@ Page({
       noStream: true,
     }).then(function (res) {
       self._stopLoadingText();
+      self.clearDraft();
       var msg = { role: "user", content: self.buildUserContent(), timestamp: Date.now() };
       var reply = { role: "coach", content: res.content, timestamp: Date.now() + 1 };
       self.setData({
@@ -577,6 +655,19 @@ Page({
     var lastIdx = this.data.messages.length - 1;
     if (lastIdx >= 0) {
       this.setData({ scrollIntoView: "msg-" + lastIdx });
+    }
+  },
+
+  copyCoachMsg(e) {
+    var idx = e.currentTarget.dataset.idx;
+    var msg = this.data.messages[idx];
+    if (msg && msg.content) {
+      wx.setClipboardData({
+        data: msg.content.replace(/<[^>]+>/g, ""),
+        success: function () {
+          wx.showToast({ title: "已复制", icon: "success", duration: 1500 });
+        },
+      });
     }
   },
 

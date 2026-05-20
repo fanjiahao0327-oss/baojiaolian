@@ -1,5 +1,6 @@
 var app = getApp();
 var auth = require("./auth");
+var pendingLogin = null;
 
 function request(url, options) {
   var opts = options || {};
@@ -23,7 +24,12 @@ function request(url, options) {
       },
       success: function (res) {
         if (res.statusCode === 401) {
-          app.wechatLogin().then(function () {
+          if (!pendingLogin) {
+            pendingLogin = app.wechatLogin().finally(function () {
+              pendingLogin = null;
+            });
+          }
+          pendingLogin.then(function () {
             wx.request({
               url: app.globalData.apiBase + url,
               method: method,

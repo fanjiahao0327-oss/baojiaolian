@@ -120,8 +120,9 @@ Page({
   },
 
   selectPackage(e) {
-    const idx = e.currentTarget.dataset.idx;
-    this.setData({ selectedIdx: Number(idx), selectedPkg: PACKAGES[idx], showPayModal: true });
+    var idx = e.currentTarget.dataset.idx;
+    this.setData({ selectedIdx: Number(idx), selectedPkg: PACKAGES[idx] });
+    this.startPay();
   },
 
   // 微信支付
@@ -148,10 +149,10 @@ Page({
       });
 
       wx.showToast({ title: "支付成功", icon: "success" });
-      this.setData({ showPayModal: false, paying: false, selectedIdx: -1 });
+      this.setData({ paying: false, selectedIdx: -1 });
       this.loadData();
     } catch (e) {
-      this.setData({ paying: false });
+    this.setData({ paying: false });
       if (e.errMsg && e.errMsg.includes("cancel")) {
         // 用户取消支付，静默
       } else {

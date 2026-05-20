@@ -18,6 +18,11 @@
 
     <!-- 客户列表 -->
     <view wx:else>
+      <view class="search-bar">
+        <text class="search-icon">🔍</text>
+        <input class="search-input" value="{{searchText}}" bindinput="onSearchInput" placeholder="搜索客户名称、手机号、城市..." />
+        <text wx:if="{{searchText}}" class="search-clear" bindtap="onSearchInput" data-val="">✕</text>
+      </view>
       <view class="client-card" wx:for="{{clients}}" wx:key="id" data-id="{{item.id}}" bindtap="viewClient">
         <view class="c-left">
           <text class="c-name">{{item.name}}</text>
@@ -52,7 +57,7 @@
     </view>
     <view class="d-name">{{selected.name}}</view>
 
-    <view class="kyc-section" wx:for="{{sections}}" wx:key="title" wx:for-index="idx">
+    <view class="kyc-section" wx:for="{{sections}}" wx:key="title" wx:for-index="idx" wx:if="{{!item._isEmpty}}">
       <view class="s-header" data-idx="{{idx}}" bindtap="toggleSection">
         <text class="s-arrow">{{collapsedSections[idx] ? '▶' : '▼'}}</text>
         <text class="s-title">{{item.title}}</text>
