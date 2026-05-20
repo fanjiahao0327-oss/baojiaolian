@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       user: { userId: user.id, phone: user.phone },
-      token: createToken(user.id),
+      token: await createToken(user.id),
     });
   } catch (e) {
     console.error("[wechat-login] 异常:", e);

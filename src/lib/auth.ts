@@ -35,7 +35,7 @@ export async function getSession() {
       const authHeader = headersList.get("Authorization");
       if (authHeader?.startsWith("Bearer ")) {
         const token = authHeader.slice(7);
-        const userId = verifyToken(token);
+        const userId = await verifyToken(token);
         if (userId) {
           session.userId = userId;
         }
