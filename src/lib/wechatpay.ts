@@ -53,7 +53,7 @@ async function request(method: "GET" | "POST", urlPath: string, body?: object): 
 
   const data = await resp.json();
   if (!resp.ok) {
-    console.error("[wechatpay] API error:", resp.status, data);
+    console.error("[wechatpay] API error:", resp.status, JSON.stringify(data));
     throw new Error(`微信支付 API 错误: ${(data as { message?: string }).message || resp.status}`);
   }
   return data;
@@ -78,10 +78,6 @@ export async function createJSAPIPrepay(params: {
     },
     payer: {
       openid: params.openid,
-      sp_appid: WECHAT_APPID,
-    },
-    settle_info: {
-      profit_sharing: false,
     },
   })) as { prepay_id: string };
 
