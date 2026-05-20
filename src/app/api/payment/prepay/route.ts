@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { getDb, rows, row } from "@/lib/db";
+import { getDb, rows } from "@/lib/db";
 import { getPackageByPoints } from "@/lib/pricing";
 import { createJSAPIPrepay, generatePayParams } from "@/lib/wechatpay";
 import { rateLimit } from "@/lib/rate-limit";
@@ -19,6 +19,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "请先登录" }, { status: 401 });
   }
   const userId = session.userId;
+
+  // 微信支付未配置时返回明确提示
+  if (!process.env.WECHAT_MCHID) {
+    return NextResponse.json({
+      payParams: null,
+      message: "微信支付暂未开通，请通过网页端 baojiaolian.com.cn 进行充值。",
+    });
+  }
 
   const rl = rateLimit(`payment:${userId}`, "payment");
   if (!rl.allowed) {

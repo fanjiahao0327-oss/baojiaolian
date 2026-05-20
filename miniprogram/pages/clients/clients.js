@@ -198,7 +198,13 @@ Page({
     for (var i = 0; i < keys.length; i++) {
       var k = keys[i];
       var v = kyc[k];
-      editData[k] = Array.isArray(v) ? v.join("、") : (v !== undefined && v !== null ? String(v) : "");
+      if (Array.isArray(v)) {
+        editData[k] = v;
+      } else if (v !== undefined && v !== null) {
+        editData[k] = String(v);
+      } else {
+        editData[k] = "";
+      }
     }
     this.setData({ editing: true, editData: editData, collapsedSections: {} });
   },
@@ -215,7 +221,14 @@ Page({
     try {
       const kycSnapshot = { ...this.data.selected.kyc_snapshot };
       Object.keys(kycSnapshot).forEach((k) => {
-        if (this.data.editData[k] !== undefined) kycSnapshot[k] = this.data.editData[k];
+        if (this.data.editData[k] !== undefined) {
+          var newVal = this.data.editData[k];
+          // 原值为数组时，将编辑后的字符串还原为数组
+          if (Array.isArray(kycSnapshot[k]) && typeof newVal === "string") {
+            newVal = newVal.split(/[,，、]/).map(function (s) { return s.trim(); }).filter(Boolean);
+          }
+          kycSnapshot[k] = newVal;
+        }
       });
       Object.entries(this.data.editData).forEach(([k, v]) => {
         if (!(k in kycSnapshot) && v) kycSnapshot[k] = v;

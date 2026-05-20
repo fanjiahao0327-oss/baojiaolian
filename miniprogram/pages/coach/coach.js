@@ -130,13 +130,6 @@ var LOADING_STAGES = [
   "正在整理输出格式…",
 ];
 
-// 获取 picker 当前选中 index
-function getPickerIndex(options, value) {
-  if (!options || !value) return 0;
-  var idx = options.indexOf(value);
-  return idx >= 0 ? idx : 0;
-}
-
 Page({
   data: {
     tab: "form",
@@ -243,6 +236,7 @@ Page({
         logining: false,
       });
       self.loadClients();
+      self.loadBalance();
     }).catch(function () {
       self.setData({ logining: false });
       wx.showToast({ title: "登录失败，请重试", icon: "none" });
@@ -360,6 +354,13 @@ Page({
           conversationId: conv.id,
           tab: "coach",
         });
+      } else {
+        self.setData({
+          messages: [],
+          hasSubmitted: false,
+          conversationId: null,
+          tab: "form",
+        });
       }
     }).catch(function (e) {
       console.error("[coach] loadClientAndHistory:", e);
@@ -404,7 +405,11 @@ Page({
       self.setData({
         selectedClientId: null,
         formData: JSON.parse(JSON.stringify(EMPTY_FORM)),
+        messages: [],
+        hasSubmitted: false,
+        conversationId: null,
         showClientPicker: false,
+        tab: "form",
       });
       self.clearDraft();
       return;

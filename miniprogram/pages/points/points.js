@@ -14,13 +14,11 @@ Page({
     balance: 0,
     packages: PACKAGES,
     selectedIdx: -1,
-    showPayModal: false,
-    selectedPkg: null,
-    paying: false,
     loading: true,
     transactions: [],
     avatarText: "👤",
     displayPhone: "未绑定手机号",
+    paying: false,
   },
 
   onShow() {
@@ -121,38 +119,49 @@ Page({
 
   selectPackage(e) {
     var idx = e.currentTarget.dataset.idx;
-    this.setData({ selectedIdx: Number(idx), selectedPkg: PACKAGES[idx] });
-    this.startPay();
+    var pkg = PACKAGES[idx];
+    this.setData({ selectedIdx: Number(idx) });
+    this.startPay(pkg);
   },
 
-  // 微信支付
-  async startPay() {
-    const { selectedPkg } = this.data;
-    if (!selectedPkg) {
+  // 微信 JSAPI 支付
+  async startPay(pkg) {
+    if (!pkg) {
       wx.showToast({ title: "请选择套餐", icon: "none" });
       return;
     }
-    this.setData({ paying: true });
+    var self = this;
+    self.setData({ paying: true });
 
     try {
-      const res = await api.post("/api/payment/prepay", {
-        points: selectedPkg.points,
+      var res = await api.post("/api/payment/prepay", {
+        points: pkg.points,
       });
 
-      const { payParams } = res;
+      if (!res.payParams) {
+        // 微信支付未配置，走手动支付兜底
+        self.setData({ paying: false });
+        wx.showModal({
+          title: "支付提示",
+          content: res.message || "微信支付暂未开通，请通过网页端 baojiaolian.com.cn 进行充值，或联系作者。",
+          showCancel: false,
+        });
+        return;
+      }
+
       await wx.requestPayment({
-        timeStamp: payParams.timeStamp,
-        nonceStr: payParams.nonceStr,
-        package: payParams.package,
-        signType: payParams.signType,
-        paySign: payParams.paySign,
+        timeStamp: res.payParams.timeStamp,
+        nonceStr: res.payParams.nonceStr,
+        package: res.payParams.package,
+        signType: res.payParams.signType,
+        paySign: res.payParams.paySign,
       });
 
       wx.showToast({ title: "支付成功", icon: "success" });
-      this.setData({ paying: false, selectedIdx: -1 });
-      this.loadData();
+      self.setData({ paying: false, selectedIdx: -1 });
+      self.loadData();
     } catch (e) {
-    this.setData({ paying: false });
+      self.setData({ paying: false });
       if (e.errMsg && e.errMsg.includes("cancel")) {
         // 用户取消支付，静默
       } else {
@@ -160,9 +169,5 @@ Page({
         wx.showToast({ title: "支付失败，请重试", icon: "none" });
       }
     }
-  },
-
-  closePayModal() {
-    this.setData({ showPayModal: false });
   },
 });

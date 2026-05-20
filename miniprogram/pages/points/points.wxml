@@ -36,15 +36,19 @@
 
     <!-- 套餐列表 -->
     <view class="section-title">充值套餐</view>
-    <view class="pkg-card {{selectedIdx === index ? 'selected' : ''}}" wx:for="{{packages}}" wx:key="points" data-idx="{{index}}" bindtap="selectPackage">
+    <view class="pkg-card {{selectedIdx === index ? 'selected' : ''}} {{paying && selectedIdx === index ? 'paying' : ''}}" wx:for="{{packages}}" wx:key="points" data-idx="{{index}}" bindtap="selectPackage">
       <view class="pkg-info">
         <text class="pkg-points">{{item.points}} 积分</text>
         <text class="pkg-price">¥{{item.price}}</text>
         <text class="pkg-per">{{item.perPoint}}</text>
       </view>
       <view class="pkg-check {{selectedIdx === index ? 'checked' : ''}}">
-        <text wx:if="{{selectedIdx === index}}">✓</text>
+        <text wx:if="{{selectedIdx === index && !paying}}">✓</text>
+        <text wx:elif="{{selectedIdx === index && paying}}" class="paying-dot"></text>
       </view>
+    </view>
+    <view class="pay-hint" wx:if="{{paying}}">
+      <text>正在拉起微信支付...</text>
     </view>
 
     <!-- 积分明细 -->
