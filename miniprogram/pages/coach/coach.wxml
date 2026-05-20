@@ -30,7 +30,7 @@
       <view class="tab-item {{tab === 'coach' ? 'active' : ''}}" data-tab="coach" bindtap="switchTab">教练指导</view>
     </view>
     <view class="top-right">
-      <view class="balance-tag" wx:if="{{balance >= 0}}">
+      <view class="balance-tag" wx:if="{{balance >= 0}}" bindtap="goToPoints">
         <text class="balance-dot"></text>
         <text>{{balance}} 积分</text>
       </view>

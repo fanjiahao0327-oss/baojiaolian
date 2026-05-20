@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getDb, rows, row } from "@/lib/db";
 import { createToken } from "@/lib/token";
+import { INITIAL_POINTS } from "@/lib/points";
 
 const WECHAT_APPID = process.env.WECHAT_APPID || "wx4d18f340c11adbf5";
 const WECHAT_SECRET = process.env.WECHAT_SECRET;
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
     } else {
       const result = await sql`INSERT INTO users (wechat_openid, last_login_at) VALUES (${openid}, NOW()) RETURNING id, phone`;
       user = row<{ id: number; phone: string | null }>(result);
+      await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${user.id}, ${INITIAL_POINTS}, 'charge', '新用户赠送积分')`;
     }
 
     // 创建 session（保存 session_key 用于解密手机号）

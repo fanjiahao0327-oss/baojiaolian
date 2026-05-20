@@ -671,6 +671,10 @@ Page({
     }
   },
 
+  goToPoints() {
+    wx.switchTab({ url: "/pages/points/points" });
+  },
+
   switchTab(e) {
     var tab = e.currentTarget.dataset.tab;
     this.setData({ tab: tab });

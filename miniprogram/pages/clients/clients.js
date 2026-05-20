@@ -72,8 +72,9 @@ Page({
   },
 
   loadClients() {
-    this.setData({ loading: true });
-    return api.get("/api/clients").then((list) => {
+    var self = this;
+    self.setData({ loading: true });
+    return api.get("/api/clients").then(function (list) {
       var raw = list || [];
       raw.sort(function (a, b) {
         var ta = a.updated_at || a.created_at || "";
@@ -83,14 +84,14 @@ Page({
       var formatted = raw.map(function (c) {
         var obj = {};
         for (var k in c) obj[k] = c[k];
-        obj.updated_at = c.updated_at ? this.formatTime(c.updated_at) : "";
+        obj.updated_at = c.updated_at ? self.formatTime(c.updated_at) : "";
         return obj;
-      }.bind(this));
-      this.setData({ allClients: formatted, loading: false });
-      this.filterClients();
-    }.bind(this)).catch(function () {
-      this.setData({ loading: false });
-    }.bind(this));
+      });
+      self.setData({ allClients: formatted, loading: false });
+      self.filterClients();
+    }).catch(function () {
+      self.setData({ loading: false });
+    });
   },
 
   onSearchInput(e) {
