@@ -82,7 +82,8 @@ export async function POST(request: NextRequest) {
       balance,
     });
   } catch (e) {
-    console.error("[prepay] error:", e);
-    return NextResponse.json({ error: "创建支付订单失败" }, { status: 500 });
+    const err = e as Error & { code?: string; status?: number };
+    console.error("[prepay] error:", err.name, err.message, "code:", err.code, "status:", err.status);
+    return NextResponse.json({ error: "创建支付订单失败: " + (err.message || "") }, { status: 500 });
   }
 }
