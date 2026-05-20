@@ -16,6 +16,7 @@ function request(url, options) {
       url: app.globalData.apiBase + url,
       method: method,
       data: data,
+      timeout: 120000,
       header: {
         "Content-Type": "application/json",
         "Authorization": "Bearer " + auth.getToken(),
@@ -27,7 +28,7 @@ function request(url, options) {
               url: app.globalData.apiBase + url,
               method: method,
               data: data,
-              timeout: 30000,
+              timeout: 120000,
               header: {
                 "Content-Type": "application/json",
                 "Authorization": "Bearer " + auth.getToken(),

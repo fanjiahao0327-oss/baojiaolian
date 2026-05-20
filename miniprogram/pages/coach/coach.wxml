@@ -47,18 +47,25 @@
   <view class="form-area" wx:if="{{tab === 'form'}}">
     <!-- 步骤进度条 -->
     <view class="step-progress">
-      <view class="step-dot {{index <= currentStep ? 'done' : ''}} {{index === currentStep ? 'current' : ''}}" wx:for="{{sections}}" wx:key="title" wx:for-index="index">
-        <text class="step-num">{{index < currentStep ? '✓' : index + 1}}</text>
-      </view>
-      <view class="step-line {{index < currentStep ? 'done' : ''}}" wx:for="{{sections.length - 1}}" wx:key="*this" wx:for-index="index"></view>
+      <block wx:for="{{sortedSections}}" wx:key="title" wx:for-index="index">
+        <view class="step-dot {{index <= currentStep ? 'done' : ''}} {{index === currentStep ? 'current' : ''}}">
+          <text class="step-num">{{index < currentStep ? '✓' : index + 1}}</text>
+        </view>
+        <view class="step-line {{index < currentStep ? 'done' : ''}}" wx:if="{{index < sortedSections.length - 1}}"></view>
+      </block>
     </view>
-    <view class="step-label">{{sections[currentStep].title}}（{{currentStep + 1}}/{{sections.length}}）</view>
+    <view class="step-label">{{sortedSections[currentStep].title}}（{{currentStep + 1}}/{{sortedSections.length}}）</view>
 
     <!-- 当前步骤字段 -->
     <view class="section">
       <view class="section-body">
-        <view class="field" wx:for="{{sections[currentStep].fields}}" wx:key="key" wx:for-item="f">
-          <view class="label">{{f.label}}<text wx:if="{{f.required}}" class="required">*</text></view>
+
+        <!-- 推荐填写字段 -->
+        <view class="field" wx:for="{{sortedSections[currentStep].recommended}}" wx:key="key" wx:for-item="f">
+          <view class="label">
+            {{f.label}}<text wx:if="{{f.required}}" class="required">*</text>
+            <text class="tag recommended-tag">建议填写</text>
+          </view>
 
           <!-- radio -->
           <view class="radio-group" wx:if="{{f.type === 'radio'}}">
@@ -75,6 +82,39 @@
             </view>
           </view>
 
+          <!-- select / picker -->
+          <picker wx:elif="{{f.type === 'select'}}" mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
+            <view class="picker-display">
+              <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
+              <text class="picker-arrow">▼</text>
+            </view>
+          </picker>
+
+          <!-- checkbox-group -->
+          <view class="checkbox-list" wx:elif="{{f.type === 'checkbox-group'}}">
+            <view
+              class="checkbox-item {{formData[f.key].indexOf(opt) >= 0 ? 'checked' : ''}}"
+              wx:for="{{f.options}}"
+              wx:key="*this"
+              wx:for-item="opt"
+              data-key="{{f.key}}"
+              data-val="{{opt}}"
+              bindtap="onCheckboxToggle"
+            >
+              <text class="checkbox-icon">{{formData[f.key].indexOf(opt) >= 0 ? '☑' : '☐'}}</text>
+              <text>{{opt}}</text>
+            </view>
+            <!-- "其他"输入框 -->
+            <input
+              wx:if="{{f.key === 'incomeSources' && formData.incomeSources.indexOf('其他') >= 0}}"
+              class="input checkbox-other-input"
+              value="{{formData.incomeSourcesOther}}"
+              data-key="incomeSourcesOther"
+              bindinput="onFieldChange"
+              placeholder="请说明其他收入来源"
+            />
+          </view>
+
           <!-- textarea -->
           <textarea wx:elif="{{f.type === 'textarea'}}" class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
 
@@ -84,6 +124,61 @@
           <!-- text default -->
           <input wx:else class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
         </view>
+
+        <!-- 可选字段区域 -->
+        <block wx:if="{{sortedSections[currentStep].hasOptional}}">
+          <!-- 前3个步骤（index 0-2）可选字段可折叠 -->
+          <block wx:if="{{currentStep <= 2}}">
+            <button class="expand-toggle" data-step="{{currentStep}}" bindtap="toggleExpand">
+              <text>{{expandedSections[currentStep] ? '收起 ▲' : '展开更多细节 ▼'}}</text>
+            </button>
+            <view class="optional-fields {{expandedSections[currentStep] ? 'expanded' : 'collapsed'}}">
+              <view class="field" wx:for="{{sortedSections[currentStep].optional}}" wx:key="key" wx:for-item="f">
+                <view class="label">
+                  {{f.label}}
+                  <text class="tag optional-tag">可选</text>
+                </view>
+
+                <picker wx:if="{{f.type === 'select'}}" mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
+                  <view class="picker-display">
+                    <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
+                    <text class="picker-arrow">▼</text>
+                  </view>
+                </picker>
+
+                <textarea wx:elif="{{f.type === 'textarea'}}" class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
+
+                <input wx:elif="{{f.type === 'number'}}" class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+
+                <input wx:else class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+              </view>
+            </view>
+          </block>
+
+          <!-- 后3个步骤（index 3-5）直接展开可选字段 -->
+          <block wx:else>
+            <view class="optional-divider"></view>
+            <view class="field" wx:for="{{sortedSections[currentStep].optional}}" wx:key="key" wx:for-item="f">
+              <view class="label">
+                {{f.label}}
+                <text class="tag optional-tag">可选</text>
+              </view>
+
+              <picker wx:if="{{f.type === 'select'}}" mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
+                <view class="picker-display">
+                  <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
+                  <text class="picker-arrow">▼</text>
+                </view>
+              </picker>
+
+              <textarea wx:elif="{{f.type === 'textarea'}}" class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
+
+              <input wx:elif="{{f.type === 'number'}}" class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+
+              <input wx:else class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+            </view>
+          </block>
+        </block>
       </view>
     </view>
 
@@ -91,7 +186,7 @@
     <view class="step-nav">
       <button class="btn-outline" wx:if="{{currentStep > 0}}" bindtap="prevStep">← 上一步</button>
       <view wx:else></view>
-      <button class="btn-primary" wx:if="{{currentStep < sections.length - 1}}" bindtap="nextStep">下一步 →</button>
+      <button class="btn-primary" wx:if="{{currentStep < sortedSections.length - 1}}" bindtap="nextStep">下一步 →</button>
       <button class="btn-primary submit-btn" wx:else bindtap="submitForm" disabled="{{isLoading}}" loading="{{isLoading}}">
         {{isLoading ? '教练诊断中...' : '提交给保险教练诊断'}}
       </button>

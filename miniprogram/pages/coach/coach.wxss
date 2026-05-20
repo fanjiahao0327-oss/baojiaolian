@@ -31,6 +31,7 @@
   line-height: 1;
 }
 .auth-btn[disabled] { opacity: 0.6; }
+
 /* 页面原生滚动 */
 .page {
   min-height: 100vh;
@@ -130,6 +131,26 @@
 .label { font-size: 26rpx; color: #555; margin-bottom: 10rpx; display: block; }
 .required { color: #ef4444; }
 
+/* 优先级标签 */
+.tag {
+  display: inline-block;
+  margin-left: 8rpx;
+  padding: 2rpx 12rpx;
+  font-size: 20rpx;
+  border-radius: 20rpx;
+  font-weight: 400;
+  vertical-align: middle;
+}
+.recommended-tag {
+  background: #e8f0fe;
+  color: #1a56db;
+}
+.optional-tag {
+  background: #f0f0f0;
+  color: #aaa;
+}
+
+/* 基础输入 */
 .input {
   width: 100%; padding: 18rpx 20rpx;
   border: 1px solid #ddd; border-radius: 10rpx;
@@ -151,6 +172,91 @@
 }
 .radio-item.checked {
   border-color: #1a56db; background: #e8f0fe; color: #1a56db;
+}
+
+/* === Picker 下拉选择 === */
+.picker-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 18rpx 20rpx;
+  border: 1px solid #ddd;
+  border-radius: 10rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+  background: #fafafa;
+}
+.picker-placeholder {
+  color: #999;
+}
+.picker-arrow {
+  font-size: 20rpx;
+  color: #999;
+}
+
+/* === Checkbox 多选组 === */
+.checkbox-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 14rpx 24rpx;
+  border: 1px solid #ddd;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: #666;
+}
+.checkbox-item.checked {
+  border-color: #1a56db;
+  background: #e8f0fe;
+  color: #1a56db;
+}
+.checkbox-icon {
+  font-size: 28rpx;
+}
+.checkbox-other-input {
+  margin-top: 12rpx;
+}
+
+/* === 折叠/展开 === */
+.expand-toggle {
+  width: 100%;
+  padding: 16rpx 0;
+  font-size: 24rpx;
+  color: #aaa;
+  background: transparent;
+  border: none;
+  text-align: center;
+  line-height: 1;
+}
+.expand-toggle::after {
+  border: none;
+}
+
+.optional-fields {
+  overflow: hidden;
+  transition: max-height 0.3s, opacity 0.3s;
+}
+.optional-fields.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+.optional-fields.expanded {
+  max-height: 4000rpx;
+  opacity: 1;
+}
+.optional-fields .field {
+  margin-top: 24rpx;
+}
+
+.optional-divider {
+  border-top: 1px solid #eee;
+  margin: 20rpx 0;
 }
 
 /* 步骤导航按钮 */

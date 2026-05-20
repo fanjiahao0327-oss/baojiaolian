@@ -62,7 +62,7 @@ App({
         url: this.globalData.apiBase + url,
         method: method,
         data: data,
-        timeout: 30000,
+        timeout: 60000,
         header: {
           "Content-Type": "application/json",
           "Authorization": "Bearer " + auth.getToken(),
