@@ -26,6 +26,19 @@ function detectInjection(input: string): boolean {
   return INJECTION_PATTERNS.some((p) => p.test(input));
 }
 
+function detectKycInjection(kycData: Record<string, unknown>): boolean {
+  for (const key of Object.keys(kycData)) {
+    const val = kycData[key];
+    if (typeof val === "string" && detectInjection(val)) return true;
+    if (Array.isArray(val)) {
+      for (const item of val) {
+        if (typeof item === "string" && detectInjection(item)) return true;
+      }
+    }
+  }
+  return false;
+}
+
 let _openai: OpenAI | null = null;
 function getOpenAI(): OpenAI {
   if (!_openai) {
@@ -133,13 +146,14 @@ export async function POST(request: NextRequest) {
     const { kycData, question, history, clientId, noStream } = body;
 
     const userInput = String(question || "");
-    if (detectInjection(userInput)) {
+    const frontendKyc: Record<string, unknown> = (kycData as Record<string, unknown>) || {};
+
+    if (detectInjection(userInput) || detectKycInjection(frontendKyc)) {
       return NextResponse.json(
         { error: "抱歉，无法处理此问题。如需帮助请联系作者。" },
         { status: 400 }
       );
     }
-    const frontendKyc: Record<string, unknown> = (kycData as Record<string, unknown>) || {};
     let safeKycData: Record<string, unknown> = {};
     const sql = getDb();
 

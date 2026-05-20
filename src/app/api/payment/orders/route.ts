@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getDb, rows } from "@/lib/db";
 import { getBalance } from "@/lib/points";
-import { getPackageByPoints, PRICE_PACKAGES } from "@/lib/pricing";
+import { getPackageByPoints } from "@/lib/pricing";
 import { rateLimit } from "@/lib/rate-limit";
 
 function genOrderNo(): string {
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const uid = crypto.randomUUID().slice(0, 8).toUpperCase();
-  return `PO-${date}-${uid}`;
+  var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  var result = "";
+  for (var i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  var date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  return "PO-" + date + "-" + result;
 }
 
 export async function GET() {
