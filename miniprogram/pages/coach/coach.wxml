@@ -226,6 +226,16 @@
           </view>
         </view>
 
+        <!-- 建议追问 -->
+        <view class="suggested-questions" wx:if="{{suggestedQuestions.length > 0 && !isLoading}}">
+          <text class="sq-title">建议追问</text>
+          <view class="sq-list">
+            <view class="sq-chip" wx:for="{{suggestedQuestions}}" wx:key="*this" data-q="{{item}}" bindtap="tapSuggestedQuestion">
+              <text>{{item}}</text>
+            </view>
+          </view>
+        </view>
+
         <!-- 加载中 -->
         <view class="msg-item" wx:if="{{isLoading}}">
           <view class="msg-user left">

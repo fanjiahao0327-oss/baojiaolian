@@ -153,6 +153,7 @@ Page({
     logining: false,
     expandedSections: {},
     balance: -1,
+    suggestedQuestions: [],
   },
 
   onLoad() {
@@ -515,6 +516,7 @@ Page({
         messages: [msg, reply],
         conversationId: res.conversationId,
         isLoading: false,
+        suggestedQuestions: res.suggestedQuestions || [],
       });
       setTimeout(function () { self.scrollChatToBottom(); }, 300);
     }).catch(function () {
@@ -616,6 +618,7 @@ Page({
         messages: self.data.messages.concat([reply]),
         isLoading: false,
         conversationId: res.conversationId,
+        suggestedQuestions: res.suggestedQuestions || [],
       });
       setTimeout(function () { self.scrollChatToBottom(); }, 300);
     }).catch(function () {
@@ -674,6 +677,13 @@ Page({
         },
       });
     }
+  },
+
+  tapSuggestedQuestion(e) {
+    var q = e.currentTarget.dataset.q;
+    if (!q || this.data.isLoading) return;
+    this.setData({ followUp: q });
+    this.sendFollowUp();
   },
 
   goToPoints() {

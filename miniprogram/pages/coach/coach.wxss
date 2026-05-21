@@ -103,9 +103,9 @@
 .picker-title { font-size: 30rpx; font-weight: 600; margin-bottom: 20rpx; }
 .picker-option { padding: 20rpx 0; border-bottom: 1px solid #f0f0f0; font-size: 28rpx; }
 
-/* === 步骤式表单 === */
+/* === 表单区域 === */
 .form-area {
-  padding: 24rpx 20rpx;
+  padding: 24rpx 16rpx;
   padding-bottom: 60rpx;
 }
 
@@ -141,7 +141,7 @@
 .section {
   background: #fff; border-radius: 16rpx; overflow: hidden;
 }
-.section-body { padding: 24rpx; }
+.section-body { padding: 20rpx 16rpx; }
 .field { margin-bottom: 24rpx; }
 .field:last-child { margin-bottom: 0; }
 .label { font-size: 26rpx; color: #555; margin-bottom: 10rpx; display: block; }
@@ -168,13 +168,13 @@
 
 /* 基础输入 */
 .input {
-  width: 100%; padding: 18rpx 20rpx;
+  width: 100%; padding: 16rpx 16rpx;
   border: 1px solid #ddd; border-radius: 10rpx;
   font-size: 28rpx; box-sizing: border-box;
   background: #fafafa;
 }
 .textarea {
-  width: 100%; padding: 18rpx 20rpx;
+  width: 100%; padding: 16rpx 16rpx;
   border: 1px solid #ddd; border-radius: 10rpx;
   font-size: 28rpx; box-sizing: border-box;
   background: #fafafa;
@@ -196,7 +196,7 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 18rpx 20rpx;
+  padding: 16rpx 16rpx;
   border: 1px solid #ddd;
   border-radius: 10rpx;
   font-size: 28rpx;
@@ -326,6 +326,15 @@
 .coach-bubble { background: #fff; border: 1px solid #eee; border-top-left-radius: 6rpx; }
 .msg-text { white-space: pre-wrap; word-break: break-all; }
 
+/* 教练输出富文本排版 */
+.msg-rich {
+  line-height: 1.8;
+  font-size: 28rpx;
+  color: #333;
+}
+/* rich-text 内部不支持 class 选择器，通过标签选择器需要在全局定义，此处用外层 .msg-rich 作为容器 */
+
+
 /* 复制按钮 */
 .copy-btn {
   text-align: right;
@@ -384,6 +393,29 @@
   color: #fff;
   font-weight: bold;
 }
+
+/* 建议追问标签 */
+.suggested-questions {
+  margin: 8rpx 16rpx 24rpx;
+  padding: 20rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  border: 1px solid #e8f0fe;
+}
+.sq-title {
+  font-size: 24rpx; color: #1a56db; font-weight: 600;
+  display: block; margin-bottom: 14rpx;
+}
+.sq-list { display: flex; flex-direction: column; gap: 12rpx; }
+.sq-chip {
+  display: flex; align-items: center;
+  padding: 16rpx 20rpx;
+  background: #f0f5ff;
+  border: 1px solid #d0e0ff;
+  border-radius: 12rpx;
+  font-size: 26rpx; color: #1a56db; line-height: 1.5;
+}
+.sq-chip:active { background: #d0e0ff; }
 
 /* 追问输入 */
 .chat-input {
