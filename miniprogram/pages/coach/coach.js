@@ -39,7 +39,7 @@ const SECTIONS = [
       { key: "clientPosition", label: "职责&职位", type: "text", priority: "recommended", placeholder: "例如：技术专家/负责核心算法研发、企业主/独立经营" },
       { key: "careerDevelopment", label: "职业发展空间", type: "select", priority: "recommended", options: ["稳定或上升期", "瓶颈期或面临裁员", "创业或自雇，生意波动较大", "已退休或全职家庭"] },
       { key: "breadwinner", label: "家庭经济支柱", type: "select", priority: "recommended", options: ["客户本人", "配偶", "夫妻共同", "父母"] },
-      { key: "incomeSources", label: "主要收入来源", type: "checkbox-group", priority: "recommended", options: ["工资收入", "经营收入", "房租收入", "投资分红", "其他"] },
+      { key: "incomeSources", label: "主要收入来源", type: "text", priority: "recommended", placeholder: "例如：工资收入、经营收入、房租收入、投资分红" },
       { key: "annualIncome", label: "家庭年收入（万元）", type: "number", priority: "recommended", placeholder: "例如：30（填大概数字即可）" },
       { key: "spouseIndustry", label: "配偶行业", type: "select", priority: "optional", options: INDUSTRY_OPTIONS },
       { key: "spouseCompany", label: "配偶公司", type: "text", priority: "optional", placeholder: "例如：字节跳动、新东方、全职家庭主妇/夫" },
@@ -122,7 +122,6 @@ SECTIONS.forEach(function (s) {
     }
   });
 });
-EMPTY_FORM.incomeSourcesOther = "";
 
 var LOADING_STAGES = [
   "正在解读客户档案…",
@@ -173,7 +172,6 @@ Page({
         for (var k in draft.formData) {
           if (draft.formData.hasOwnProperty(k)) restored[k] = draft.formData[k];
         }
-        if (!Array.isArray(restored.incomeSources)) restored.incomeSources = [];
         this.setData({ formData: restored });
       }
     } catch (e) { /* ignore */ }
@@ -481,7 +479,6 @@ Page({
         }
       }
       // 确保 checkbox-group 字段是数组
-      if (!Array.isArray(merged.incomeSources)) merged.incomeSources = [];
       self.setData({
         selectedClientId: Number(id),
         formData: merged,
@@ -673,14 +670,6 @@ Page({
 
   buildUserContent() {
     var d = this.data.formData;
-    function incomeText() {
-      var sources = d.incomeSources || [];
-      if (sources.length === 0) return "未填写";
-      if (sources.indexOf("其他") >= 0 && d.incomeSourcesOther) {
-        return sources.join("、") + "（" + d.incomeSourcesOther + "）";
-      }
-      return sources.join("、");
-    }
     var kv = function (label, val) { return "- " + label + "：" + (val || "未填写"); };
     return "客户信息：\n\n" +
       "## 客户画像与生活状态\n" +
@@ -701,7 +690,7 @@ Page({
       kv("职责&职位", d.clientPosition) + "\n" +
       kv("职业发展空间", d.careerDevelopment) + "\n" +
       kv("家庭经济支柱", d.breadwinner) + "\n" +
-      kv("主要收入来源", incomeText()) + "\n" +
+      kv("主要收入来源", d.incomeSources) + "\n" +
       kv("家庭年收入（万元）", d.annualIncome) + "\n" +
       kv("配偶行业", d.spouseIndustry) + "\n" +
       kv("配偶公司", d.spouseCompany) + "\n" +

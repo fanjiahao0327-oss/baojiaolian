@@ -7,7 +7,7 @@ import { getBalance, MIN_BALANCE, calcPoints } from "@/lib/points";
 import { getDb, rows, row } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { encrypt, decrypt } from "@/lib/crypto";
-import { markdownToRichHTML, extractSuggestedQuestions } from "@/lib/markdown";
+import { markdownToRichHTML } from "@/lib/markdown";
 
 const INJECTION_PATTERNS = [
   /忽略.{0,10}(之前|前面|以上|上述|所有|系统).{0,10}(指令|提示|规则|设定|要求)/,
@@ -303,12 +303,11 @@ export async function POST(request: NextRequest) {
       }
       await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, total_input_tokens = total_input_tokens + ${promptTokens}, total_output_tokens = total_output_tokens + ${completionTokens}, updated_at = NOW() WHERE id = ${conversationId}`;
 
-      const richHTML = markdownToRichHTML(fullResponse);
-      const { html: cleanHTML, questions: suggestedQuestions } = extractSuggestedQuestions(richHTML);
+      const strippedMarkdown = fullResponse.replace(/\n*\[SUGGESTED_QUESTIONS\][\s\S]*$/i, "");
+      const richHTML = markdownToRichHTML(strippedMarkdown);
 
       return NextResponse.json({
-        content: cleanHTML,
-        suggestedQuestions,
+        content: richHTML,
         conversationId,
         promptTokens,
         completionTokens,
@@ -369,9 +368,10 @@ export async function POST(request: NextRequest) {
           }
 
           if (isJsonl) {
-            const richHTML = markdownToRichHTML(fullResponse);
-            const { html: cleanHTML, questions } = extractSuggestedQuestions(richHTML);
-            controller.enqueue(encoder.encode(JSON.stringify({ type: "done", sq: questions, cid: conversationId, html: cleanHTML }) + "\n"));
+            // 先截断原始 markdown 中的 [SUGGESTED_QUESTIONS]，再转 HTML
+            const strippedMarkdown = fullResponse.replace(/\n*\[SUGGESTED_QUESTIONS\][\s\S]*$/i, "");
+            const richHTML = markdownToRichHTML(strippedMarkdown);
+            controller.enqueue(encoder.encode(JSON.stringify({ type: "done", cid: conversationId, html: richHTML }) + "\n"));
           }
         } catch (error) {
           console.error("[coach] stream error:", error);

@@ -100,32 +100,6 @@
             </picker>
           </block>
 
-          <!-- checkbox-group -->
-          <block wx:elif="{{f.type === 'checkbox-group'}}">
-            <view class="checkbox-list">
-              <view
-                class="checkbox-item {{formData[f.key].indexOf(opt) >= 0 ? 'checked' : ''}}"
-                wx:for="{{f.options}}"
-                wx:key="*this"
-                wx:for-item="opt"
-                data-key="{{f.key}}"
-                data-val="{{opt}}"
-                catchtap="onCheckboxToggle"
-              >
-                <text class="checkbox-icon">{{formData[f.key].indexOf(opt) >= 0 ? '☑' : '☐'}}</text>
-                <text>{{opt}}</text>
-              </view>
-              <input
-                wx:if="{{f.key === 'incomeSources' && formData.incomeSources.indexOf('其他') >= 0}}"
-                class="input checkbox-other-input"
-                value="{{formData.incomeSourcesOther}}"
-                data-key="incomeSourcesOther"
-                bindinput="onFieldChange"
-                placeholder="请说明其他收入来源"
-              />
-            </view>
-          </block>
-
           <!-- textarea -->
           <block wx:elif="{{f.type === 'textarea'}}">
             <textarea class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
