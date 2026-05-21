@@ -74,61 +74,72 @@
           </view>
 
           <!-- radio -->
-          <view class="radio-group" wx:if="{{f.type === 'radio'}}">
-            <view
-              class="radio-item {{formData[f.key] === opt ? 'checked' : ''}}"
-              wx:for="{{f.options}}"
-              wx:key="*this"
-              wx:for-item="opt"
-              data-key="{{f.key}}"
-              data-val="{{opt}}"
-              bindtap="onFieldChange"
-            >
-              <text>{{opt === 'male' ? '男' : opt === 'female' ? '女' : opt}}</text>
+          <block wx:if="{{f.type === 'radio'}}">
+            <view class="radio-group">
+              <view
+                class="radio-item {{formData[f.key] === opt ? 'checked' : ''}}"
+                wx:for="{{f.options}}"
+                wx:key="*this"
+                wx:for-item="opt"
+                data-key="{{f.key}}"
+                data-val="{{opt}}"
+                bindtap="onFieldChange"
+              >
+                <text>{{opt === 'male' ? '男' : opt === 'female' ? '女' : opt}}</text>
+              </view>
             </view>
-          </view>
+          </block>
 
           <!-- select / picker -->
-          <picker wx:elif="{{f.type === 'select'}}" mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
-            <view class="picker-display">
-              <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
-              <text class="picker-arrow">▼</text>
-            </view>
-          </picker>
+          <block wx:elif="{{f.type === 'select'}}">
+            <picker mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
+              <view class="picker-display">
+                <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
+                <text class="picker-arrow">▼</text>
+              </view>
+            </picker>
+          </block>
 
           <!-- checkbox-group -->
-          <view class="checkbox-list" wx:elif="{{f.type === 'checkbox-group'}}">
-            <view
-              class="checkbox-item {{formData[f.key].indexOf(opt) >= 0 ? 'checked' : ''}}"
-              wx:for="{{f.options}}"
-              wx:key="*this"
-              wx:for-item="opt"
-              data-key="{{f.key}}"
-              data-val="{{opt}}"
-              bindtap="onCheckboxToggle"
-            >
-              <text class="checkbox-icon">{{formData[f.key].indexOf(opt) >= 0 ? '☑' : '☐'}}</text>
-              <text>{{opt}}</text>
+          <block wx:elif="{{f.type === 'checkbox-group'}}">
+            <view class="checkbox-list">
+              <view
+                class="checkbox-item {{formData[f.key].indexOf(opt) >= 0 ? 'checked' : ''}}"
+                wx:for="{{f.options}}"
+                wx:key="*this"
+                wx:for-item="opt"
+                data-key="{{f.key}}"
+                data-val="{{opt}}"
+                catchtap="onCheckboxToggle"
+              >
+                <text class="checkbox-icon">{{formData[f.key].indexOf(opt) >= 0 ? '☑' : '☐'}}</text>
+                <text>{{opt}}</text>
+              </view>
+              <input
+                wx:if="{{f.key === 'incomeSources' && formData.incomeSources.indexOf('其他') >= 0}}"
+                class="input checkbox-other-input"
+                value="{{formData.incomeSourcesOther}}"
+                data-key="incomeSourcesOther"
+                bindinput="onFieldChange"
+                placeholder="请说明其他收入来源"
+              />
             </view>
-            <!-- "其他"输入框 -->
-            <input
-              wx:if="{{f.key === 'incomeSources' && formData.incomeSources.indexOf('其他') >= 0}}"
-              class="input checkbox-other-input"
-              value="{{formData.incomeSourcesOther}}"
-              data-key="incomeSourcesOther"
-              bindinput="onFieldChange"
-              placeholder="请说明其他收入来源"
-            />
-          </view>
+          </block>
 
           <!-- textarea -->
-          <textarea wx:elif="{{f.type === 'textarea'}}" class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
+          <block wx:elif="{{f.type === 'textarea'}}">
+            <textarea class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
+          </block>
 
           <!-- number -->
-          <input wx:elif="{{f.type === 'number'}}" class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+          <block wx:elif="{{f.type === 'number'}}">
+            <input class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+          </block>
 
           <!-- text default -->
-          <input wx:else class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+          <block wx:else>
+            <input class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+          </block>
         </view>
 
         <!-- 可选字段区域 -->
@@ -145,18 +156,26 @@
                   <text class="tag optional-tag">可选</text>
                 </view>
 
-                <picker wx:if="{{f.type === 'select'}}" mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
-                  <view class="picker-display">
-                    <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
-                    <text class="picker-arrow">▼</text>
-                  </view>
-                </picker>
+                <block wx:if="{{f.type === 'select'}}">
+                  <picker mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
+                    <view class="picker-display">
+                      <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
+                      <text class="picker-arrow">▼</text>
+                    </view>
+                  </picker>
+                </block>
 
-                <textarea wx:elif="{{f.type === 'textarea'}}" class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
+                <block wx:elif="{{f.type === 'textarea'}}">
+                  <textarea class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
+                </block>
 
-                <input wx:elif="{{f.type === 'number'}}" class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+                <block wx:elif="{{f.type === 'number'}}">
+                  <input class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+                </block>
 
-                <input wx:else class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+                <block wx:else>
+                  <input class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+                </block>
               </view>
             </view>
           </block>
@@ -170,18 +189,26 @@
                 <text class="tag optional-tag">可选</text>
               </view>
 
-              <picker wx:if="{{f.type === 'select'}}" mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
-                <view class="picker-display">
-                  <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
-                  <text class="picker-arrow">▼</text>
-                </view>
-              </picker>
+              <block wx:if="{{f.type === 'select'}}">
+                <picker mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
+                  <view class="picker-display">
+                    <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
+                    <text class="picker-arrow">▼</text>
+                  </view>
+                </picker>
+              </block>
 
-              <textarea wx:elif="{{f.type === 'textarea'}}" class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
+              <block wx:elif="{{f.type === 'textarea'}}">
+                <textarea class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
+              </block>
 
-              <input wx:elif="{{f.type === 'number'}}" class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+              <block wx:elif="{{f.type === 'number'}}">
+                <input class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+              </block>
 
-              <input wx:else class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+              <block wx:else>
+                <input class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+              </block>
             </view>
           </block>
         </block>
@@ -219,8 +246,8 @@
           <view class="msg-user {{item.role === 'user' ? 'right' : 'left'}}">
             <view class="msg-role">{{item.role === 'user' ? '代理人' : 'AI 教练'}}</view>
             <view class="msg-bubble {{item.role === 'user' ? 'user-bubble' : 'coach-bubble'}}">
-              <text class="msg-text" wx:if="{{item.role === 'user'}}" selectable>{{item.content}}</text>
-              <rich-text wx:else nodes="{{item.content}}" class="msg-rich"></rich-text>
+              <text class="msg-text" wx:if="{{item.role === 'user' || item.streaming}}" selectable>{{item.content}}</text>
+              <rich-text wx:else nodes="{{item.contentHtml || item.content}}" class="msg-rich"></rich-text>
               <view wx:if="{{item.role === 'coach'}}" class="copy-btn" data-idx="{{index}}" catchtap="copyCoachMsg">复制</view>
             </view>
           </view>
@@ -230,7 +257,7 @@
         <view class="suggested-questions" wx:if="{{suggestedQuestions.length > 0 && !isLoading}}">
           <text class="sq-title">建议追问</text>
           <view class="sq-list">
-            <view class="sq-chip" wx:for="{{suggestedQuestions}}" wx:key="*this" data-q="{{item}}" bindtap="tapSuggestedQuestion">
+            <view class="sq-chip" hover-class="sq-chip-hover" wx:for="{{suggestedQuestions}}" wx:key="*this" data-q="{{item}}" catchtap="tapSuggestedQuestion">
               <text>{{item}}</text>
             </view>
           </view>

@@ -1,4 +1,5 @@
 const api = require("../../utils/api");
+const auth = require("../../utils/auth");
 
 var DRAFT_KEY = "coach_form_draft";
 var DRAFT_DEBOUNCE = 3000;
@@ -274,6 +275,109 @@ Page({
     this.setData({ chatScrollHeight: Math.max(h, 300) });
   },
 
+  // 流式请求 AI 教练（逐字输出）
+  streamCoachRequest(params) {
+    var self = this;
+    var { kycData, question, history, clientId } = params;
+
+    return new Promise(function (resolve, reject) {
+      var buffer = "";
+      var accumulatedText = "";
+
+      var reqTask = wx.request({
+        url: getApp().globalData.apiBase + "/api/coach",
+        method: "POST",
+        enableChunked: true,
+        timeout: 180000,
+        header: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + auth.getToken(),
+        },
+        data: {
+          kycData: kycData || {},
+          question: question,
+          history: history || [],
+          clientId: clientId || null,
+          noStream: false,
+          format: "jsonl",
+        },
+        success: function () {
+          // Stream completed via onChunkReceived
+        },
+        fail: function (err) {
+          self._stopLoadingText();
+          self.setData({ isLoading: false });
+          reject(err);
+        },
+      });
+
+      reqTask.onChunkReceived(function (res) {
+        try {
+          var chunk = res.data;
+          if (chunk instanceof ArrayBuffer) {
+            chunk = new TextDecoder("utf-8").decode(new Uint8Array(chunk));
+          }
+          if (typeof chunk !== "string") return;
+
+          buffer += chunk;
+          // 处理完整的 JSON 行
+          var lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (!line) continue;
+
+            try {
+              var msg = JSON.parse(line);
+
+              if (msg.type === "text" && msg.c) {
+                accumulatedText += msg.c;
+                var msgs = self.data.messages;
+                if (msgs.length > 0) {
+                  var lastMsg = msgs[msgs.length - 1];
+                  if (lastMsg.role === "coach" && lastMsg.streaming) {
+                    lastMsg.content = accumulatedText;
+                    self.setData({ messages: msgs });
+                    // 滚动到底部
+                    setTimeout(function () { self.scrollChatToBottom(); }, 50);
+                  }
+                }
+              } else if (msg.type === "done") {
+                var msgs = self.data.messages;
+                if (msgs.length > 0) {
+                  var lastMsg = msgs[msgs.length - 1];
+                  if (lastMsg.role === "coach" && lastMsg.streaming) {
+                    lastMsg.content = accumulatedText;
+                    lastMsg.contentHtml = msg.html || accumulatedText;
+                    delete lastMsg.streaming;
+                  }
+                }
+                self._stopLoadingText();
+                self.setData({
+                  messages: msgs,
+                  isLoading: false,
+                  conversationId: msg.cid,
+                  suggestedQuestions: msg.sq || [],
+                });
+                setTimeout(function () { self.scrollChatToBottom(); }, 300);
+                resolve({ suggestedQuestions: msg.sq, conversationId: msg.cid });
+              } else if (msg.type === "error") {
+                self._stopLoadingText();
+                self.setData({ isLoading: false });
+                reject(new Error(msg.msg || "服务错误"));
+              }
+            } catch (_) {
+              // 不完整的 JSON 行，继续累积
+            }
+          }
+        } catch (_) {
+          // 解析异常，忽略
+        }
+      });
+    });
+  },
+
   // 折叠/展开可选字段
   toggleExpand(e) {
     var step = e.currentTarget.dataset.step;
@@ -496,29 +600,29 @@ Page({
       wx.showToast({ title: "请填写：" + missing.label, icon: "none" });
       return;
     }
-    self.setData({ isLoading: true });
-    self._startLoadingText();
 
-    api.post("/api/coach", {
+    var userContent = self.buildUserContent();
+    var userMsg = { role: "user", content: userContent, timestamp: Date.now() };
+    var placeholderMsg = { role: "coach", content: "", timestamp: Date.now() + 1, streaming: true };
+
+    self.setData({
+      isLoading: true,
+      hasSubmitted: true,
+      tab: "coach",
+      messages: [userMsg, placeholderMsg],
+      conversationId: null,
+      suggestedQuestions: [],
+    });
+    self._startLoadingText();
+    self.clearDraft();
+
+    self.streamCoachRequest({
       kycData: formData,
-      question: self.buildUserContent(),
+      question: userContent,
       history: [],
       clientId: self.data.selectedClientId,
-      noStream: true,
-    }).then(function (res) {
-      self._stopLoadingText();
-      self.clearDraft();
-      var msg = { role: "user", content: self.buildUserContent(), timestamp: Date.now() };
-      var reply = { role: "coach", content: res.content, timestamp: Date.now() + 1 };
-      self.setData({
-        hasSubmitted: true,
-        tab: "coach",
-        messages: [msg, reply],
-        conversationId: res.conversationId,
-        isLoading: false,
-        suggestedQuestions: res.suggestedQuestions || [],
-      });
-      setTimeout(function () { self.scrollChatToBottom(); }, 300);
+    }).then(function () {
+      // 已在 onChunkReceived 中处理完成
     }).catch(function () {
       self._stopLoadingText();
       wx.showToast({ title: "提交失败，请重试", icon: "none" });
@@ -602,32 +706,33 @@ Page({
     self._startLoadingText();
     var userMsg = { role: "user", content: question, timestamp: Date.now() };
     var prevMessages = self.data.messages;
-    var messages = prevMessages.concat([userMsg]);
-    self.setData({ messages: messages });
+    var placeholderMsg = { role: "coach", content: "", timestamp: Date.now() + 1, streaming: true };
+    var messages = prevMessages.concat([userMsg, placeholderMsg]);
+    self.setData({ messages: messages, suggestedQuestions: [] });
 
-    api.post("/api/coach", {
+    self.streamCoachRequest({
       kycData: {},
       question: question,
       history: prevMessages,
       clientId: self.data.selectedClientId,
-      noStream: true,
-    }).then(function (res) {
-      self._stopLoadingText();
-      var reply = { role: "coach", content: res.content, timestamp: Date.now() };
-      self.setData({
-        messages: self.data.messages.concat([reply]),
-        isLoading: false,
-        conversationId: res.conversationId,
-        suggestedQuestions: res.suggestedQuestions || [],
-      });
-      setTimeout(function () { self.scrollChatToBottom(); }, 300);
+    }).then(function () {
+      // 已在 onChunkReceived 中处理完成
     }).catch(function () {
       self._stopLoadingText();
       var errMsg = { role: "coach", content: "抱歉，发生了错误，请稍后重试。", timestamp: Date.now() };
-      self.setData({
-        messages: self.data.messages.concat([errMsg]),
-        isLoading: false,
-      });
+      // 移除流式占位消息，替换为错误消息
+      var currentMessages = self.data.messages;
+      if (currentMessages.length > 0) {
+        var lastMsg = currentMessages[currentMessages.length - 1];
+        if (lastMsg.role === "coach" && lastMsg.streaming) {
+          currentMessages[currentMessages.length - 1] = errMsg;
+        } else {
+          currentMessages.push(errMsg);
+        }
+      } else {
+        currentMessages.push(errMsg);
+      }
+      self.setData({ messages: currentMessages, isLoading: false });
     });
   },
 

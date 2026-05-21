@@ -416,6 +416,7 @@
   font-size: 26rpx; color: #1a56db; line-height: 1.5;
 }
 .sq-chip:active { background: #d0e0ff; }
+.sq-chip-hover { background: #d0e0ff !important; }
 
 /* 追问输入 */
 .chat-input {
