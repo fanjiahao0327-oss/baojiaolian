@@ -246,35 +246,19 @@
           <view class="msg-user {{item.role === 'user' ? 'right' : 'left'}}">
             <view class="msg-role">{{item.role === 'user' ? '代理人' : 'AI 教练'}}</view>
             <view class="msg-bubble {{item.role === 'user' ? 'user-bubble' : 'coach-bubble'}}">
-              <text class="msg-text" wx:if="{{item.role === 'user' || item.streaming}}" selectable>{{item.content}}</text>
+              <text class="msg-text" wx:if="{{item.role === 'user' || (item.streaming && item.content)}}" selectable>{{item.content}}</text>
+              <block wx:elif="{{item.streaming && !item.content}}">
+                <text class="loading-stage">{{loadingText}}</text>
+                <view class="typing-dots">
+                  <view class="dot"></view><view class="dot"></view><view class="dot"></view>
+                </view>
+              </block>
               <rich-text wx:else nodes="{{item.contentHtml || item.content}}" class="msg-rich"></rich-text>
               <view wx:if="{{item.role === 'coach'}}" class="copy-btn" data-idx="{{index}}" catchtap="copyCoachMsg">复制</view>
             </view>
           </view>
         </view>
 
-        <!-- 建议追问 -->
-        <view class="suggested-questions" wx:if="{{suggestedQuestions.length > 0 && !isLoading}}">
-          <text class="sq-title">建议追问</text>
-          <view class="sq-list">
-            <view class="sq-chip" hover-class="sq-chip-hover" wx:for="{{suggestedQuestions}}" wx:key="*this" data-q="{{item}}" catchtap="tapSuggestedQuestion">
-              <text>{{item}}</text>
-            </view>
-          </view>
-        </view>
-
-        <!-- 加载中 -->
-        <view class="msg-item" wx:if="{{isLoading}}">
-          <view class="msg-user left">
-            <view class="msg-role">AI 教练</view>
-            <view class="msg-bubble coach-bubble">
-              <text class="loading-stage">{{loadingText}}</text>
-              <view class="typing-dots">
-                <view class="dot"></view><view class="dot"></view><view class="dot"></view>
-              </view>
-            </view>
-          </view>
-        </view>
       </view>
     </scroll-view>
 

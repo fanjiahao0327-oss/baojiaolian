@@ -394,30 +394,6 @@
   font-weight: bold;
 }
 
-/* 建议追问标签 */
-.suggested-questions {
-  margin: 8rpx 16rpx 24rpx;
-  padding: 20rpx;
-  background: #fff;
-  border-radius: 16rpx;
-  border: 1px solid #e8f0fe;
-}
-.sq-title {
-  font-size: 24rpx; color: #1a56db; font-weight: 600;
-  display: block; margin-bottom: 14rpx;
-}
-.sq-list { display: flex; flex-direction: column; gap: 12rpx; }
-.sq-chip {
-  display: flex; align-items: center;
-  padding: 16rpx 20rpx;
-  background: #f0f5ff;
-  border: 1px solid #d0e0ff;
-  border-radius: 12rpx;
-  font-size: 26rpx; color: #1a56db; line-height: 1.5;
-}
-.sq-chip:active { background: #d0e0ff; }
-.sq-chip-hover { background: #d0e0ff !important; }
-
 /* 追问输入 */
 .chat-input {
   display: flex; gap: 16rpx; padding: 16rpx 20rpx;

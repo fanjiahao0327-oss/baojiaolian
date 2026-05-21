@@ -154,7 +154,6 @@ Page({
     logining: false,
     expandedSections: {},
     balance: -1,
-    suggestedQuestions: [],
   },
 
   onLoad() {
@@ -301,12 +300,56 @@ Page({
           noStream: false,
           format: "jsonl",
         },
-        success: function () {
-          // Stream completed via onChunkReceived
+        success: function (res) {
+          // 如果 onChunkReceived 没有触发（降级），用完整响应兜底
+          if (!accumulatedText && res.data) {
+            try {
+              var fallback = typeof res.data === "string" ? res.data : JSON.stringify(res.data);
+              // 尝试按 JSONL 解析
+              var lines = fallback.split("\n");
+              for (var j = 0; j < lines.length; j++) {
+                var line = lines[j].trim();
+                if (!line) continue;
+                try {
+                  var fb = JSON.parse(line);
+                  if (fb.type === "text" && fb.c) accumulatedText += fb.c;
+                  else if (fb.type === "done") {
+                    var fmsgs = self.data.messages;
+                    if (fmsgs.length > 0) {
+                      var flast = fmsgs[fmsgs.length - 1];
+                      if (flast.role === "coach" && flast.streaming) {
+                        flast.content = accumulatedText;
+                        flast.contentHtml = fb.html || accumulatedText;
+                        delete flast.streaming;
+                      }
+                    }
+                    self._stopLoadingText();
+                    self.setData({ messages: fmsgs, isLoading: false, conversationId: fb.cid });
+                    resolve({ conversationId: fb.cid });
+                    return;
+                  }
+                } catch (_) {}
+              }
+            } catch (_) {}
+          }
+          if (!accumulatedText) {
+            self._stopLoadingText();
+            self.setData({ isLoading: false });
+            reject(new Error("No response received"));
+          }
         },
         fail: function (err) {
           self._stopLoadingText();
-          self.setData({ isLoading: false });
+          // 移除流式占位消息，替换为错误提示
+          var fmsgs = self.data.messages;
+          if (fmsgs.length > 0) {
+            var flast = fmsgs[fmsgs.length - 1];
+            if (flast.role === "coach" && flast.streaming) {
+              flast.content = "抱歉，连接中断，请重试。";
+              delete flast.streaming;
+            }
+          }
+          self.setData({ messages: fmsgs, isLoading: false });
           reject(err);
         },
       });
@@ -358,10 +401,9 @@ Page({
                   messages: msgs,
                   isLoading: false,
                   conversationId: msg.cid,
-                  suggestedQuestions: msg.sq || [],
                 });
                 setTimeout(function () { self.scrollChatToBottom(); }, 300);
-                resolve({ suggestedQuestions: msg.sq, conversationId: msg.cid });
+                resolve({ conversationId: msg.cid });
               } else if (msg.type === "error") {
                 self._stopLoadingText();
                 self.setData({ isLoading: false });
@@ -611,7 +653,6 @@ Page({
       tab: "coach",
       messages: [userMsg, placeholderMsg],
       conversationId: null,
-      suggestedQuestions: [],
     });
     self._startLoadingText();
     self.clearDraft();
@@ -708,7 +749,7 @@ Page({
     var prevMessages = self.data.messages;
     var placeholderMsg = { role: "coach", content: "", timestamp: Date.now() + 1, streaming: true };
     var messages = prevMessages.concat([userMsg, placeholderMsg]);
-    self.setData({ messages: messages, suggestedQuestions: [] });
+    self.setData({ messages: messages });
 
     self.streamCoachRequest({
       kycData: {},
@@ -782,13 +823,6 @@ Page({
         },
       });
     }
-  },
-
-  tapSuggestedQuestion(e) {
-    var q = e.currentTarget.dataset.q;
-    if (!q || this.data.isLoading) return;
-    this.setData({ followUp: q });
-    this.sendFollowUp();
   },
 
   goToPoints() {
