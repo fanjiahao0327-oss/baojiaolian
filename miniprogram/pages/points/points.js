@@ -157,6 +157,18 @@ Page({
         paySign: res.payParams.paySign,
       });
 
+      // 主动向服务器确认支付
+      wx.showLoading({ title: "确认支付中", mask: true });
+      try {
+        await api.post("/api/payment/verify", { orderNo: res.orderNo });
+      } catch (e) {
+        console.error("[points] verify:", e);
+        try {
+          await new Promise(function (r) { setTimeout(r, 2000); });
+          await api.post("/api/payment/verify", { orderNo: res.orderNo });
+        } catch (e2) { console.error("[points] verify retry:", e2); }
+      }
+      wx.hideLoading();
       wx.showToast({ title: "支付成功", icon: "success" });
       self.setData({ paying: false, selectedIdx: -1 });
       self.loadData();

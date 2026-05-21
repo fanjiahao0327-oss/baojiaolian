@@ -125,6 +125,26 @@ export function decryptNotify(ciphertext: string, associatedData: string, nonce:
   return decrypted.toString("utf-8");
 }
 
+/** 按商户订单号查询微信支付订单状态 */
+export async function queryOrderByOutTradeNo(
+  outTradeNo: string
+): Promise<{ tradeState: string; transactionId?: string } | null> {
+  try {
+    const data = (await request(
+      "GET",
+      `/v3/pay/transactions/out-trade-no/${encodeURIComponent(outTradeNo)}?mchid=${WECHAT_MCHID}`
+    )) as {
+      trade_state: string;
+      transaction_id?: string;
+      trade_state_desc?: string;
+    };
+    return { tradeState: data.trade_state, transactionId: data.transaction_id };
+  } catch (e) {
+    console.error("[wechatpay] queryOrder:", (e as Error).message);
+    return null;
+  }
+}
+
 /** 验证回调签名（用微信支付公钥验证） */
 export function verifyNotifySign(
   timestamp: string,
