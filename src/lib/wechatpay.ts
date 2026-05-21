@@ -110,14 +110,17 @@ export function generatePayParams(prepayId: string): {
   };
 }
 
-/** 解密通知中的 resource 密文 */
+/** 解密通知中的 resource 密文（微信回调字段均为 base64 编码） */
 export function decryptNotify(ciphertext: string, associatedData: string, nonce: string): string {
   const key = process.env.WECHAT_PAY_KEY || "";
-  const authTag = Buffer.from(ciphertext.slice(-32), "hex");
-  const data = Buffer.from(ciphertext.slice(0, -32), "hex");
-  const decipher = crypto.createDecipheriv("aes-256-gcm", Buffer.from(key), Buffer.from(nonce, "hex"));
+  const decoded = Buffer.from(ciphertext, "base64");
+  const nonceBuf = Buffer.from(nonce, "base64");
+  const aad = associatedData ? Buffer.from(associatedData, "base64") : Buffer.alloc(0);
+  const authTag = decoded.subarray(-16);
+  const data = decoded.subarray(0, -16);
+  const decipher = crypto.createDecipheriv("aes-256-gcm", Buffer.from(key), nonceBuf);
   decipher.setAuthTag(authTag);
-  decipher.setAAD(Buffer.from(associatedData));
+  decipher.setAAD(aad);
   const decrypted = Buffer.concat([decipher.update(data), decipher.final()]);
   return decrypted.toString("utf-8");
 }
