@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { selectModules } from "@/lib/knowledge";
+import { selectModules, selectModulesForFollowUp } from "@/lib/knowledge";
 import type { KYCFormData, Message } from "@/types";
 import { getSession } from "@/lib/auth";
 import { getBalance, MIN_BALANCE, calcPoints } from "@/lib/points";
@@ -221,8 +221,13 @@ export async function POST(request: NextRequest) {
 
     const messages: { role: "system" | "user" | "assistant"; content: string }[] = [];
 
-    const modules = selectModules(safeKycData as unknown as KYCFormData);
+    // 追问模式：仅加载核心层模块（模型已在历史上下文中学习方法层和参考层知识）
+    const isFollowUp = history && Array.isArray(history) && history.length > 0;
+    const modules = isFollowUp
+      ? selectModulesForFollowUp()
+      : selectModules(safeKycData as unknown as KYCFormData);
     const moduleContents = modules.map((m) => m.content).join("\n");
+    console.log(`[coach] modules=${modules.map(m => m.id).join(",")} isFollowUp=${isFollowUp}`);
     const kycContext = buildKycContext(safeKycData);
 
     const systemPrompt = `${moduleContents}

@@ -1,36 +1,92 @@
-/* === 登录/授权覆盖层 === */
-.auth-overlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: #fff;
+/* === 手机号绑定横幅（非阻塞） === */
+.phone-bind-banner {
+  background: #fff7ed;
+  border-bottom: 1px solid #fed7aa;
+}
+.banner-content {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 999;
+  padding: 16rpx 24rpx;
+  gap: 12rpx;
 }
-.auth-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 60rpx 48rpx;
+.banner-icon { font-size: 28rpx; }
+.banner-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: #c2410c;
 }
-.auth-icon { font-size: 100rpx; margin-bottom: 32rpx; }
-.auth-title { font-size: 40rpx; font-weight: 700; color: #1a293b; margin-bottom: 16rpx; }
-.auth-desc { font-size: 28rpx; color: #999; margin-bottom: 56rpx; }
-.auth-btn {
-  width: 520rpx;
-  height: 96rpx;
+.banner-bind-btn {
+  padding: 8rpx 20rpx;
+  font-size: 22rpx;
+  background: #f97316;
+  color: #fff;
+  border-radius: 20rpx;
+  border: none;
+  line-height: 1.4;
+}
+.banner-close {
+  font-size: 28rpx;
+  color: #999;
+  padding: 4rpx 8rpx;
+}
+
+/* === 顶部栏登录入口按钮 === */
+.login-entry-btn {
+  padding: 10rpx 24rpx;
+  font-size: 24rpx;
   background: linear-gradient(135deg, #1a56db, #2563eb);
   color: #fff;
-  font-size: 32rpx;
-  font-weight: 600;
-  border-radius: 48rpx;
+  border-radius: 20rpx;
   border: none;
+  line-height: 1.4;
   display: flex;
   align-items: center;
-  justify-content: center;
-  line-height: 1;
 }
-.auth-btn[disabled] { opacity: 0.6; }
+.login-entry-btn[disabled] { opacity: 0.6; }
+
+/* === 快速模式切换 === */
+.quick-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 0;
+  margin-bottom: 16rpx;
+  border-bottom: 1px solid #f0f0f0;
+}
+.qmt-track {
+  width: 80rpx;
+  height: 44rpx;
+  border-radius: 22rpx;
+  background: #ddd;
+  display: flex;
+  align-items: center;
+  padding: 4rpx;
+  transition: background 0.2s;
+}
+.qmt-track.active {
+  background: #1a56db;
+}
+.qmt-thumb {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.15);
+  transition: transform 0.2s;
+}
+.qmt-track.active .qmt-thumb {
+  transform: translateX(36rpx);
+}
+.qmt-label {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+}
+.qmt-desc {
+  font-size: 22rpx;
+  color: #999;
+  margin-left: 8rpx;
+}
 
 /* 页面原生滚动 */
 .page {
@@ -105,7 +161,7 @@
 
 /* === 表单区域 === */
 .form-area {
-  padding: 24rpx 16rpx;
+  padding: 24rpx 0;
   padding-bottom: 60rpx;
 }
 
@@ -335,13 +391,30 @@
 /* rich-text 内部不支持 class 选择器，通过标签选择器需要在全局定义，此处用外层 .msg-rich 作为容器 */
 
 
-/* 复制按钮 */
-.copy-btn {
-  text-align: right;
+/* 反馈按钮行 */
+.feedback-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
   margin-top: 8rpx;
+  padding-top: 8rpx;
+  border-top: 1px solid #f0f0f0;
+}
+.copy-btn {
   font-size: 22rpx;
   color: #1a56db;
   opacity: 0.6;
+}
+.fb-btn {
+  font-size: 22rpx;
+  color: #999;
+  padding: 4rpx 12rpx;
+  border-radius: 16rpx;
+  background: #f5f5f5;
+}
+.fb-btn.fb-active {
+  color: #1a56db;
+  background: #e8f0ff;
 }
 
 /* 加载动画 */

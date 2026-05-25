@@ -1,8 +1,11 @@
 import type { KYCFormData } from "@/types";
 
+export type ModuleTier = "core" | "method" | "reference";
+
 export interface KnowledgeModule {
   id: string;
   title: string;
+  tier: ModuleTier;
   content: string;
 }
 
@@ -12,6 +15,7 @@ export interface KnowledgeModule {
 const M000_FLOW: KnowledgeModule = {
   id: "flow",
   title: "面谈流程总纲",
+  tier: "core",
   content: `
 # 顾问式面谈·阶段流程图（必须严格按此顺序）
 
@@ -53,6 +57,7 @@ const M000_FLOW: KnowledgeModule = {
 const M001_ROLE: KnowledgeModule = {
   id: "role",
   title: "角色与原则",
+  tier: "core",
   content: `
 # 角色
 
@@ -135,6 +140,7 @@ const M001_ROLE: KnowledgeModule = {
 const M002_MARKET_SHIFT: KnowledgeModule = {
   id: "market_shift",
   title: "市场认知",
+  tier: "reference",
   content: `
 > ⏮ 所属阶段：阶段 0 — 认知前提
 
@@ -175,6 +181,7 @@ const M002_MARKET_SHIFT: KnowledgeModule = {
 const M003_CLIENT_TIER: KnowledgeModule = {
   id: "client_tier",
   title: "客户分层",
+  tier: "reference",
   content: `
 > ⏮ 所属阶段：阶段 0 — 认知前提
 
@@ -226,6 +233,7 @@ const M003_CLIENT_TIER: KnowledgeModule = {
 const M004_SOCIAL: KnowledgeModule = {
   id: "social_activation",
   title: "社交激活",
+  tier: "reference",
   content: `
 # 社交激活（前置步骤·绝对前提）
 
@@ -269,6 +277,7 @@ const M004_SOCIAL: KnowledgeModule = {
 const M005_CALL_INVITE: KnowledgeModule = {
   id: "call_invite",
   title: "线上转面谈",
+  tier: "reference",
   content: `
 # 线上咨询转电话/面谈的艺术
 
@@ -289,6 +298,7 @@ const M005_CALL_INVITE: KnowledgeModule = {
 const M006_NEED_DISCOVERY: KnowledgeModule = {
   id: "need_discovery",
   title: "需求挖掘",
+  tier: "method",
   content: `
 # 顾问式面谈：第一步·找需求
 
@@ -391,6 +401,7 @@ const M006_NEED_DISCOVERY: KnowledgeModule = {
 const M007_NEED_INTENSIFY: KnowledgeModule = {
   id: "need_intensify",
   title: "需求强化",
+  tier: "method",
   content: `
 # 顾问式面谈：第二步·强化需求
 
@@ -465,6 +476,7 @@ const M007_NEED_INTENSIFY: KnowledgeModule = {
 const M008_SOLUTION_GAP: KnowledgeModule = {
   id: "solution_gap",
   title: "方案呈现",
+  tier: "method",
   content: `
 # 顾问式面谈：第三步·找不足 & 给方案
 
@@ -531,6 +543,7 @@ const M008_SOLUTION_GAP: KnowledgeModule = {
 const M009_SAVINGS_RISK: KnowledgeModule = {
   id: "savings_risk",
   title: "储蓄险风险精讲",
+  tier: "reference",
   content: `
 # 储蓄险找不足的四大风险
 
@@ -591,6 +604,7 @@ const M009_SAVINGS_RISK: KnowledgeModule = {
 const M010_OBJECTION: KnowledgeModule = {
   id: "objection_handling",
   title: "异议处理",
+  tier: "reference",
   content: `
 # 常见异议处理
 
@@ -663,6 +677,7 @@ const M010_OBJECTION: KnowledgeModule = {
 const M011_CASE_REVIEW: KnowledgeModule = {
   id: "case_review",
   title: "复盘方法",
+  tier: "reference",
   content: `
 # 案例复盘与持续练习
 
@@ -683,6 +698,7 @@ const M011_CASE_REVIEW: KnowledgeModule = {
 const M012_DRG_MEDICAL: KnowledgeModule = {
   id: "drg_medical",
   title: "DRG与医疗险",
+  tier: "reference",
   content: `
 # DRG改革与商业医疗险升级
 
@@ -783,65 +799,89 @@ export const ALL_MODULES: KnowledgeModule[] = [
 ];
 
 // ============================================================
-// 模块选择函数：根据 KYC 数据决定加载哪些模块
+// 三层 Prompt 体系：核心层 / 方法层 / 参考层
+// ============================================================
+// 核心层（始终加载，约 2500 token）：角色定位 + 面谈流程 + 行为约束
+// 方法层（首次请求加载，约 4000 token）：需求挖掘 + 强化需求 + 方案呈现
+// 参考层（按场景计分，每次最多选 2 个）：客户分层 / 社交激活 / 储蓄险风险 / 异议处理 / DRG 等
+
+const CORE_MODULES: KnowledgeModule[] = [M000_FLOW, M001_ROLE];
+const METHOD_MODULES: KnowledgeModule[] = [M006_NEED_DISCOVERY, M007_NEED_INTENSIFY, M008_SOLUTION_GAP];
+
+// 参考层模块 + 激活条件与权重
+interface ReferenceRule {
+  module: KnowledgeModule;
+  score: (kycData: KYCFormData) => number; // 返回 0-10 的权重分数
+}
+const REFERENCE_RULES: ReferenceRule[] = [
+  {
+    module: M002_MARKET_SHIFT,
+    score: (_d) => 2, // 基础市场认知，低优先级常驻
+  },
+  {
+    module: M003_CLIENT_TIER,
+    score: (d) => {
+      const hasIncome = d.annualIncome || (d.incomeSources && d.incomeSources.length > 0);
+      const hasCareer = d.clientIndustry || d.careerDevelopment;
+      return (hasIncome || hasCareer) ? 6 : 0;
+    },
+  },
+  {
+    module: M004_SOCIAL,
+    score: (d) => (d.triggerScenario && d.triggerScenario.includes("非主动")) ? 8 : 0,
+  },
+  {
+    module: M005_CALL_INVITE,
+    score: (d) => (d.triggerScenario && d.triggerScenario.includes("非主动")) ? 7 : 0,
+  },
+  {
+    module: M009_SAVINGS_RISK,
+    score: (d) => {
+      const hasSavings = d.investmentAmount || d.liquidAssets || d.fixedAssets;
+      return hasSavings ? 7 : 0;
+    },
+  },
+  {
+    module: M010_OBJECTION,
+    score: (d) => (d.clientObjection && d.clientObjection.trim()) ? 10 : 0,
+  },
+  {
+    module: M012_DRG_MEDICAL,
+    score: (d) => {
+      const hasMedicalInfo = d.protectionInsurance || d.otherInsurance || d.savingsInsurance;
+      const isHealthScenario = d.triggerScenario && (
+        d.triggerScenario.includes("主动咨询") || d.triggerScenario.includes("保障")
+      );
+      return (hasMedicalInfo || isHealthScenario || d.insuranceAttitude) ? 6 : 0;
+    },
+  },
+];
+
+const MAX_REFERENCE_MODULES = 2;
+
+// ============================================================
+// 首次诊断：核心层 + 方法层 + 参考层（按权重取前 2 个）
 // ============================================================
 export function selectModules(kycData: KYCFormData | null | undefined): KnowledgeModule[] {
-  const selected: KnowledgeModule[] = [];
   const d = kycData || {} as KYCFormData;
 
-  // 始终包含面谈流程总纲
-  selected.push(M000_FLOW);
+  // 计分参考层模块，取权重 > 0 的按分数降序排列
+  const scored = REFERENCE_RULES
+    .map((rule) => ({ module: rule.module, score: rule.score(d) }))
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score);
 
-  // 始终包含角色定位与原则
-  selected.push(M001_ROLE);
+  const referenceModules = scored.slice(0, MAX_REFERENCE_MODULES).map((r) => r.module);
 
-  // 始终包含市场认知（基础理念）
-  selected.push(M002_MARKET_SHIFT);
+  return [...CORE_MODULES, ...METHOD_MODULES, ...referenceModules];
+}
 
-  // 客户分层：有收入或职业信息时加载
-  const hasIncome = d.annualIncome || (d.incomeSources && d.incomeSources.length > 0);
-  const hasCareer = d.clientIndustry || d.careerDevelopment;
-  if (hasIncome || hasCareer) {
-    selected.push(M003_CLIENT_TIER);
-  }
-
-  // 社交激活：非主动咨询场景时加载
-  if (d.triggerScenario && d.triggerScenario.includes("非主动")) {
-    selected.push(M004_SOCIAL);
-    selected.push(M005_CALL_INVITE);
-  }
-
-  // 需求挖掘：始终包含
-  selected.push(M006_NEED_DISCOVERY);
-
-  // 需求强化：始终包含
-  selected.push(M007_NEED_INTENSIFY);
-
-  // 方案呈现：始终包含
-  selected.push(M008_SOLUTION_GAP);
-
-  // 储蓄险风险精讲：有理财/投资/房产信息时加载
-  const hasSavings = d.investmentAmount || d.liquidAssets || d.fixedAssets;
-  if (hasSavings) {
-    selected.push(M009_SAVINGS_RISK);
-  }
-
-  // 异议处理：有客户异议时加载
-  if (d.clientObjection && d.clientObjection.trim()) {
-    selected.push(M010_OBJECTION);
-  }
-
-  // DRG与医疗险：涉及保障类需求时加载（客户有医疗险信息、或触发了健康/保障相关场景）
-  const hasMedicalInfo = d.protectionInsurance || d.otherInsurance || d.savingsInsurance;
-  const isHealthScenario = d.triggerScenario && (
-    d.triggerScenario.includes("主动咨询") || d.triggerScenario.includes("保障")
-  );
-  if (hasMedicalInfo || isHealthScenario || d.insuranceAttitude) {
-    selected.push(M012_DRG_MEDICAL);
-  }
-
-  return selected;
+// ============================================================
+// 追问模式：仅核心层（模型已在首轮对话中学习过方法和参考知识）
+// ============================================================
+export function selectModulesForFollowUp(): KnowledgeModule[] {
+  return [...CORE_MODULES];
 }
 
 // 兼容旧代码：保留合并后知识库的导出
-export const COACH_KNOWLEDGE_BASE = ALL_MODULES.map(m => m.content).join("\n---\n");
+export const COACH_KNOWLEDGE_BASE = ALL_MODULES.map((m) => m.content).join("\n---\n");

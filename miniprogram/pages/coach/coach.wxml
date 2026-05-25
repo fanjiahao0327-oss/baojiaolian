@@ -1,28 +1,16 @@
 <!-- 教练页 -->
 <view class="page">
 
-  <!-- 授权覆盖层（登录或绑定手机号） -->
-  <view class="auth-overlay" wx:if="{{!isLoggedIn || needBindPhone}}">
-    <view class="auth-card">
-      <text class="auth-icon">🛡️</text>
-      <text class="auth-title">领展智教练</text>
-      <text class="auth-desc" wx:if="{{!isLoggedIn}}">AI 驱动的保险销售教练</text>
-      <text class="auth-desc" wx:else>为保障服务安全，请授权绑定手机号</text>
-
-      <!-- 未登录 → 微信一键登录 -->
-      <button wx:if="{{!isLoggedIn}}" class="auth-btn" bindtap="handleWechatLogin" loading="{{logining}}" disabled="{{logining}}">
-        微信一键登录
-      </button>
-
-      <!-- 已登录、未绑定 → 授权手机号 -->
-      <button wx:else class="auth-btn" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumber">
-        授权手机号
-      </button>
+  <!-- 手机号绑定横幅（非阻塞，可关闭） -->
+  <view class="phone-bind-banner" wx:if="{{isLoggedIn && needBindPhone && !hidePhoneBanner}}">
+    <view class="banner-content">
+      <text class="banner-icon">📱</text>
+      <text class="banner-text">绑定手机号，解锁全部功能</text>
+      <button class="banner-bind-btn" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumber">去绑定</button>
+      <text class="banner-close" bindtap="closePhoneBanner">✕</text>
     </view>
   </view>
 
-  <!-- 正常页面内容 -->
-  <block wx:if="{{isLoggedIn && !needBindPhone}}">
   <!-- 顶部 Tab + 客户选择 -->
   <view class="top-bar">
     <view class="tabs">
@@ -30,11 +18,16 @@
       <view class="tab-item {{tab === 'coach' ? 'active' : ''}}" data-tab="coach" bindtap="switchTab">教练指导</view>
     </view>
     <view class="top-right">
-      <view class="balance-tag" wx:if="{{balance >= 0}}" bindtap="goToPoints">
+      <!-- 未登录：显示登录入口 -->
+      <button wx:if="{{!isLoggedIn}}" class="login-entry-btn" bindtap="handleWechatLogin" loading="{{logining}}" disabled="{{logining}}">
+        登录
+      </button>
+      <!-- 已登录：显示积分 -->
+      <view class="balance-tag" wx:elif="{{balance >= 0}}" bindtap="goToPoints">
         <text class="balance-dot"></text>
         <text>{{balance}} 积分</text>
       </view>
-      <view class="client-picker-btn" bindtap="toggleClientPicker">
+      <view class="client-picker-btn" bindtap="toggleClientPicker" wx:if="{{isLoggedIn}}">
         <text>{{selectedClientId ? '已选客户' : '选择客户'}}</text>
         <text class="arrow">▾</text>
       </view>
@@ -51,6 +44,65 @@
 
   <!-- KYC 步骤式表单 -->
   <view class="form-area" wx:if="{{tab === 'form'}}">
+
+    <!-- 快速模式切换 -->
+    <view class="quick-mode-toggle" bindtap="toggleQuickMode">
+      <view class="qmt-track {{quickMode ? 'active' : ''}}">
+        <view class="qmt-thumb"></view>
+      </view>
+      <text class="qmt-label">{{quickMode ? '快速模式' : '完整模式'}}</text>
+      <text class="qmt-desc">{{quickMode ? '5个核心字段，快速诊断' : '6步详细填写，深度诊断'}}</text>
+    </view>
+
+    <!-- ====== 快速模式表单 ====== -->
+    <view class="section" wx:if="{{quickMode}}">
+      <view class="section-body">
+
+        <view class="field">
+          <view class="label">年龄<text class="required">*</text></view>
+          <input class="input" type="number" value="{{formData.age}}" data-key="age" bindinput="onFieldChange" placeholder="年龄决定生命周期定位" />
+        </view>
+
+        <view class="field">
+          <view class="label">性别<text class="required">*</text></view>
+          <view class="radio-group">
+            <view class="radio-item {{formData.gender === 'male' ? 'checked' : ''}}" data-key="gender" data-val="male" bindtap="onFieldChange"><text>男</text></view>
+            <view class="radio-item {{formData.gender === 'female' ? 'checked' : ''}}" data-key="gender" data-val="female" bindtap="onFieldChange"><text>女</text></view>
+          </view>
+        </view>
+
+        <view class="field">
+          <view class="label">家庭年收入（万元）</view>
+          <input class="input" type="number" value="{{formData.annualIncome}}" data-key="annualIncome" bindinput="onFieldChange" placeholder="例如：30（填大概数字即可）" />
+        </view>
+
+        <view class="field">
+          <view class="label">触发场景<text class="required">*</text></view>
+          <picker mode="selector" range='{{["客户主动咨询（有明确原话）", "非主动咨询（代理人通过社交激活话题）"]}}' data-key="triggerScenario" bindchange="onSelectChange">
+            <view class="picker-display">
+              <text class="{{formData.triggerScenario ? '' : 'picker-placeholder'}}">{{formData.triggerScenario || '请选择'}}</text>
+              <text class="picker-arrow">▼</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="field">
+          <view class="label">客户原话或背景描述<text class="required">*</text></view>
+          <textarea class="textarea" value="{{formData.clientOriginalWords}}" data-key="clientOriginalWords" bindinput="onFieldChange" placeholder="例如：我想买个保险，你帮我看看 / 聊到孩子教育，客户说想送孩子出国读书" auto-height maxlength="500" />
+        </view>
+
+      </view>
+
+      <view class="step-nav">
+        <view></view>
+        <button class="btn-primary submit-btn" bindtap="submitForm" disabled="{{isLoading}}" loading="{{isLoading}}">
+          {{isLoading ? '教练诊断中...' : '提交给保险教练快速诊断'}}
+        </button>
+      </view>
+    </view>
+
+    <!-- ====== 完整模式表单（原有 6 步） ====== -->
+    <block wx:if="{{!quickMode}}">
     <!-- 步骤进度条 -->
     <view class="step-progress">
       <block wx:for="{{sortedSections}}" wx:key="title" wx:for-index="index">
@@ -198,6 +250,7 @@
         {{isLoading ? '教练诊断中...' : '提交给保险教练诊断'}}
       </button>
     </view>
+    </block>
   </view>
 
   <!-- 教练对话区 -->
@@ -228,7 +281,11 @@
                 </view>
               </block>
               <rich-text wx:else nodes="{{item.contentHtml || item.content}}" class="msg-rich"></rich-text>
-              <view wx:if="{{item.role === 'coach'}}" class="copy-btn" data-idx="{{index}}" catchtap="copyCoachMsg">复制</view>
+              <view wx:if="{{item.role === 'coach' && !item.streaming}}" class="feedback-row">
+                <view class="copy-btn" data-idx="{{index}}" catchtap="copyCoachMsg">复制</view>
+                <view class="fb-btn {{item.feedback === 'helpful' ? 'fb-active' : ''}}" data-idx="{{index}}" data-rating="helpful" catchtap="onFeedback">{{item.feedback === 'helpful' ? '已赞' : '有帮助'}}</view>
+                <view class="fb-btn {{item.feedback === 'unhelpful' ? 'fb-active' : ''}}" data-idx="{{index}}" data-rating="unhelpful" catchtap="onFeedback">{{item.feedback === 'unhelpful' ? '已反馈' : '不准确'}}</view>
+              </view>
             </view>
           </view>
         </view>
@@ -248,5 +305,4 @@
     </view>
   </view>
 
-  </block>
 </view>

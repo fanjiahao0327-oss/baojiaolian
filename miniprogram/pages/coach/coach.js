@@ -124,15 +124,16 @@ SECTIONS.forEach(function (s) {
 });
 
 var LOADING_STAGES = [
-  "正在解读客户档案…",
-  "正在调取展业知识库…",
-  "正在生成诊断建议…",
-  "正在整理输出格式…",
+  "正在分析客户情况…",
+  "AI 教练生成诊断中…",
 ];
+
+var QUICK_FIELDS = ["age", "gender", "annualIncome", "triggerScenario", "clientOriginalWords"];
 
 Page({
   data: {
     tab: "form",
+    quickMode: false,
     clients: [],
     selectedClientId: null,
     formData: JSON.parse(JSON.stringify(EMPTY_FORM)),
@@ -150,6 +151,7 @@ Page({
     loadingText: LOADING_STAGES[0],
     isLoggedIn: false,
     needBindPhone: false,
+    hidePhoneBanner: false,
     logining: false,
     expandedSections: {},
     balance: -1,
@@ -232,6 +234,7 @@ Page({
       self.setData({
         isLoggedIn: true,
         needBindPhone: app.globalData.needBindPhone,
+        hidePhoneBanner: false,
         logining: false,
       });
       self.loadClients();
@@ -240,6 +243,10 @@ Page({
       self.setData({ logining: false });
       wx.showToast({ title: "登录失败，请重试", icon: "none" });
     });
+  },
+
+  closePhoneBanner() {
+    this.setData({ hidePhoneBanner: true });
   },
 
   onGetPhoneNumber(e) {
@@ -303,7 +310,6 @@ Page({
           if (!accumulatedText && res.data) {
             try {
               var fallback = typeof res.data === "string" ? res.data : JSON.stringify(res.data);
-              // 尝试按 JSONL 解析
               var lines = fallback.split("\n");
               for (var j = 0; j < lines.length; j++) {
                 var line = lines[j].trim();
@@ -312,17 +318,17 @@ Page({
                   var fb = JSON.parse(line);
                   if (fb.type === "text" && fb.c) accumulatedText += fb.c;
                   else if (fb.type === "done") {
-                    var fmsgs = self.data.messages;
-                    if (fmsgs.length > 0) {
-                      var flast = fmsgs[fmsgs.length - 1];
-                      if (flast.role === "coach" && flast.streaming) {
-                        flast.content = accumulatedText;
-                        flast.contentHtml = fb.html || accumulatedText;
-                        delete flast.streaming;
+                    var fmsgs2 = self.data.messages;
+                    if (fmsgs2.length > 0) {
+                      var flast2 = fmsgs2[fmsgs2.length - 1];
+                      if (flast2.role === "coach" && flast2.streaming) {
+                        flast2.content = accumulatedText;
+                        flast2.contentHtml = fb.html || accumulatedText;
+                        delete flast2.streaming;
                       }
                     }
                     self._stopLoadingText();
-                    self.setData({ messages: fmsgs, isLoading: false, conversationId: fb.cid });
+                    self.setData({ messages: fmsgs2, isLoading: false, conversationId: fb.cid });
                     resolve({ conversationId: fb.cid });
                     return;
                   }
@@ -332,9 +338,29 @@ Page({
           }
           if (!accumulatedText) {
             self._stopLoadingText();
-            self.setData({ isLoading: false });
+            var fmsgs = self.data.messages;
+            if (fmsgs.length > 0) {
+              var flast = fmsgs[fmsgs.length - 1];
+              if (flast.role === "coach" && flast.streaming) {
+                flast.content = "抱歉，服务未返回结果，请重试。";
+                delete flast.streaming;
+              }
+            }
+            self.setData({ messages: fmsgs, isLoading: false });
             reject(new Error("No response received"));
+            return;
           }
+          // 收到了分块内容但没收到 done 消息：兜底结束流式状态
+          var fmsgs = self.data.messages;
+          if (fmsgs.length > 0) {
+            var flast = fmsgs[fmsgs.length - 1];
+            if (flast.role === "coach" && flast.streaming) {
+              delete flast.streaming;
+            }
+          }
+          self._stopLoadingText();
+          self.setData({ messages: fmsgs, isLoading: false });
+          resolve({ conversationId: null });
         },
         fail: function (err) {
           self._stopLoadingText();
@@ -618,29 +644,91 @@ Page({
     }
   },
 
+  ensureLogin() {
+    var self = this;
+    var app = getApp();
+    if (app.globalData.isLogin) {
+      return Promise.resolve();
+    }
+    self.setData({ logining: true });
+    return app.wechatLogin().then(function () {
+      self.setData({
+        isLoggedIn: true,
+        needBindPhone: app.globalData.needBindPhone,
+        hidePhoneBanner: false,
+        logining: false,
+      });
+      self.loadClients();
+      self.loadBalance();
+    }).catch(function (err) {
+      self.setData({ logining: false });
+      throw err;
+    });
+  },
+
   submitForm() {
     var self = this;
     var formData = self.data.formData;
     var missing = null;
-    for (var si = 0; si < SECTIONS.length; si++) {
-      var fields = SECTIONS[si].fields;
-      for (var fi = 0; fi < fields.length; fi++) {
-        var f = fields[fi];
-        if (!f.required) continue;
-        var v = formData[f.key];
-        if (Array.isArray(v) ? v.length === 0 : !v) {
-          missing = f;
+
+    if (self.data.quickMode) {
+      // 快速模式：仅校验 5 个核心字段
+      for (var i = 0; i < QUICK_FIELDS.length; i++) {
+        var key = QUICK_FIELDS[i];
+        var v = formData[key];
+        if (!v) {
+          for (var si = 0; si < SECTIONS.length; si++) {
+            for (var fi = 0; fi < SECTIONS[si].fields.length; fi++) {
+              if (SECTIONS[si].fields[fi].key === key) {
+                missing = SECTIONS[si].fields[fi];
+                break;
+              }
+            }
+            if (missing) break;
+          }
           break;
         }
       }
-      if (missing) break;
+    } else {
+      // 完整模式：校验所有必填字段
+      for (var si = 0; si < SECTIONS.length; si++) {
+        var fields = SECTIONS[si].fields;
+        for (var fi = 0; fi < fields.length; fi++) {
+          var f = fields[fi];
+          if (!f.required) continue;
+          var v2 = formData[f.key];
+          if (Array.isArray(v2) ? v2.length === 0 : !v2) {
+            missing = f;
+            break;
+          }
+        }
+        if (missing) break;
+      }
     }
     if (missing) {
       wx.showToast({ title: "请填写：" + missing.label, icon: "none" });
       return;
     }
 
-    var userContent = self.buildUserContent();
+    // 先确保登录，再提交
+    self.ensureLogin().then(function () {
+      return self._doSubmit();
+    }).catch(function () {
+      wx.showToast({ title: "登录失败，请重试", icon: "none" });
+    });
+  },
+
+  _doSubmit() {
+    var self = this;
+    var formData = self.data.formData;
+    var userContent = self.data.quickMode
+      ? self.buildQuickUserContent()
+      : self.buildUserContent();
+
+    // 快速模式仅发送核心字段到后端，避免存储大量空值
+    var kycData = self.data.quickMode
+      ? self._pickQuickKycFields(formData)
+      : formData;
     var userMsg = { role: "user", content: userContent, timestamp: Date.now() };
     var placeholderMsg = { role: "coach", content: "", timestamp: Date.now() + 1, streaming: true };
 
@@ -655,7 +743,7 @@ Page({
     self.clearDraft();
 
     self.streamCoachRequest({
-      kycData: formData,
+      kycData: kycData,
       question: userContent,
       history: [],
       clientId: self.data.selectedClientId,
@@ -723,6 +811,29 @@ Page({
       "请给出：1. 卡点诊断 2. 推演方向 3. 建议话术";
   },
 
+  buildQuickUserContent() {
+    var d = this.data.formData;
+    var kv = function (label, val) { return "- " + label + "：" + (val || "未填写"); };
+    return "快速诊断模式：\n\n" +
+      kv("年龄", d.age) + "\n" +
+      kv("性别", d.gender === "male" ? "男" : d.gender === "female" ? "女" : "") + "\n" +
+      kv("家庭年收入（万元）", d.annualIncome) + "\n" +
+      kv("触发场景", d.triggerScenario) + "\n" +
+      kv("客户原话或背景描述", d.clientOriginalWords) + "\n\n" +
+      "请基于有限信息快速给出：1. 卡点诊断 2. 推演方向 3. 建议话术（话术可含待确认信息的提问方式）";
+  },
+
+  _pickQuickKycFields(formData) {
+    var picked = {};
+    for (var i = 0; i < QUICK_FIELDS.length; i++) {
+      var k = QUICK_FIELDS[i];
+      if (formData[k] !== undefined && formData[k] !== "") {
+        picked[k] = formData[k];
+      }
+    }
+    return picked;
+  },
+
   onFollowUpInput(e) {
     this.setData({ followUp: e.detail.value });
   },
@@ -732,7 +843,17 @@ Page({
     var question = (self.data.followUp || "").trim();
     if (!question || self.data.isLoading) return;
 
-    self.setData({ followUp: "", isLoading: true });
+    self.setData({ followUp: "" });
+    self.ensureLogin().then(function () {
+      return self._doSendFollowUp(question);
+    }).catch(function () {
+      wx.showToast({ title: "登录失败，请重试", icon: "none" });
+    });
+  },
+
+  _doSendFollowUp(question) {
+    var self = this;
+    self.setData({ isLoading: true });
     self._startLoadingText();
     var userMsg = { role: "user", content: question, timestamp: Date.now() };
     var prevMessages = self.data.messages;
@@ -750,7 +871,6 @@ Page({
     }).catch(function () {
       self._stopLoadingText();
       var errMsg = { role: "coach", content: "抱歉，发生了错误，请稍后重试。", timestamp: Date.now() };
-      // 移除流式占位消息，替换为错误消息
       var currentMessages = self.data.messages;
       if (currentMessages.length > 0) {
         var lastMsg = currentMessages[currentMessages.length - 1];
@@ -773,7 +893,7 @@ Page({
     self._loadingTimer = setInterval(function () {
       self._stageIndex = (self._stageIndex + 1) % LOADING_STAGES.length;
       self.setData({ loadingText: LOADING_STAGES[self._stageIndex] });
-    }, 1500);
+    }, 2500);
   },
 
   _stopLoadingText() {
@@ -814,8 +934,35 @@ Page({
     }
   },
 
+  onFeedback(e) {
+    var self = this;
+    var idx = e.currentTarget.dataset.idx;
+    var rating = e.currentTarget.dataset.rating;
+    var msgs = self.data.messages;
+    var msg = msgs[idx];
+    if (!msg || msg.role !== "coach" || msg.feedback) return;
+
+    // 乐观更新 UI
+    msg.feedback = rating;
+    self.setData({ messages: msgs });
+
+    api.post("/api/feedback", {
+      conversationId: self.data.conversationId,
+      messageIdx: idx,
+      rating: rating,
+    }).catch(function () {
+      msg.feedback = null;
+      self.setData({ messages: msgs });
+    });
+  },
+
   goToPoints() {
     wx.switchTab({ url: "/pages/points/points" });
+  },
+
+  toggleQuickMode() {
+    var newMode = !this.data.quickMode;
+    this.setData({ quickMode: newMode, currentStep: 0 });
   },
 
   switchTab(e) {
