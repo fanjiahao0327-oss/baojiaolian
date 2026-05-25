@@ -59,6 +59,11 @@
       <view class="section-body">
 
         <view class="field">
+          <view class="label">名称<text class="required">*</text></view>
+          <input class="input" value="{{formData.clientName}}" data-key="clientName" bindinput="onFieldChange" placeholder="例如：张先生、李姐" />
+        </view>
+
+        <view class="field">
           <view class="label">年龄<text class="required">*</text></view>
           <input class="input" type="number" value="{{formData.age}}" data-key="age" bindinput="onFieldChange" placeholder="年龄决定生命周期定位" />
         </view>

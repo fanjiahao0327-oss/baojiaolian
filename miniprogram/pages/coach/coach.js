@@ -128,7 +128,7 @@ var LOADING_STAGES = [
   "AI 教练生成诊断中…",
 ];
 
-var QUICK_FIELDS = ["age", "gender", "annualIncome", "triggerScenario", "clientOriginalWords"];
+var QUICK_FIELDS = ["clientName", "age", "gender", "annualIncome", "triggerScenario", "clientOriginalWords"];
 
 Page({
   data: {
@@ -544,13 +544,13 @@ Page({
   loadClients() {
     api.get("/api/clients").then(function (list) {
       this.setData({ clients: list || [] });
-    }.bind(this)).catch(function () {});
+    }.bind(this)).catch(function (e) { console.warn("[coach] loadClients failed:", e); });
   },
 
   loadBalance() {
     api.get("/api/points").then(function (res) {
       this.setData({ balance: res.balance || 0 });
-    }.bind(this)).catch(function () {});
+    }.bind(this)).catch(function (e) { console.warn("[coach] loadBalance failed:", e); });
   },
 
   toggleClientPicker() {
@@ -725,10 +725,32 @@ Page({
       ? self.buildQuickUserContent()
       : self.buildUserContent();
 
-    // 快速模式仅发送核心字段到后端，避免存储大量空值
     var kycData = self.data.quickMode
       ? self._pickQuickKycFields(formData)
       : formData;
+
+    // 快速模式未选客户时：先用名称自动创建客户，避免与完整模式的对话混到同一个客户下
+    if (self.data.quickMode && !self.data.selectedClientId) {
+      var clientName = (formData.clientName || "").trim() || "快速诊断客户";
+      api.post("/api/clients", {
+        name: clientName,
+        kycSnapshot: kycData
+      }).then(function (res) {
+        self.setData({ selectedClientId: res.id });
+        self._doSubmitCore(userContent, kycData);
+      }).catch(function () {
+        wx.showToast({ title: "创建客户失败，请重试", icon: "none" });
+        self.setData({ isLoading: false });
+        self._stopLoadingText();
+      });
+      return;
+    }
+
+    self._doSubmitCore(userContent, kycData);
+  },
+
+  _doSubmitCore(userContent, kycData) {
+    var self = this;
     var userMsg = { role: "user", content: userContent, timestamp: Date.now() };
     var placeholderMsg = { role: "coach", content: "", timestamp: Date.now() + 1, streaming: true };
 
@@ -815,6 +837,7 @@ Page({
     var d = this.data.formData;
     var kv = function (label, val) { return "- " + label + "：" + (val || "未填写"); };
     return "快速诊断模式：\n\n" +
+      kv("名称", d.clientName) + "\n" +
       kv("年龄", d.age) + "\n" +
       kv("性别", d.gender === "male" ? "男" : d.gender === "female" ? "女" : "") + "\n" +
       kv("家庭年收入（万元）", d.annualIncome) + "\n" +

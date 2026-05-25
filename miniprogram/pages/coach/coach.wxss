@@ -197,7 +197,7 @@
 .section {
   background: #fff; border-radius: 16rpx; overflow: hidden;
 }
-.section-body { padding: 20rpx 16rpx; }
+.section-body { padding: 20rpx 8rpx; }
 .field { margin-bottom: 24rpx; }
 .field:last-child { margin-bottom: 0; }
 .label { font-size: 26rpx; color: #555; margin-bottom: 10rpx; display: block; }
@@ -224,15 +224,15 @@
 
 /* 基础输入 */
 .input {
-  width: 100%; padding: 16rpx 16rpx;
+  width: 100%; padding: 20rpx 16rpx;
   border: 1px solid #ddd; border-radius: 10rpx;
-  font-size: 28rpx; box-sizing: border-box;
+  font-size: 30rpx; box-sizing: border-box;
   background: #fafafa;
 }
 .textarea {
-  width: 100%; padding: 16rpx 16rpx;
+  width: 100%; padding: 20rpx 16rpx;
   border: 1px solid #ddd; border-radius: 10rpx;
-  font-size: 28rpx; box-sizing: border-box;
+  font-size: 30rpx; box-sizing: border-box;
   background: #fafafa;
   min-height: 120rpx;
 }
@@ -252,10 +252,10 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 16rpx 16rpx;
+  padding: 20rpx 16rpx;
   border: 1px solid #ddd;
   border-radius: 10rpx;
-  font-size: 28rpx;
+  font-size: 30rpx;
   box-sizing: border-box;
   background: #fafafa;
 }
