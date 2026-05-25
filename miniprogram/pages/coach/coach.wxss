@@ -197,10 +197,10 @@
 .section {
   background: #fff; border-radius: 16rpx; overflow: hidden;
 }
-.section-body { padding: 20rpx 0; }
+.section-body { padding: 20rpx 12rpx; }
 .field { margin-bottom: 24rpx; }
 .field:last-child { margin-bottom: 0; }
-.label { font-size: 26rpx; color: #555; margin-bottom: 10rpx; display: block; padding-left: 4rpx; }
+.label { font-size: 28rpx; color: #555; margin-bottom: 12rpx; display: block; }
 .required { color: #ef4444; }
 
 /* 优先级标签 */
@@ -224,7 +224,8 @@
 
 /* 基础输入 */
 .input {
-  width: 100%; padding: 20rpx 16rpx;
+  width: 100%; height: 80rpx; line-height: 80rpx;
+  padding: 0 16rpx;
   border: 1px solid #ddd; border-radius: 10rpx;
   font-size: 30rpx; box-sizing: border-box;
   background: #fafafa;
@@ -251,8 +252,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  padding: 20rpx 16rpx;
+  width: 100%; height: 80rpx;
+  padding: 0 16rpx;
   border: 1px solid #ddd;
   border-radius: 10rpx;
   font-size: 30rpx;
