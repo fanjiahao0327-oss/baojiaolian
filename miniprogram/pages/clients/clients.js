@@ -147,7 +147,7 @@ Page({
     wx.hideLoading();
   },
 
-  buildSections(kyc) {
+  buildSections(kyc, includeAll) {
     return KYC_DISPLAY_SECTIONS.map(function (sec) {
       var items = sec.fields.map(function (key) {
         var val = this.formatVal(key, kyc[key]);
@@ -161,7 +161,10 @@ Page({
           _isLong: LONG_TEXT_FIELDS.has(key),
           _isNumber: NUMBER_FIELDS.has(key),
         };
-      }.bind(this)).filter(function (it) { return it.value && it.value !== "未填写"; });
+      }.bind(this));
+      if (!includeAll) {
+        items = items.filter(function (it) { return it.value && it.value !== "未填写"; });
+      }
       return {
         title: sec.title,
         items: items,
@@ -194,19 +197,23 @@ Page({
   enterEdit() {
     var editData = {};
     var kyc = this.data.selected.kyc_snapshot || {};
-    var keys = Object.keys(kyc);
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      var v = kyc[k];
-      if (Array.isArray(v)) {
-        editData[k] = v;
-      } else if (v !== undefined && v !== null) {
-        editData[k] = String(v);
-      } else {
-        editData[k] = "";
+    // 用全部字段初始化 editData，确保快速模式创建的客户也能编辑所有字段
+    for (var si = 0; si < KYC_DISPLAY_SECTIONS.length; si++) {
+      var fields = KYC_DISPLAY_SECTIONS[si].fields;
+      for (var fi = 0; fi < fields.length; fi++) {
+        var k = fields[fi];
+        var v = kyc[k];
+        if (Array.isArray(v)) {
+          editData[k] = v;
+        } else if (v !== undefined && v !== null) {
+          editData[k] = String(v);
+        } else {
+          editData[k] = "";
+        }
       }
     }
-    this.setData({ editing: true, editData: editData, collapsedSections: {} });
+    var sections = this.buildSections(kyc, true);
+    this.setData({ editing: true, editData: editData, sections: sections, collapsedSections: {} });
   },
 
   cancelEdit() { this.setData({ editing: false }); },
