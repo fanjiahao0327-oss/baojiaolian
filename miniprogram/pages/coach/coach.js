@@ -236,6 +236,24 @@ Page({
   startVoiceInput() {
     var self = this;
     if (self.data.recording) return; // 防止重复点击
+    
+    // 先获取录音权限
+    wx.authorize({ scope: "scope.record" }).then(function () {
+      return self._doStartVoice();
+    }).catch(function () {
+      wx.showModal({
+        title: "需要录音权限",
+        content: "请在设置中开启麦克风权限",
+        confirmText: "去设置",
+        success: function (res) {
+          if (res.confirm) wx.openSetting();
+        }
+      });
+    });
+  },
+
+  _doStartVoice() {
+    var self = this;
     // 初始化语音识别管理器（WeChatSI 插件）
     var plugin = requirePlugin("WechatSI");
     if (!plugin || !plugin.getRecordRecognitionManager) {
@@ -266,10 +284,7 @@ Page({
         self.setData({ recording: true, voiceText: "" });
       };
     }
-    self._voiceManager.start({
-      lang: "zh_CN",
-      duration: 120000, // 最长 2 分钟
-    });
+    self._voiceManager.start({ duration: 60000 });
   },
 
   stopVoiceInput() {
