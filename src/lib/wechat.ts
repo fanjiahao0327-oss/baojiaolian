@@ -11,7 +11,8 @@ async function getAccessToken(): Promise<string> {
     return cachedToken.token;
   }
 
-  const appid = process.env.WECHAT_APPID || "wx4d18f340c11adbf5";
+  const appid = process.env.WECHAT_APPID;
+  if (!appid) throw new Error("WECHAT_APPID 未配置");
   const secret = process.env.WECHAT_SECRET;
   if (!secret) throw new Error("WECHAT_SECRET 未配置");
 

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 import { selectModules, selectModulesForFollowUp } from "@/lib/knowledge";
 import type { KYCFormData, Message } from "@/types";
 import { getSession } from "@/lib/auth";
@@ -8,6 +7,7 @@ import { getDb, rows, row } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { markdownToRichHTML } from "@/lib/markdown";
+import { getAIClient, thinkingMaxConfig, formatCostLog } from "@/lib/ai-client";
 
 const INJECTION_PATTERNS = [
   /忽略.{0,10}(之前|前面|以上|上述|所有|系统).{0,10}(指令|提示|规则|设定|要求)/,
@@ -38,17 +38,6 @@ function detectKycInjection(kycData: Record<string, unknown>): boolean {
     }
   }
   return false;
-}
-
-let _openai: OpenAI | null = null;
-function getOpenAI(): OpenAI {
-  if (!_openai) {
-    _openai = new OpenAI({
-      baseURL: "https://api.deepseek.com/v1",
-      apiKey: process.env.DEEPSEEK_API_KEY,
-    });
-  }
-  return _openai;
 }
 
 function buildKycContext(kycData: Record<string, unknown>): string {
@@ -283,11 +272,10 @@ export async function POST(request: NextRequest) {
     const isJsonl = (restBody as Record<string, unknown>).format === "jsonl";
 
     if (noStream && !isJsonl) {
-      const completion = await getOpenAI().chat.completions.create({
-        model: "deepseek-v4-pro",
+      const completion = await getAIClient().chat.completions.create({
+        ...thinkingMaxConfig({ userId }),
         messages: messages,
         stream: false,
-        temperature: 0.7,
       });
 
       const fullResponse = completion.choices[0]?.message?.content || "";
@@ -300,13 +288,22 @@ export async function POST(request: NextRequest) {
       const conversationRow = rows<{ messages: string }>(resultRows)[0];
       const msgs: Message[] = JSON.parse(conversationRow.messages);
       msgs.push({ role: "coach", content: fullResponse, timestamp: Date.now() });
+      await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, total_input_tokens = total_input_tokens + ${promptTokens}, total_output_tokens = total_output_tokens + ${completionTokens}, updated_at = NOW() WHERE id = ${conversationId}`;
       const consumed = calcPoints(promptTokens, completionTokens);
       const finalBalance = await getBalance(userId);
       const deduct = Math.min(consumed, finalBalance);
       if (deduct > 0) {
         await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${userId}, ${-deduct}, 'consume', ${'对话消耗 ' + promptTokens + '/' + completionTokens + ' tokens'})`;
       }
-      await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, total_input_tokens = total_input_tokens + ${promptTokens}, total_output_tokens = total_output_tokens + ${completionTokens}, updated_at = NOW() WHERE id = ${conversationId}`;
+
+      const cacheHit = (usage as unknown as Record<string, unknown>).prompt_cache_hit_tokens as number | undefined;
+      const cacheMiss = (usage as unknown as Record<string, unknown>).prompt_cache_miss_tokens as number | undefined;
+      console.log(formatCostLog(conversationId, {
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        prompt_cache_hit_tokens: cacheHit,
+        prompt_cache_miss_tokens: cacheMiss,
+      }, deduct));
 
       const strippedMarkdown = fullResponse.replace(/\n*\[SUGGESTED_QUESTIONS\][\s\S]*$/i, "");
       const richHTML = markdownToRichHTML(strippedMarkdown);
@@ -320,26 +317,31 @@ export async function POST(request: NextRequest) {
     }
 
     // 流式模式（Web 端原始文本 / 小程序 JSONL）
-    const stream = await getOpenAI().chat.completions.create({
-      model: "deepseek-v4-pro",
+    const stream = await getAIClient().chat.completions.create({
+      ...thinkingMaxConfig({ userId }),
       messages: messages,
       stream: true,
       stream_options: { include_usage: true },
-      temperature: 0.7,
     });
 
     const encoder = new TextEncoder();
     let fullResponse = "";
-    let usage: { prompt_tokens: number; completion_tokens: number } | null = null;
+    let usage: {
+      prompt_tokens: number; completion_tokens: number;
+      prompt_cache_hit_tokens?: number; prompt_cache_miss_tokens?: number;
+    } | null = null;
 
     const streamable = new ReadableStream({
       async start(controller) {
         try {
           for await (const chunk of stream) {
             if (chunk.usage) {
+              const u = chunk.usage as unknown as Record<string, unknown>;
               usage = {
-                prompt_tokens: chunk.usage.prompt_tokens || 0,
-                completion_tokens: chunk.usage.completion_tokens || 0,
+                prompt_tokens: (u.prompt_tokens as number) || 0,
+                completion_tokens: (u.completion_tokens as number) || 0,
+                prompt_cache_hit_tokens: u.prompt_cache_hit_tokens as number | undefined,
+                prompt_cache_miss_tokens: u.prompt_cache_miss_tokens as number | undefined,
               };
             }
             const content = chunk.choices[0]?.delta?.content || "";
@@ -358,16 +360,14 @@ export async function POST(request: NextRequest) {
           const msgs: Message[] = JSON.parse(conversationRow.messages);
           msgs.push({ role: "coach", content: fullResponse, timestamp: Date.now() });
           if (usage) {
+            await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, total_input_tokens = total_input_tokens + ${usage.prompt_tokens}, total_output_tokens = total_output_tokens + ${usage.completion_tokens}, updated_at = NOW() WHERE id = ${conversationId}`;
             const consumed = calcPoints(usage.prompt_tokens, usage.completion_tokens);
             const finalBalance = await getBalance(userId);
             const deduct = Math.min(consumed, finalBalance);
             if (deduct > 0) {
               await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${userId}, ${-deduct}, 'consume', ${'对话消耗 ' + usage.prompt_tokens + '/' + usage.completion_tokens + ' tokens'})`;
             }
-            const inputCost = (usage.prompt_tokens / 1_000_000) * 1.74;
-            const outputCost = (usage.completion_tokens / 1_000_000) * 3.48;
-            console.log(`[coach] conv=${conversationId} tokens: in=${usage.prompt_tokens} out=${usage.completion_tokens} | cost $${(inputCost + outputCost).toFixed(5)} | deduct=${deduct}pts`);
-            await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, total_input_tokens = total_input_tokens + ${usage.prompt_tokens}, total_output_tokens = total_output_tokens + ${usage.completion_tokens}, updated_at = NOW() WHERE id = ${conversationId}`;
+            console.log(formatCostLog(conversationId, usage, deduct));
           } else {
             await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, updated_at = NOW() WHERE id = ${conversationId}`;
           }

@@ -55,18 +55,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ code: "SUCCESS", message: "OK" });
     }
 
-    // 更新订单为已支付
-    await sql`
-      UPDATE payment_orders SET status = 'paid', payment_ref = ${transactionId}, updated_at = NOW()
-      WHERE order_no = ${outTradeNo}
-    `;
-
-    // 充值积分
+    // 更新订单并充值积分（事务保护，防止订单标记已付但积分未到账）
     const points = orderRow.points;
+    await sql`BEGIN`;
+    const updated = await sql`
+      UPDATE payment_orders SET status = 'paid', payment_ref = ${transactionId}, updated_at = NOW()
+      WHERE order_no = ${outTradeNo} AND status = 'pending'
+      RETURNING id
+    `;
+    if (rows(updated).length === 0) {
+      await sql`ROLLBACK`;
+      console.log(`[notify] order ${outTradeNo} already processed by concurrent request`);
+      return NextResponse.json({ code: "SUCCESS", message: "OK" });
+    }
     await sql`
       INSERT INTO point_transactions (user_id, amount, type, description)
       VALUES (${orderRow.user_id}, ${points}, 'charge', ${'充值 ' + points + ' 积分（微信支付 ' + transactionId + '）'})
     `;
+    await sql`COMMIT`;
 
     console.log(`[notify] charged ${points} points to user ${orderRow.user_id}`);
 

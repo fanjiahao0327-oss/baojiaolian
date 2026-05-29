@@ -45,17 +45,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: wxOrder.tradeState, balance: await getBalance(session.userId) });
   }
 
-  // 更新订单 + 充值积分
+  // 更新订单并充值积分（事务保护）
   const transactionId = wxOrder.transactionId || "";
-  await sql`
+  await sql`BEGIN`;
+  const updated = await sql`
     UPDATE payment_orders SET status = 'paid', payment_ref = ${transactionId}, updated_at = NOW()
     WHERE order_no = ${orderNo} AND status = 'pending'
+    RETURNING id
   `;
-
+  if (rows(updated).length === 0) {
+    await sql`ROLLBACK`;
+    const balance2 = await getBalance(session.userId);
+    return NextResponse.json({ status: "paid", balance: balance2 });
+  }
   await sql`
     INSERT INTO point_transactions (user_id, amount, type, description)
     VALUES (${session.userId}, ${order.points}, 'charge', ${"充值 " + order.points + " 积分（微信支付 " + transactionId + "）"})
   `;
+  await sql`COMMIT`;
 
   const balance = await getBalance(session.userId);
   return NextResponse.json({ status: "paid", points: order.points, balance });
