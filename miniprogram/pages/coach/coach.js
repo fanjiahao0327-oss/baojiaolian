@@ -792,8 +792,32 @@ Page({
       // 已在 onChunkReceived 中处理完成
     }).catch(function () {
       self._stopLoadingText();
-      wx.showToast({ title: "提交失败，请重试", icon: "none" });
-      self.setData({ isLoading: false });
+      // 流式传输中断时，尝试从服务端恢复最新对话（AI 可能已在服务端完成处理）
+      api.get("/api/conversations?limit=1").then(function (list) {
+        if (list && list.length > 0 && list[0].id) {
+          wx.showLoading({ title: "加载中" });
+          return api.get("/api/conversations/" + list[0].id);
+        }
+        return null;
+      }).then(function (detail) {
+        if (detail && detail.messages && detail.messages.length > 1) {
+          // 找到未完成的流式占位消息，替换为完整内容
+          var recovered = detail.messages.map(function (m) {
+            if (m.role === "coach" && m.contentHtml) {
+              return { role: "coach", content: m.content || m.contentHtml, contentHtml: m.contentHtml, timestamp: m.timestamp };
+            }
+            return m;
+          });
+          self.setData({ messages: recovered, isLoading: false, conversationId: detail.id });
+          setTimeout(function () { self.scrollChatToBottom(); }, 300);
+        } else {
+          wx.showToast({ title: "提交失败，请重试", icon: "none" });
+          self.setData({ isLoading: false });
+        }
+      }).catch(function () {
+        wx.showToast({ title: "提交失败，请重试", icon: "none" });
+        self.setData({ isLoading: false });
+      }).finally(function () { wx.hideLoading(); });
     });
   },
 

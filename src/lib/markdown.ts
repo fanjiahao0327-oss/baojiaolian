@@ -7,13 +7,13 @@ export function markdownToRichHTML(markdown: string): string {
   const html = md.render(markdown);
   return html
     .replace(/<h1>/g, '<h1 style="font-size:36rpx;font-weight:700;color:#1a293b;margin:24rpx 0 16rpx;line-height:1.4;">')
-    .replace(/<h2>/g, '<h2 style="font-size:32rpx;font-weight:700;color:#1a56db;margin:28rpx 0 14rpx;line-height:1.4;">')
-    .replace(/<h3>/g, '<h3 style="font-size:30rpx;font-weight:600;color:#333;margin:22rpx 0 12rpx;line-height:1.4;">')
+    .replace(/<h2>/g, '<h2 style="font-size:32rpx;font-weight:700;color:#1a293b;margin:28rpx 0 14rpx;line-height:1.4;">')
+    .replace(/<h3>/g, '<h3 style="font-size:30rpx;font-weight:600;color:#374151;margin:22rpx 0 12rpx;line-height:1.4;">')
     .replace(/<p>/g, '<p style="font-size:28rpx;color:#444;line-height:1.8;margin:8rpx 0;">')
     .replace(/<ul>/g, '<ul style="padding-left:24rpx;margin:8rpx 0;">')
     .replace(/<ol>/g, '<ol style="padding-left:24rpx;margin:8rpx 0;">')
     .replace(/<li>/g, '<li style="font-size:28rpx;color:#444;line-height:1.8;margin:4rpx 0;">')
-    .replace(/<blockquote>/g, '<blockquote style="background:#f0f5ff;border-left:6rpx solid #1a56db;padding:16rpx 20rpx;margin:16rpx 0;border-radius:0 8rpx 8rpx 0;">')
+    .replace(/<blockquote>/g, '<blockquote style="background:#f9fafb;border-left:6rpx solid #d1d5db;padding:16rpx 20rpx;margin:16rpx 0;border-radius:0 8rpx 8rpx 0;">')
     .replace(/<strong>/g, '<strong style="font-weight:700;color:#1a293b;">')
     .replace(/<em>/g, '<em style="font-style:italic;color:#555;">')
     .replace(/<hr>/g, '<hr style="border:none;border-top:2rpx solid #eee;margin:24rpx 0;">')
