@@ -54,8 +54,8 @@
       <text class="qmt-desc">{{quickMode ? '10个核心字段，快速诊断' : '6步详细填写，深度诊断'}}</text>
     </view>
 
-    <!-- 语音录入入口 -->
-    <view class="voice-entry" wx:if="{{quickMode}}" bindtap="startVoiceInput">
+    <!-- 语音录入入口（暂时隐藏，调试中）
+    <view class="voice-entry" wx:if="{{false}}" bindtap="startVoiceInput">
       <text class="voice-icon">🎤</text>
       <text class="voice-label">语音快速录入</text>
       <text class="voice-hint">说出客户信息，AI 自动填表</text>
@@ -347,8 +347,8 @@
     </view>
   </view>
 
-  <!-- 语音录制浮层 -->
-  <view class="voice-overlay" wx:if="{{recording}}">
+  <!-- 语音录制浮层（暂时隐藏）
+  <view class="voice-overlay" wx:if="{{false}}">
     <view class="voice-overlay-mask" bindtap="cancelVoiceInput"></view>
     <view class="voice-overlay-content">
       <view class="voice-wave">
@@ -367,8 +367,8 @@
     </view>
   </view>
 
-  <!-- AI 解析中 -->
-  <view class="voice-parsing-overlay" wx:if="{{voiceParsingKyc}}">
+  <!-- AI 解析中（暂时隐藏）
+  <view class="voice-parsing-overlay" wx:if="{{false}}">
     <view class="voice-parsing-mask"></view>
     <view class="voice-parsing-toast">
       <text>🤖 AI 正在解析中...</text>
