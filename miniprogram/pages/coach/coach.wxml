@@ -51,7 +51,7 @@
         <view class="qmt-thumb"></view>
       </view>
       <text class="qmt-label">{{quickMode ? '快速模式' : '完整模式'}}</text>
-      <text class="qmt-desc">{{quickMode ? '5个核心字段，快速诊断' : '6步详细填写，深度诊断'}}</text>
+      <text class="qmt-desc">{{quickMode ? '10个核心字段，快速诊断' : '6步详细填写，深度诊断'}}</text>
     </view>
 
     <!-- ====== 快速模式表单 ====== -->
@@ -77,8 +77,28 @@
         </view>
 
         <view class="field">
+          <view class="label">行业</view>
+          <picker mode="selector" range="{{['互联网/IT/通信','金融/保险/证券','教育/培训','医疗/健康/医药','制造业','汽车/机械','房地产/建筑/装修','零售/电商/贸易','餐饮/旅游/酒店','政府/事业单位/公务员','能源/电力/采矿/化工','物流/运输/交通','文化/传媒/广告','体育/健身/娱乐','农业/林业/渔业','法律/咨询/审计','科研/技术服务','家政/居民服务','水利/环境/公共设施','其他']}}" data-key="clientIndustry" bindchange="onSelectChange">
+            <view class="picker-display">
+              <text class="{{formData.clientIndustry ? '' : 'picker-placeholder'}}">{{formData.clientIndustry || '请选择行业'}}</text>
+              <text class="picker-arrow">▼</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="field">
+          <view class="label">子女详情</view>
+          <input class="input" value="{{formData.childrenDetail}}" data-key="childrenDetail" bindinput="onFieldChange" placeholder="例如：儿子/8岁/公立小学 / 无" />
+        </view>
+
+        <view class="field">
           <view class="label">家庭年收入（万元）</view>
           <input class="input" type="number" value="{{formData.annualIncome}}" data-key="annualIncome" bindinput="onFieldChange" placeholder="例如：30（填大概数字即可）" />
+        </view>
+
+        <view class="field">
+          <view class="label">保障类保险</view>
+          <textarea class="textarea" value="{{formData.protectionInsurance}}" data-key="protectionInsurance" bindinput="onFieldChange" placeholder="例如：百万医疗/年交500元；重疾险50万/年交8000元 / 无" auto-height maxlength="300" />
         </view>
 
         <view class="field">
@@ -94,6 +114,11 @@
         <view class="field">
           <view class="label">客户原话或背景描述<text class="required">*</text></view>
           <textarea class="textarea" value="{{formData.clientOriginalWords}}" data-key="clientOriginalWords" bindinput="onFieldChange" placeholder="例如：我想买个保险，你帮我看看 / 聊到孩子教育，客户说想送孩子出国读书" auto-height maxlength="500" />
+        </view>
+
+        <view class="field">
+          <view class="label">客户异议/卡点</view>
+          <textarea class="textarea" value="{{formData.clientObjection}}" data-key="clientObjection" bindinput="onFieldChange" placeholder="例如：客户说你们产品收益不如基金 / 我要跟家人商量一下" auto-height maxlength="500" />
         </view>
 
       </view>

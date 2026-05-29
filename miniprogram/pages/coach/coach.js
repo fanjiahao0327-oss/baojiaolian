@@ -128,7 +128,7 @@ var LOADING_STAGES = [
   "AI 教练生成诊断中…",
 ];
 
-var QUICK_FIELDS = ["clientName", "age", "gender", "annualIncome", "triggerScenario", "clientOriginalWords"];
+var QUICK_FIELDS = ["clientName", "age", "gender", "clientIndustry", "annualIncome", "childrenDetail", "protectionInsurance", "triggerScenario", "clientOriginalWords", "clientObjection"];
 
 Page({
   data: {
@@ -879,14 +879,22 @@ Page({
   buildQuickUserContent() {
     var d = this.data.formData;
     var kv = function (label, val) { return "- " + label + "：" + (val || "未填写"); };
+    var genderLabel = d.gender === "male" ? "男" : d.gender === "female" ? "女" : "";
     return "快速诊断模式：\n\n" +
+      "## 客户画像\n" +
       kv("名称", d.clientName) + "\n" +
       kv("年龄", d.age) + "\n" +
-      kv("性别", d.gender === "male" ? "男" : d.gender === "female" ? "女" : "") + "\n" +
+      kv("性别", genderLabel) + "\n" +
+      kv("行业", d.clientIndustry) + "\n" +
+      kv("子女详情", d.childrenDetail) + "\n\n" +
+      "## 财务与保障\n" +
       kv("家庭年收入（万元）", d.annualIncome) + "\n" +
+      kv("保障类保险", d.protectionInsurance) + "\n\n" +
+      "## 面谈信息\n" +
       kv("触发场景", d.triggerScenario) + "\n" +
-      kv("客户原话或背景描述", d.clientOriginalWords) + "\n\n" +
-      "请基于有限信息快速给出：1. 卡点诊断 2. 推演方向 3. 建议话术（话术可含待确认信息的提问方式）";
+      kv("客户原话或背景描述", d.clientOriginalWords) + "\n" +
+      kv("客户异议/卡点", d.clientObjection) + "\n\n" +
+      "请基于以上信息给出：1. 卡点诊断 2. 推演方向 3. 建议话术（话术可含待确认信息的提问方式）";
   },
 
   _pickQuickKycFields(formData) {
