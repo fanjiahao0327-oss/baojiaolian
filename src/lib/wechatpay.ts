@@ -8,7 +8,7 @@ const WECHAT_APPID = process.env.WECHAT_APPID || "";
 
 // 如果商户号已配置但 AppID 为空，提前报错（避免静默使用错误的商户号）
 if (WECHAT_MCHID && !WECHAT_APPID) {
-  throw new Error("WECHAT_APPID 未配置，但检测到 WECHAT_MCHID 已配置，请补全微信支付环境变量");
+  console.error("[wechatpay] WECHAT_APPID 未配置，但 WECHAT_MCHID 已配置，支付功能将不可用");
 }
 
 function getPrivateKey(): string {

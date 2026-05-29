@@ -4,13 +4,12 @@ import { getDb, rows, row } from "@/lib/db";
 import { createToken } from "@/lib/token";
 import { INITIAL_POINTS } from "@/lib/points";
 
-const WECHAT_APPID = process.env.WECHAT_APPID;
-if (!WECHAT_APPID) throw new Error("WECHAT_APPID 未配置");
+const WECHAT_APPID = process.env.WECHAT_APPID || "";
 const WECHAT_SECRET = process.env.WECHAT_SECRET;
 
 export async function POST(request: NextRequest) {
-  if (!WECHAT_SECRET) {
-    console.error("[wechat-login] WECHAT_SECRET 未配置");
+  if (!WECHAT_APPID || !WECHAT_SECRET) {
+    console.error("[wechat-login] WECHAT_APPID 或 WECHAT_SECRET 未配置");
     return NextResponse.json({ error: "微信登录未配置" }, { status: 500 });
   }
 

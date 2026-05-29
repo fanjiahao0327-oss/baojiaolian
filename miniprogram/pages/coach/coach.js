@@ -326,8 +326,9 @@ Page({
       self.setData({ voiceParsingKyc: false });
     } catch (e) {
       self.setData({ voiceParsingKyc: false });
-      console.warn("[voice] parseKyc failed:", e);
-      // 解析失败不弹窗，语音文本仍保留在 voiceText 中供手动参考
+      console.warn("[voice] parseKyc failed:", e && e.message);
+      // 解析失败，语音文本保留供手动参考
+      wx.showToast({ title: "AI 解析暂不可用，可手动填写", icon: "none", duration: 2000 });
     }
   },
 
