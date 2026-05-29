@@ -224,9 +224,18 @@ Page({
     this.setData({ showGuide: false });
   },
 
+  onHide() {
+    // 切页面时自动停止录音
+    if (this._voiceManager && this.data.recording) {
+      this._voiceManager.stop();
+      this.setData({ recording: false });
+    }
+  },
+
   // ===== 语音录入 =====
   startVoiceInput() {
     var self = this;
+    if (self.data.recording) return; // 防止重复点击
     // 初始化语音识别管理器（WeChatSI 插件）
     var plugin = requirePlugin("WechatSI");
     if (!plugin || !plugin.getRecordRecognitionManager) {
@@ -284,13 +293,22 @@ Page({
     try {
       var res = await api.post("/api/coach/parse-kyc", { text: text });
       if (res && res.fields) {
-        var updated = Object.assign({}, self.data.formData);
-        Object.keys(res.fields).forEach(function (k) {
-          if (res.fields[k]) updated[k] = res.fields[k];
-        });
-        self.setData({ formData: updated, voiceParsingKyc: false });
-        wx.showToast({ title: "已解析 " + Object.keys(res.fields).length + " 个字段", icon: "success" });
+        var count = Object.keys(res.fields).filter(function (k) { return res.fields[k]; }).length;
+        if (count > 0) {
+          var updated = {};
+          // 浅拷贝 formData
+          var fd = self.data.formData;
+          for (var key in fd) { updated[key] = fd[key]; }
+          Object.keys(res.fields).forEach(function (k) {
+            if (res.fields[k]) updated[k] = res.fields[k];
+          });
+          self.setData({ formData: updated });
+          wx.showToast({ title: "已解析 " + count + " 个字段", icon: "success" });
+        } else {
+          wx.showToast({ title: "未识别到关键信息，请手动填写", icon: "none" });
+        }
       }
+      self.setData({ voiceParsingKyc: false });
     } catch (e) {
       self.setData({ voiceParsingKyc: false });
       console.warn("[voice] parseKyc failed:", e);

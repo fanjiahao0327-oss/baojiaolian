@@ -132,7 +132,7 @@
 
       <view class="step-nav">
         <view></view>
-        <button class="btn-primary submit-btn" bindtap="submitForm" disabled="{{isLoading}}" loading="{{isLoading}}">
+        <button class="btn-primary submit-btn" bindtap="submitForm" disabled="{{isLoading || voiceParsingKyc}}" loading="{{isLoading}}">
           {{isLoading ? '教练诊断中...' : '提交给保险教练快速诊断'}}
         </button>
       </view>
@@ -283,7 +283,7 @@
       <button class="btn-outline" wx:if="{{currentStep > 0}}" bindtap="prevStep">← 上一步</button>
       <view wx:else></view>
       <button class="btn-primary" wx:if="{{currentStep < sortedSections.length - 1}}" bindtap="nextStep">下一步 →</button>
-      <button class="btn-primary submit-btn" wx:else bindtap="submitForm" disabled="{{isLoading}}" loading="{{isLoading}}">
+      <button class="btn-primary submit-btn" wx:else bindtap="submitForm" disabled="{{isLoading || voiceParsingKyc}}" loading="{{isLoading}}">
         {{isLoading ? '教练诊断中...' : '提交给保险教练诊断'}}
       </button>
     </view>

@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { getAIClient, noThinkingConfig } from "@/lib/ai-client";
+import { getAIClient } from "@/lib/ai-client";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session.userId) {
     return NextResponse.json({ error: "请先登录" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`parse-kyc:${session.userId}`, "coach");
+  if (!rl.allowed) {
+    return NextResponse.json({ error: `请求过于频繁，请 ${rl.resetIn} 秒后再试` }, { status: 429 });
   }
 
   try {
@@ -62,7 +68,8 @@ ${text}
 请输出 JSON：`;
 
     const completion = await getAIClient().chat.completions.create({
-      ...noThinkingConfig(),
+      model: "deepseek-v4-pro",
+      temperature: 0.1,
       messages: [
         { role: "system", content: "你是一个精确的信息提取工具。只输出 JSON，不要任何解释。" },
         { role: "user", content: prompt },
