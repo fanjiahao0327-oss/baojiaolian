@@ -1,18 +1,14 @@
 const api = require("../../utils/api");
 
-const PACKAGES = [
-  { points: 50, price: "6.90", amountCents: 690, perPoint: "≈0.14元/分" },
-  { points: 150, price: "16.90", amountCents: 1690, perPoint: "≈0.11元/分" },
-  { points: 400, price: "36.90", amountCents: 3690, perPoint: "≈0.09元/分" },
-  { points: 800, price: "59.90", amountCents: 5990, perPoint: "≈0.07元/分" },
-];
+// 价格套餐从服务端获取，避免价格双写不一致
+var PACKAGES = [];
 
 Page({
   data: {
     user: null,
     phone: "",
     balance: 0,
-    packages: PACKAGES,
+    packages: [],
     selectedIdx: -1,
     loading: true,
     transactions: [],
@@ -26,6 +22,25 @@ Page({
   },
 
   async loadData() {
+    // 从服务端获取最新价格套餐
+    if (PACKAGES.length === 0) {
+      try {
+        var pkgs = await api.get("/api/payment/packages");
+        PACKAGES = pkgs.map(function (p) {
+          return {
+            points: p.points,
+            price: (p.amountCents / 100).toFixed(2),
+            amountCents: p.amountCents,
+            perPoint: "≈" + (p.amountCents / 100 / p.points).toFixed(2) + "元/分",
+            popular: p.popular,
+          };
+        });
+      } catch (e) {
+        // 兜底：服务端不可用时使用缓存
+        if (PACKAGES.length === 0) wx.showToast({ title: "加载套餐失败", icon: "none" });
+      }
+    }
+
     // 等待 autoLogin 完成，避免 401
     var app = getApp();
     if (!app.globalData.loginReady) {
@@ -52,6 +67,7 @@ Page({
         user,
         phone: (user && user.phone) || "",
         balance: (points && points.balance) || 0,
+        packages: PACKAGES,
         loading: false,
         displayPhone: this.formatPhone(user && user.phone),
         avatarText: this.getAvatarText(user && user.phone),
