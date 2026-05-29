@@ -54,6 +54,13 @@
       <text class="qmt-desc">{{quickMode ? '10个核心字段，快速诊断' : '6步详细填写，深度诊断'}}</text>
     </view>
 
+    <!-- 语音录入入口 -->
+    <view class="voice-entry" wx:if="{{quickMode}}" bindtap="startVoiceInput">
+      <text class="voice-icon">🎤</text>
+      <text class="voice-label">语音快速录入</text>
+      <text class="voice-hint">说出客户信息，AI 自动填表</text>
+    </view>
+
     <!-- ====== 快速模式表单 ====== -->
     <view class="section" wx:if="{{quickMode}}">
       <view class="section-body">
@@ -337,6 +344,34 @@
     <view class="chat-input" wx:if="{{hasSubmitted}}">
       <input class="follow-input" value="{{followUp}}" bindinput="onFollowUpInput" placeholder="输入追问内容..." confirm-type="send" bindconfirm="sendFollowUp" disabled="{{isLoading}}" />
       <button class="btn-primary send-btn" bindtap="sendFollowUp" disabled="{{!followUp || isLoading}}">发送</button>
+    </view>
+  </view>
+
+  <!-- 语音录制浮层 -->
+  <view class="voice-overlay" wx:if="{{recording}}">
+    <view class="voice-overlay-mask" bindtap="cancelVoiceInput"></view>
+    <view class="voice-overlay-content">
+      <view class="voice-wave">
+        <view class="voice-wave-bar"></view>
+        <view class="voice-wave-bar"></view>
+        <view class="voice-wave-bar"></view>
+        <view class="voice-wave-bar"></view>
+        <view class="voice-wave-bar"></view>
+      </view>
+      <view class="voice-text" wx:if="{{voiceText}}">{{voiceText}}</view>
+      <view class="voice-text voice-placeholder" wx:else>正在倾听...</view>
+      <view class="voice-actions">
+        <button class="voice-btn voice-btn-cancel" bindtap="cancelVoiceInput">取消</button>
+        <button class="voice-btn voice-btn-done" bindtap="stopVoiceInput">说完啦</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- AI 解析中 -->
+  <view class="voice-parsing-overlay" wx:if="{{voiceParsingKyc}}">
+    <view class="voice-parsing-mask"></view>
+    <view class="voice-parsing-toast">
+      <text>🤖 AI 正在解析中...</text>
     </view>
   </view>
 

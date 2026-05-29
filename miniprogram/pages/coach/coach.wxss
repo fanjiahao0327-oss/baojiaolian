@@ -525,3 +525,54 @@
   background: #1a56db; color: #fff; font-size: 30rpx; font-weight: 600;
   border-radius: 40rpx; text-align: center;
 }
+
+/* 语音录入入口 */
+.voice-entry {
+  display: flex; align-items: center; gap: 16rpx;
+  margin: 16rpx 0; padding: 20rpx 24rpx;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border-radius: 16rpx; border: 2rpx dashed #1a56db;
+}
+.voice-icon { font-size: 40rpx; }
+.voice-label { font-size: 28rpx; font-weight: 600; color: #1a56db; }
+.voice-hint { font-size: 24rpx; color: #6b7280; margin-left: auto; }
+
+/* 语音录制浮层 */
+.voice-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1000; }
+.voice-overlay-mask { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); }
+.voice-overlay-content {
+  position: absolute; bottom: 80rpx; left: 40rpx; right: 40rpx;
+  background: #fff; border-radius: 32rpx; padding: 48rpx 36rpx 36rpx;
+  display: flex; flex-direction: column; align-items: center;
+}
+
+/* 声波动画 */
+.voice-wave { display: flex; align-items: flex-end; gap: 8rpx; height: 80rpx; margin-bottom: 32rpx; }
+.voice-wave-bar {
+  width: 8rpx; background: #1a56db; border-radius: 4rpx;
+  animation: wave 0.8s ease-in-out infinite;
+}
+.voice-wave-bar:nth-child(1) { height: 24rpx; animation-delay: 0s; }
+.voice-wave-bar:nth-child(2) { height: 48rpx; animation-delay: 0.1s; }
+.voice-wave-bar:nth-child(3) { height: 72rpx; animation-delay: 0.2s; }
+.voice-wave-bar:nth-child(4) { height: 48rpx; animation-delay: 0.3s; }
+.voice-wave-bar:nth-child(5) { height: 24rpx; animation-delay: 0.4s; }
+@keyframes wave {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.4); }
+}
+
+.voice-text { font-size: 28rpx; color: #333; text-align: center; line-height: 1.6; max-height: 200rpx; overflow-y: auto; margin-bottom: 32rpx; width: 100%; }
+.voice-placeholder { color: #999; }
+.voice-actions { display: flex; gap: 24rpx; width: 100%; }
+.voice-btn { flex: 1; height: 80rpx; line-height: 80rpx; text-align: center; border-radius: 40rpx; font-size: 28rpx; font-weight: 600; }
+.voice-btn-cancel { background: #f3f4f6; color: #6b7280; }
+.voice-btn-done { background: #1a56db; color: #fff; }
+
+/* AI 解析中 */
+.voice-parsing-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1001; display: flex; align-items: center; justify-content: center; }
+.voice-parsing-mask { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); }
+.voice-parsing-toast {
+  position: relative; background: #fff; border-radius: 16rpx; padding: 24rpx 48rpx;
+  font-size: 28rpx; color: #333; box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.1);
+}

@@ -155,6 +155,10 @@ Page({
     logining: false,
     lastPointCost: null,
     showGuide: false,
+    // 语音录入
+    recording: false,
+    voiceText: "",
+    voiceParsingKyc: false,
     expandedSections: {},
     balance: -1,
   },
@@ -220,6 +224,80 @@ Page({
     this.setData({ showGuide: false });
   },
 
+  // ===== 语音录入 =====
+  startVoiceInput() {
+    var self = this;
+    // 初始化语音识别管理器（WeChatSI 插件）
+    var plugin = requirePlugin("WechatSI");
+    if (!plugin || !plugin.getRecordRecognitionManager) {
+      wx.showToast({ title: "语音插件未加载，请重启小程序", icon: "none" });
+      return;
+    }
+    if (self._voiceManager) {
+      // 已有管理器实例，直接使用
+    } else {
+      self._voiceManager = plugin.getRecordRecognitionManager();
+      self._voiceManager.onRecognize = function (res) {
+        // 实时识别结果
+        self.setData({ voiceText: res.result });
+      };
+      self._voiceManager.onStop = function (res) {
+        self.setData({ recording: false });
+        if (res.result) {
+          self.setData({ voiceText: res.result });
+          // 自动调用 AI 解析
+          self._parseVoiceText(res.result);
+        }
+      };
+      self._voiceManager.onError = function (res) {
+        self.setData({ recording: false });
+        wx.showToast({ title: "识别失败: " + (res.msg || "请重试"), icon: "none" });
+      };
+      self._voiceManager.onStart = function () {
+        self.setData({ recording: true, voiceText: "" });
+      };
+    }
+    self._voiceManager.start({
+      lang: "zh_CN",
+      duration: 120000, // 最长 2 分钟
+    });
+  },
+
+  stopVoiceInput() {
+    if (this._voiceManager) {
+      this._voiceManager.stop();
+    }
+  },
+
+  cancelVoiceInput() {
+    if (this._voiceManager) {
+      this._voiceManager.stop();
+    }
+    this.setData({ recording: false, voiceText: "" });
+  },
+
+  // AI 解析语音文本，自动提取 KYC 信息
+  async _parseVoiceText(text) {
+    if (!text || text.trim().length < 5) return;
+    var self = this;
+    self.setData({ voiceParsingKyc: true });
+    try {
+      var res = await api.post("/api/coach/parse-kyc", { text: text });
+      if (res && res.fields) {
+        var updated = Object.assign({}, self.data.formData);
+        Object.keys(res.fields).forEach(function (k) {
+          if (res.fields[k]) updated[k] = res.fields[k];
+        });
+        self.setData({ formData: updated, voiceParsingKyc: false });
+        wx.showToast({ title: "已解析 " + Object.keys(res.fields).length + " 个字段", icon: "success" });
+      }
+    } catch (e) {
+      self.setData({ voiceParsingKyc: false });
+      console.warn("[voice] parseKyc failed:", e);
+      // 解析失败不弹窗，语音文本仍保留在 voiceText 中供手动参考
+    }
+  },
+
   checkLoginState() {
     var app = getApp();
     this.setData({
@@ -252,6 +330,10 @@ Page({
         logining: false,
     lastPointCost: null,
     showGuide: false,
+    // 语音录入
+    recording: false,
+    voiceText: "",
+    voiceParsingKyc: false,
       });
       self.loadClients();
       self.loadBalance();
@@ -676,6 +758,10 @@ Page({
         logining: false,
     lastPointCost: null,
     showGuide: false,
+    // 语音录入
+    recording: false,
+    voiceText: "",
+    voiceParsingKyc: false,
       });
       self.loadClients();
       self.loadBalance();

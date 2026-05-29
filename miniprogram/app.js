@@ -27,9 +27,12 @@ App({
         this.globalData.isLogin = true;
         this.globalData.needBindPhone = !res.data.phone;
       } else {
+        // Token 过期，清除本地缓存
+        if (res.statusCode === 401) auth.clearToken();
         this.globalData.isLogin = false;
       }
     } catch (e) {
+      // 网络异常或超时，不清除 token（可能是临时网络问题）
       this.globalData.isLogin = false;
     }
     this.globalData.loginReady = true;
