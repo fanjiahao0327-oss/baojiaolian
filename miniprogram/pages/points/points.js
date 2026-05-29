@@ -36,8 +36,15 @@ Page({
           };
         });
       } catch (e) {
-        // 兜底：服务端不可用时使用缓存
-        if (PACKAGES.length === 0) wx.showToast({ title: "加载套餐失败", icon: "none" });
+        // 兜底：服务端不可用时使用默认套餐
+        if (PACKAGES.length === 0) {
+          PACKAGES = [
+            { points: 50, price: "6.90", amountCents: 690, perPoint: "≈0.14元/分" },
+            { points: 150, price: "16.90", amountCents: 1690, perPoint: "≈0.11元/分" },
+            { points: 400, price: "36.90", amountCents: 3690, perPoint: "≈0.09元/分" },
+            { points: 800, price: "59.90", amountCents: 5990, perPoint: "≈0.07元/分" },
+          ];
+        }
       }
     }
 
