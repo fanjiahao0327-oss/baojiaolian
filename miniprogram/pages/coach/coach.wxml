@@ -303,10 +303,46 @@
       <text class="scroll-bottom-arrow">↓</text>
     </view>
 
+    <!-- 积分消耗提示 -->
+    <view class="point-cost-tip" wx:if="{{lastPointCost != null && !isLoading}}">
+      <text class="point-cost-text">本次消耗 {{lastPointCost}} 积分</text>
+    </view>
+
     <!-- 追问输入区 -->
     <view class="chat-input" wx:if="{{hasSubmitted}}">
       <input class="follow-input" value="{{followUp}}" bindinput="onFollowUpInput" placeholder="输入追问内容..." confirm-type="send" bindconfirm="sendFollowUp" disabled="{{isLoading}}" />
       <button class="btn-primary send-btn" bindtap="sendFollowUp" disabled="{{!followUp || isLoading}}">发送</button>
+    </view>
+  </view>
+
+  <!-- 新用户引导弹窗 -->
+  <view class="guide-overlay" wx:if="{{showGuide}}" bindtap="dismissGuide">
+    <view class="guide-modal" catchtap="">
+      <view class="guide-title">🎯 三步开始</view>
+      <view class="guide-steps">
+        <view class="guide-step">
+          <view class="guide-step-num">1</view>
+          <view class="guide-step-text">
+            <view class="guide-step-title">新建客户</view>
+            <view class="guide-step-desc">点击顶部「+ 新建客户」，录入面谈对象的基本信息</view>
+          </view>
+        </view>
+        <view class="guide-step">
+          <view class="guide-step-num">2</view>
+          <view class="guide-step-text">
+            <view class="guide-step-title">填写面谈信息</view>
+            <view class="guide-step-desc">按步骤填写客户画像、职业收入、资产、保障和面谈卡点</view>
+          </view>
+        </view>
+        <view class="guide-step">
+          <view class="guide-step-num">3</view>
+          <view class="guide-step-text">
+            <view class="guide-step-title">AI 诊断</view>
+            <view class="guide-step-desc">提交后 AI 教练会给出卡点诊断、推演方向和话术建议</view>
+          </view>
+        </view>
+      </view>
+      <button class="guide-btn" bindtap="dismissGuide">开始使用</button>
     </view>
   </view>
 

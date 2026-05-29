@@ -313,6 +313,7 @@ export async function POST(request: NextRequest) {
         conversationId,
         promptTokens,
         completionTokens,
+        pointCost: deduct,
       });
     }
 
@@ -359,11 +360,12 @@ export async function POST(request: NextRequest) {
           const conversationRow = rows<{ messages: string }>(resultRows)[0];
           const msgs: Message[] = JSON.parse(conversationRow.messages);
           msgs.push({ role: "coach", content: fullResponse, timestamp: Date.now() });
+          let deduct = 0;
           if (usage) {
             await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, total_input_tokens = total_input_tokens + ${usage.prompt_tokens}, total_output_tokens = total_output_tokens + ${usage.completion_tokens}, updated_at = NOW() WHERE id = ${conversationId}`;
             const consumed = calcPoints(usage.prompt_tokens, usage.completion_tokens);
             const finalBalance = await getBalance(userId);
-            const deduct = Math.min(consumed, finalBalance);
+            deduct = Math.min(consumed, finalBalance);
             if (deduct > 0) {
               await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${userId}, ${-deduct}, 'consume', ${'对话消耗 ' + usage.prompt_tokens + '/' + usage.completion_tokens + ' tokens'})`;
             }
@@ -376,7 +378,7 @@ export async function POST(request: NextRequest) {
             // 先截断原始 markdown 中的 [SUGGESTED_QUESTIONS]，再转 HTML
             const strippedMarkdown = fullResponse.replace(/\n*\[SUGGESTED_QUESTIONS\][\s\S]*$/i, "");
             const richHTML = markdownToRichHTML(strippedMarkdown);
-            controller.enqueue(encoder.encode(JSON.stringify({ type: "done", cid: conversationId, html: richHTML }) + "\n"));
+            controller.enqueue(encoder.encode(JSON.stringify({ type: "done", cid: conversationId, html: richHTML, pointCost: deduct }) + "\n"));
           }
         } catch (error) {
           console.error("[coach] stream error:", error);

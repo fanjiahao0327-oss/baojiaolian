@@ -153,6 +153,8 @@ Page({
     needBindPhone: false,
     hidePhoneBanner: false,
     logining: false,
+    lastPointCost: null,
+    showGuide: false,
     expandedSections: {},
     balance: -1,
   },
@@ -197,6 +199,14 @@ Page({
   },
 
   onShow() {
+    // 新用户首次引导
+    try {
+      if (!wx.getStorageSync("coach_guide_seen")) {
+        this.setData({ showGuide: true });
+        wx.setStorageSync("coach_guide_seen", true);
+      }
+    } catch (_) {}
+
     this.checkLoginState();
     var app = getApp();
     if (app.globalData.continueClientId) {
@@ -204,6 +214,10 @@ Page({
       app.globalData.continueClientId = null;
       this.selectClientById(id);
     }
+  },
+
+  dismissGuide() {
+    this.setData({ showGuide: false });
   },
 
   checkLoginState() {
@@ -236,6 +250,8 @@ Page({
         needBindPhone: app.globalData.needBindPhone,
         hidePhoneBanner: false,
         logining: false,
+    lastPointCost: null,
+    showGuide: false,
       });
       self.loadClients();
       self.loadBalance();
@@ -328,7 +344,7 @@ Page({
                       }
                     }
                     self._stopLoadingText();
-                    self.setData({ messages: fmsgs2, isLoading: false, conversationId: fb.cid });
+                    self.setData({ messages: fmsgs2, isLoading: false, conversationId: fb.cid, lastPointCost: fb.pointCost });
                     resolve({ conversationId: fb.cid });
                     return;
                   }
@@ -425,6 +441,7 @@ Page({
                   messages: msgs,
                   isLoading: false,
                   conversationId: msg.cid,
+                  lastPointCost: msg.pointCost,
                 });
                 setTimeout(function () { self.scrollChatToBottom(); }, 300);
                 resolve({ conversationId: msg.cid });
@@ -657,6 +674,8 @@ Page({
         needBindPhone: app.globalData.needBindPhone,
         hidePhoneBanner: false,
         logining: false,
+    lastPointCost: null,
+    showGuide: false,
       });
       self.loadClients();
       self.loadBalance();
