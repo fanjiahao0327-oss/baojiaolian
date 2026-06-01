@@ -147,7 +147,7 @@ Page({
     this.startPay(pkg);
   },
 
-  // 微信 JSAPI 支付
+  // 支付入口：优先使用虚拟支付（wx.requestVirtualPayment），兜底 wx.requestPayment
   async startPay(pkg) {
     if (!pkg) {
       wx.showToast({ title: "请选择套餐", icon: "none" });
@@ -161,40 +161,84 @@ Page({
         points: pkg.points,
       });
 
-      if (!res.payParams) {
-        // 微信支付未配置，走手动支付兜底
-        self.setData({ paying: false });
-        wx.showModal({
-          title: "支付提示",
-          content: res.message || "微信支付暂未开通，请通过网页端 baojiaolian.com.cn 进行充值，或联系作者。",
-          showCancel: false,
+      // 虚拟支付（wx.requestVirtualPayment）：微信官方虚拟支付能力
+      if (res.virtualPayParams) {
+        var vp = res.virtualPayParams;
+
+        // 检查 API 兼容性
+        if (!wx.canIUse || !wx.canIUse("requestVirtualPayment")) {
+          // 基础库版本太低，降级说明
+          self.setData({ paying: false });
+          wx.showModal({
+            title: "版本提示",
+            content: "当前微信版本不支持支付，请升级微信或通过网页端充值。",
+            showCancel: false,
+          });
+          return;
+        }
+
+        await wx.requestVirtualPayment({
+          offerId: vp.offerId,
+          buyQuantity: 1,
+          currencyType: "CNY",
+          env: vp.env,
+          paySig: vp.paySig,
+          signData: vp.signData,
         });
+
+        // 支付成功，向服务端确认
+        wx.showLoading({ title: "确认支付中", mask: true });
+        try {
+          await api.post("/api/payment/verify", { orderNo: res.orderNo });
+        } catch (e) {
+          console.error("[points] verify:", e);
+          try {
+            await new Promise(function (r) { setTimeout(r, 2000); });
+            await api.post("/api/payment/verify", { orderNo: res.orderNo });
+          } catch (e2) { console.error("[points] verify retry:", e2); }
+        }
+        wx.hideLoading();
+        wx.showToast({ title: "支付成功", icon: "success" });
+        self.setData({ paying: false, selectedIdx: -1 });
+        self.loadData();
         return;
       }
 
-      await wx.requestPayment({
-        timeStamp: res.payParams.timeStamp,
-        nonceStr: res.payParams.nonceStr,
-        package: res.payParams.package,
-        signType: res.payParams.signType,
-        paySign: res.payParams.paySign,
-      });
+      // 兜底：标准微信支付 JSAPI（wx.requestPayment）
+      if (res.payParams) {
+        await wx.requestPayment({
+          timeStamp: res.payParams.timeStamp,
+          nonceStr: res.payParams.nonceStr,
+          package: res.payParams.package,
+          signType: res.payParams.signType,
+          paySign: res.payParams.paySign,
+        });
 
-      // 主动向服务器确认支付
-      wx.showLoading({ title: "确认支付中", mask: true });
-      try {
-        await api.post("/api/payment/verify", { orderNo: res.orderNo });
-      } catch (e) {
-        console.error("[points] verify:", e);
+        // 主动向服务器确认支付
+        wx.showLoading({ title: "确认支付中", mask: true });
         try {
-          await new Promise(function (r) { setTimeout(r, 2000); });
           await api.post("/api/payment/verify", { orderNo: res.orderNo });
-        } catch (e2) { console.error("[points] verify retry:", e2); }
+        } catch (e) {
+          console.error("[points] verify:", e);
+          try {
+            await new Promise(function (r) { setTimeout(r, 2000); });
+            await api.post("/api/payment/verify", { orderNo: res.orderNo });
+          } catch (e2) { console.error("[points] verify retry:", e2); }
+        }
+        wx.hideLoading();
+        wx.showToast({ title: "支付成功", icon: "success" });
+        self.setData({ paying: false, selectedIdx: -1 });
+        self.loadData();
+        return;
       }
-      wx.hideLoading();
-      wx.showToast({ title: "支付成功", icon: "success" });
-      self.setData({ paying: false, selectedIdx: -1 });
-      self.loadData();
+
+      // 两种支付方式都不可用，走手动提示
+      self.setData({ paying: false });
+      wx.showModal({
+        title: "支付提示",
+        content: res.message || "支付暂未开通，请通过网页端 baojiaolian.com.cn 进行充值，或联系作者。",
+        showCancel: false,
+      });
     } catch (e) {
       self.setData({ paying: false });
       if (e.errMsg && e.errMsg.includes("cancel")) {
