@@ -152,16 +152,25 @@ export async function POST(request: NextRequest) {
     } = body;
 
     const mode: CoachMode = rawMode === "objection_followup" ? "objection_followup" : "diagnosis";
-    const objectionData = mode === "objection_followup"
+    const rawObjection = objectionFollowup as Record<string, unknown> | null | undefined;
+    const hasObjectionPayload =
+      mode === "objection_followup" &&
+      !!rawObjection &&
+      typeof rawObjection === "object" &&
+      String(rawObjection.customerWords || "").trim().length > 0;
+    const objectionData = hasObjectionPayload
       ? normalizeObjectionFollowupData(objectionFollowup)
       : null;
     const objectionError = objectionData ? validateObjectionFollowupData(objectionData) : null;
     if (objectionError) {
       return NextResponse.json({ error: objectionError }, { status: 400 });
     }
+    if (mode === "objection_followup" && !hasObjectionPayload && !(rawConversationId && Number(rawConversationId) > 0)) {
+      return NextResponse.json({ error: "请填写客户原话" }, { status: 400 });
+    }
 
-    const userInput = mode === "objection_followup"
-      ? buildObjectionFollowupQuestion(objectionData!)
+    const userInput = mode === "objection_followup" && objectionData
+      ? buildObjectionFollowupQuestion(objectionData)
       : String(question || "");
     const frontendKyc: Record<string, unknown> = (kycData as Record<string, unknown>) || {};
     const isFollowUp = history && Array.isArray(history) && history.length > 0;
@@ -242,11 +251,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const effectiveQuestion = mode === "objection_followup"
-      ? buildObjectionFollowupQuestion(objectionData!)
-      : String(question || "");
-    const conversationTitle = mode === "objection_followup"
-      ? buildObjectionConversationTitle(objectionData!)
+    const effectiveQuestion = userInput;
+    const conversationTitle = mode === "objection_followup" && objectionData
+      ? buildObjectionConversationTitle(objectionData)
       : generateClientName(safeKycData);
 
     // 处理对话记录

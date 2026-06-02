@@ -156,6 +156,7 @@ Page({
   data: {
     tab: "form",
     workMode: "objection_followup",
+    conversationMode: "diagnosis",
     quickMode: false,
     clients: [],
     selectedClientId: null,
@@ -683,17 +684,24 @@ Page({
       return null;
     }).then(function (conv) {
       if (conv && conv.messages) {
+        var firstMessage = String((conv.messages[0] && conv.messages[0].content) || "");
+        var inferredMode = firstMessage.indexOf("# 客户卡点跟进") >= 0 || firstMessage.indexOf("客户卡点跟进") === 0
+          ? "objection_followup"
+          : "diagnosis";
         self.setData({
           messages: conv.messages,
           hasSubmitted: true,
           conversationId: conv.id,
           tab: "coach",
+          conversationMode: inferredMode,
+          workMode: inferredMode,
         });
       } else {
         self.setData({
           messages: [],
           hasSubmitted: false,
           conversationId: null,
+          conversationMode: "diagnosis",
           tab: "form",
         });
       }
@@ -847,6 +855,7 @@ Page({
       tab: "coach",
       messages: [userMsg, placeholderMsg],
       conversationId: null,
+      conversationMode: "objection_followup",
       lastPointCost: null,
     });
     self._startLoadingText();
@@ -1027,6 +1036,7 @@ Page({
       tab: "coach",
       messages: [userMsg, placeholderMsg],
       conversationId: null,
+      conversationMode: "diagnosis",
     });
     self._startLoadingText();
     self.clearDraft();
@@ -1190,6 +1200,7 @@ Page({
       history: prevMessages,
       clientId: self.data.selectedClientId,
       conversationId: self.data.conversationId,
+      mode: self.data.conversationMode,
     }).then(function () {
       // 已在 onChunkReceived 中处理完成
     }).catch(function () {

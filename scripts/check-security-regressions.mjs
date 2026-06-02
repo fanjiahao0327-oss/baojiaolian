@@ -43,6 +43,10 @@ assert(
   coachRoute.includes("normalizeObjectionFollowupData"),
   "coach route should normalize objection followup payloads",
 );
+assert(
+  coachRoute.includes("hasObjectionPayload"),
+  "coach route should allow objection followup conversation follow-ups without requiring the first-submit payload again",
+);
 
 const webHome = read("src/app/page.tsx");
 assert(
@@ -52,6 +56,10 @@ assert(
 assert(
   webHome.includes("mode: options.mode || \"diagnosis\""),
   "web app should send explicit coach mode to the coach API",
+);
+assert(
+  webHome.includes("conversationMode") && webHome.includes("mode: conversationMode"),
+  "web app should preserve coach mode for follow-up questions",
 );
 
 const objectionForm = read("src/components/ObjectionFollowupForm.tsx");
@@ -68,6 +76,10 @@ assert(
 assert(
   miniCoach.includes("mode: \"objection_followup\""),
   "mini program should send explicit objection followup mode",
+);
+assert(
+  miniCoach.includes("conversationMode") && miniCoach.includes("mode: self.data.conversationMode"),
+  "mini program should preserve coach mode for follow-up questions",
 );
 
 const gitignore = read(".gitignore");

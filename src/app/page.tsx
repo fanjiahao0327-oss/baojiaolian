@@ -139,6 +139,7 @@ export default function Home() {
   const [kycUpdateMsg, setKycUpdateMsg] = useState("");
   const [showRechargeModal, setShowRechargeModal] = useState(false);
   const [workMode, setWorkMode] = useState<CoachMode>("objection_followup");
+  const [conversationMode, setConversationMode] = useState<CoachMode>("diagnosis");
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -166,10 +167,17 @@ export default function Home() {
         if (!res.ok) return;
         const data = await res.json();
         if (data?.messages?.length) {
+          const firstMessage = String(data.messages[0]?.content || "");
+          const inferredMode: CoachMode =
+            firstMessage.includes("# 客户卡点跟进") || firstMessage.startsWith("客户卡点跟进")
+              ? "objection_followup"
+              : "diagnosis";
           setConversationId(data.id);
           setMessages(data.messages);
           setHasSubmitted(true);
           setMobileTab("coach");
+          setConversationMode(inferredMode);
+          setWorkMode(inferredMode);
           // 如果 URL 中没有 clientId，从对话记录中恢复
           if (!clientIdRef.current && data.clientId) {
             clientIdRef.current = data.clientId;
@@ -296,6 +304,7 @@ export default function Home() {
     clientIdRef.current = clientId;
     setIsLoading(true);
     setHasSubmitted(true);
+    setConversationMode("diagnosis");
     setMessages([]);
     setConversationId(null);
     setCurrentStreamingContent("");
@@ -330,6 +339,7 @@ export default function Home() {
     formDataRef.current = null;
     setIsLoading(true);
     setHasSubmitted(true);
+    setConversationMode("objection_followup");
     setMessages([]);
     setConversationId(null);
     setCurrentStreamingContent("");
@@ -369,7 +379,7 @@ export default function Home() {
     setMessages((prev) => [...prev, userMsg]);
 
     try {
-      const content = await doFetch(question, messages);
+      const content = await doFetch(question, messages, { mode: conversationMode });
       const displayContent = await processResponse(content);
       setMessages((prev) => [...prev, { role: "coach", content: displayContent, timestamp: Date.now() }]);
       setSuggestedQuestions(parseSuggestedQuestions(content));
