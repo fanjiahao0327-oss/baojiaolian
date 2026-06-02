@@ -22,6 +22,12 @@ assert(
   "client-side payment verify must not directly credit virtual-pay VP orders",
 );
 
+const prepayRoute = read("src/app/api/payment/prepay/route.ts");
+assert(
+  !prepayRoute.includes("createJSAPIPrepay") && !prepayRoute.includes("payParams"),
+  "mini program virtual products must not fall back to standard JSAPI payment params",
+);
+
 const coachRoute = read("src/app/api/coach/route.ts");
 assert(
   !coachRoute.includes("ORDER BY created_at DESC LIMIT 1"),
@@ -80,6 +86,16 @@ assert(
 assert(
   miniCoach.includes("conversationMode") && miniCoach.includes("mode: self.data.conversationMode"),
   "mini program should preserve coach mode for follow-up questions",
+);
+
+const miniPoints = read("miniprogram/pages/points/points.js");
+assert(
+  !miniPoints.includes("wx.requestPayment"),
+  "mini program point purchases must use official virtual payment only",
+);
+assert(
+  !miniPoints.includes("网页端") && !miniPoints.includes("baojiaolian.com.cn"),
+  "mini program must not guide virtual product purchases to external web recharge",
 );
 
 const gitignore = read(".gitignore");
