@@ -1,18 +1,7 @@
 import type { ObjectionFollowupData, ObjectionFollowupGoal, ObjectionFollowupScenario } from "@/types";
+import { OBJECTION_GOAL_LABELS, OBJECTION_SCENARIO_LABELS } from "@/lib/objection-followup-options";
 
-export const OBJECTION_SCENARIO_LABELS: Record<ObjectionFollowupScenario, string> = {
-  after_meeting: "面谈后复盘",
-  before_wechat: "微信跟进前",
-  before_call: "电话跟进前",
-  before_next_meeting: "下次见面前",
-};
-
-export const OBJECTION_GOAL_LABELS: Record<ObjectionFollowupGoal, string> = {
-  wechat: "发微信",
-  call: "打电话",
-  next_meeting: "约下次见面",
-  pause: "暂缓观察",
-};
+export { OBJECTION_GOAL_LABELS, OBJECTION_SCENARIO_LABELS };
 
 export function normalizeObjectionFollowupData(input: unknown): ObjectionFollowupData {
   const raw = (input && typeof input === "object" ? input : {}) as Partial<ObjectionFollowupData>;

@@ -44,6 +44,22 @@ assert(
   "coach route should normalize objection followup payloads",
 );
 
+const webHome = read("src/app/page.tsx");
+assert(
+  webHome.includes("ObjectionFollowupForm"),
+  "web app should expose the customer objection followup form",
+);
+assert(
+  webHome.includes("mode: options.mode || \"diagnosis\""),
+  "web app should send explicit coach mode to the coach API",
+);
+
+const objectionForm = read("src/components/ObjectionFollowupForm.tsx");
+assert(
+  !objectionForm.includes("@/lib/objection-followup\""),
+  "web objection form must not import server-side objection prompt helpers into the browser bundle",
+);
+
 const gitignore = read(".gitignore");
 assert(
   /^\.env$/m.test(gitignore),

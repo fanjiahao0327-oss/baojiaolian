@@ -18,6 +18,9 @@ interface Props {
   onSuggestedQuestionClick: (question: string) => void;
   onStopGeneration?: () => void;
   conversationId?: number | null;
+  modeLabel?: string;
+  emptyTitle?: string;
+  emptyHint?: string;
 }
 
 function renderMarkdown(text: string) {
@@ -36,6 +39,9 @@ export default function CoachPanel({
   onSuggestedQuestionClick,
   onStopGeneration,
   conversationId,
+  modeLabel,
+  emptyTitle,
+  emptyHint,
 }: Props) {
   const responseRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -100,7 +106,7 @@ export default function CoachPanel({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <h2 className="text-sm font-semibold text-gray-800">教练指导区</h2>
+          <h2 className="text-sm font-semibold text-gray-800">{modeLabel || "教练指导区"}</h2>
         </div>
         {hasSubmitted && (
           <span className="text-[11px] text-gray-400 bg-white px-2 py-0.5 rounded-full border border-gray-200">
@@ -120,8 +126,8 @@ export default function CoachPanel({
                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-gray-400">请填写客户信息并提交</p>
-              <p className="text-xs text-gray-300 mt-1.5">教练将在此生成诊断和推演方案</p>
+              <p className="text-sm font-medium text-gray-400">{emptyTitle || "请填写客户信息并提交"}</p>
+              <p className="text-xs text-gray-300 mt-1.5">{emptyHint || "教练将在此生成诊断和推演方案"}</p>
             </div>
           </div>
         ) : (
