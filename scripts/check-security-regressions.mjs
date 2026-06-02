@@ -31,6 +31,18 @@ assert(
   coachRoute.includes("conversationId"),
   "coach route should use an explicit conversationId for follow-up messages",
 );
+assert(
+  coachRoute.includes("objection_followup"),
+  "coach route should support explicit objection followup mode",
+);
+assert(
+  coachRoute.includes("buildObjectionModeInstructions"),
+  "coach route should apply objection followup mode instructions",
+);
+assert(
+  coachRoute.includes("normalizeObjectionFollowupData"),
+  "coach route should normalize objection followup payloads",
+);
 
 const gitignore = read(".gitignore");
 assert(
