@@ -20,7 +20,7 @@ const CSP_HEADER = [
   "form-action 'self'",
 ].join("; ");
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 请求体大小限制：仅对 API 路由检查

@@ -210,6 +210,7 @@ export default function Home() {
         question,
         history,
         clientId: clientIdRef.current,
+        conversationId: history.length > 0 ? conversationId : null,
       }),
     });
 
@@ -288,6 +289,7 @@ export default function Home() {
     setIsLoading(true);
     setHasSubmitted(true);
     setMessages([]);
+    setConversationId(null);
     setCurrentStreamingContent("");
     setSuggestedQuestions([]);
     setMobileTab("coach");

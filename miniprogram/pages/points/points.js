@@ -147,6 +147,16 @@ Page({
     this.startPay(pkg);
   },
 
+  async waitForPaid(orderNo) {
+    var last = null;
+    for (var i = 0; i < 5; i++) {
+      last = await api.post("/api/payment/verify", { orderNo: orderNo });
+      if (last && last.status === "paid") return last;
+      await new Promise(function (r) { setTimeout(r, 1500); });
+    }
+    return last || { status: "pending" };
+  },
+
   // 支付入口：优先使用虚拟支付（wx.requestVirtualPayment），兜底 wx.requestPayment
   async startPay(pkg) {
     if (!pkg) {
@@ -188,19 +198,19 @@ Page({
 
         // 支付成功，向服务端确认
         wx.showLoading({ title: "确认支付中", mask: true });
-        try {
-          await api.post("/api/payment/verify", { orderNo: res.orderNo });
-        } catch (e) {
-          console.error("[points] verify:", e);
-          try {
-            await new Promise(function (r) { setTimeout(r, 2000); });
-            await api.post("/api/payment/verify", { orderNo: res.orderNo });
-          } catch (e2) { console.error("[points] verify retry:", e2); }
-        }
+        var verifyResult = await self.waitForPaid(res.orderNo);
         wx.hideLoading();
-        wx.showToast({ title: "支付成功", icon: "success" });
         self.setData({ paying: false, selectedIdx: -1 });
         self.loadData();
+        if (verifyResult.status === "paid") {
+          wx.showToast({ title: "支付成功", icon: "success" });
+        } else {
+          wx.showModal({
+            title: "支付确认中",
+            content: "支付已提交，积分会在微信确认后到账，请稍后刷新查看。",
+            showCancel: false,
+          });
+        }
         return;
       }
 
@@ -216,19 +226,19 @@ Page({
 
         // 主动向服务器确认支付
         wx.showLoading({ title: "确认支付中", mask: true });
-        try {
-          await api.post("/api/payment/verify", { orderNo: res.orderNo });
-        } catch (e) {
-          console.error("[points] verify:", e);
-          try {
-            await new Promise(function (r) { setTimeout(r, 2000); });
-            await api.post("/api/payment/verify", { orderNo: res.orderNo });
-          } catch (e2) { console.error("[points] verify retry:", e2); }
-        }
+        var wxVerifyResult = await self.waitForPaid(res.orderNo);
         wx.hideLoading();
-        wx.showToast({ title: "支付成功", icon: "success" });
         self.setData({ paying: false, selectedIdx: -1 });
         self.loadData();
+        if (wxVerifyResult.status === "paid") {
+          wx.showToast({ title: "支付成功", icon: "success" });
+        } else {
+          wx.showModal({
+            title: "支付确认中",
+            content: "支付已提交，积分会在微信确认后到账，请稍后刷新查看。",
+            showCancel: false,
+          });
+        }
         return;
       }
 

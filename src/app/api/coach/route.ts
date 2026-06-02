@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { selectModules, selectModulesForFollowUp } from "@/lib/knowledge";
 import type { KYCFormData, Message } from "@/types";
 import { getSession } from "@/lib/auth";
-import { getBalance, MIN_BALANCE, calcPoints } from "@/lib/points";
+import { consumePoints, getBalance, MIN_BALANCE, calcPoints } from "@/lib/points";
 import { getDb, rows, row } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { encrypt, decrypt } from "@/lib/crypto";
@@ -133,10 +133,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { kycData, question, history, clientId, noStream } = body;
+    const { kycData, question, history, clientId, conversationId: rawConversationId, noStream } = body;
 
     const userInput = String(question || "");
     const frontendKyc: Record<string, unknown> = (kycData as Record<string, unknown>) || {};
+    const isFollowUp = history && Array.isArray(history) && history.length > 0;
+    const requestedConversationId =
+      rawConversationId && Number(rawConversationId) > 0 ? Number(rawConversationId) : null;
 
     if (detectInjection(userInput) || detectKycInjection(frontendKyc)) {
       return NextResponse.json(
@@ -147,15 +150,32 @@ export async function POST(request: NextRequest) {
     let safeKycData: Record<string, unknown> = {};
     const sql = getDb();
 
-    // --- 解析 clientId ---
-    let resolvedClientId: number | null = (clientId && Number(clientId) > 0) ? Number(clientId) : null;
+    if (isFollowUp && !requestedConversationId) {
+      return NextResponse.json({ error: "缺少对话ID，请重新打开对话后再追问" }, { status: 400 });
+    }
 
-    // 如果前端没传 clientId，尝试从最近一条对话中恢复
-    if (!resolvedClientId) {
-      const recentConv = await sql`SELECT client_id FROM conversations WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 1`;
-      const recent = rows<{ client_id: number | null }>(recentConv)[0];
-      if (recent?.client_id) {
-        resolvedClientId = recent.client_id;
+    // --- 解析 clientId / conversationId ---
+    let resolvedClientId: number | null = (clientId && Number(clientId) > 0) ? Number(clientId) : null;
+    let conversationId: number | null = null;
+    let existingConversationMessages: Message[] | null = null;
+
+    if (requestedConversationId) {
+      const convRows = await sql`
+        SELECT id, client_id, messages
+        FROM conversations
+        WHERE id = ${requestedConversationId} AND user_id = ${userId}
+      `;
+      const conv = rows<{ id: number; client_id: number | null; messages: string }>(convRows)[0];
+      if (!conv) {
+        return NextResponse.json({ error: "对话不存在" }, { status: 404 });
+      }
+      conversationId = conv.id;
+      existingConversationMessages = JSON.parse(conv.messages || "[]");
+      if (resolvedClientId && conv.client_id && resolvedClientId !== conv.client_id) {
+        return NextResponse.json({ error: "客户与对话不匹配" }, { status: 400 });
+      }
+      if (!resolvedClientId && conv.client_id) {
+        resolvedClientId = conv.client_id;
       }
     }
 
@@ -170,6 +190,9 @@ export async function POST(request: NextRequest) {
       // --- 已有客户：DB 是唯一数据源，不从前端覆盖 ---
       const clientRows = await sql`SELECT kyc_snapshot FROM clients WHERE id = ${resolvedClientId} AND user_id = ${userId}`;
       const clientRow = rows<{ kyc_snapshot: string }>(clientRows)[0];
+      if (!clientRow) {
+        return NextResponse.json({ error: "客户不存在" }, { status: 404 });
+      }
       if (clientRow) {
         try {
           safeKycData = JSON.parse(decrypt(clientRow.kyc_snapshot));
@@ -184,34 +207,26 @@ export async function POST(request: NextRequest) {
     }
 
     // 处理对话记录
-    let conversationId: number;
-    const isNewConversation = kycData && Array.isArray(history) && history.length === 0;
-
-    if (isNewConversation) {
+    if (!requestedConversationId) {
       const userMsg: Message = { role: "user", content: question, timestamp: Date.now() };
       const result = await sql`INSERT INTO conversations (user_id, client_id, title, messages) VALUES (${userId}, ${resolvedClientId}, ${generateClientName(safeKycData)}, ${JSON.stringify([userMsg])}) RETURNING id`;
       conversationId = Number(row<{ id: number }>(result).id);
     } else {
-      const latestRows = await sql`SELECT id, messages FROM conversations WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 1`;
-      const latest = rows<{ id: number; messages: string }>(latestRows)[0];
-
-      if (!latest) {
-        const userMsg: Message = { role: "user", content: question, timestamp: Date.now() };
-        const insResult = await sql`INSERT INTO conversations (user_id, client_id, title, messages) VALUES (${userId}, ${resolvedClientId}, '追问', ${JSON.stringify([userMsg])}) RETURNING id`;
-        conversationId = Number(row<{ id: number }>(insResult).id);
-      } else {
-        conversationId = latest.id;
-        const msgs: Message[] = JSON.parse(latest.messages);
-        msgs.push({ role: "user", content: question, timestamp: Date.now() });
-        await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, updated_at = NOW() WHERE id = ${conversationId}`;
-        await sql`UPDATE conversations SET client_id = ${resolvedClientId} WHERE id = ${conversationId} AND client_id IS NULL`;
+      const msgs: Message[] = [...(existingConversationMessages || [])];
+      msgs.push({ role: "user", content: question, timestamp: Date.now() });
+      await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, updated_at = NOW() WHERE id = ${conversationId} AND user_id = ${userId}`;
+      if (resolvedClientId) {
+        await sql`UPDATE conversations SET client_id = ${resolvedClientId} WHERE id = ${conversationId} AND user_id = ${userId} AND client_id IS NULL`;
       }
+    }
+
+    if (!conversationId) {
+      return NextResponse.json({ error: "对话创建失败" }, { status: 500 });
     }
 
     const messages: { role: "system" | "user" | "assistant"; content: string }[] = [];
 
     // 追问模式：仅加载核心层模块（模型已在历史上下文中学习方法层和参考层知识）
-    const isFollowUp = history && Array.isArray(history) && history.length > 0;
     const modules = isFollowUp
       ? selectModulesForFollowUp()
       : selectModules(safeKycData as unknown as KYCFormData);
@@ -248,8 +263,9 @@ export async function POST(request: NextRequest) {
 
     messages.push({ role: "system", content: systemPrompt });
 
-    if (history && Array.isArray(history) && history.length > 0) {
-      for (const msg of history) {
+    const promptHistory = existingConversationMessages || (Array.isArray(history) ? history : []);
+    if (promptHistory.length > 0) {
+      for (const msg of promptHistory) {
         if (msg.role === "user") {
           if (detectInjection(String(msg.content || ""))) {
             return NextResponse.json(
@@ -268,7 +284,7 @@ export async function POST(request: NextRequest) {
 
     messages.push({ role: "user", content: question });
 
-    const { kycData: _k, question: _q, history: _h, clientId: _c, noStream: _ns, ...restBody } = body;
+    const { kycData: _k, question: _q, history: _h, clientId: _c, conversationId: _cid, noStream: _ns, ...restBody } = body;
     const isJsonl = (restBody as Record<string, unknown>).format === "jsonl";
 
     if (noStream && !isJsonl) {
@@ -290,11 +306,11 @@ export async function POST(request: NextRequest) {
       msgs.push({ role: "coach", content: fullResponse, timestamp: Date.now() });
       await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, total_input_tokens = total_input_tokens + ${promptTokens}, total_output_tokens = total_output_tokens + ${completionTokens}, updated_at = NOW() WHERE id = ${conversationId}`;
       const consumed = calcPoints(promptTokens, completionTokens);
-      const finalBalance = await getBalance(userId);
-      const deduct = Math.min(consumed, finalBalance);
-      if (deduct > 0) {
-        await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${userId}, ${-deduct}, 'consume', ${'对话消耗 ' + promptTokens + '/' + completionTokens + ' tokens'})`;
-      }
+      const deduct = await consumePoints(
+        userId,
+        consumed,
+        '对话消耗 ' + promptTokens + '/' + completionTokens + ' tokens'
+      );
 
       const cacheHit = (usage as unknown as Record<string, unknown>).prompt_cache_hit_tokens as number | undefined;
       const cacheMiss = (usage as unknown as Record<string, unknown>).prompt_cache_miss_tokens as number | undefined;
@@ -364,11 +380,11 @@ export async function POST(request: NextRequest) {
           if (usage) {
             await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, total_input_tokens = total_input_tokens + ${usage.prompt_tokens}, total_output_tokens = total_output_tokens + ${usage.completion_tokens}, updated_at = NOW() WHERE id = ${conversationId}`;
             const consumed = calcPoints(usage.prompt_tokens, usage.completion_tokens);
-            const finalBalance = await getBalance(userId);
-            deduct = Math.min(consumed, finalBalance);
-            if (deduct > 0) {
-              await sql`INSERT INTO point_transactions (user_id, amount, type, description) VALUES (${userId}, ${-deduct}, 'consume', ${'对话消耗 ' + usage.prompt_tokens + '/' + usage.completion_tokens + ' tokens'})`;
-            }
+            deduct = await consumePoints(
+              userId,
+              consumed,
+              '对话消耗 ' + usage.prompt_tokens + '/' + usage.completion_tokens + ' tokens'
+            );
             console.log(formatCostLog(conversationId, usage, deduct));
           } else {
             await sql`UPDATE conversations SET messages = ${JSON.stringify(msgs)}, updated_at = NOW() WHERE id = ${conversationId}`;

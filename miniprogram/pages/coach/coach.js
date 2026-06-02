@@ -414,7 +414,7 @@ Page({
   // 流式请求 AI 教练（逐字输出）
   streamCoachRequest(params) {
     var self = this;
-    var { kycData, question, history, clientId } = params;
+    var { kycData, question, history, clientId, conversationId } = params;
 
     return new Promise(function (resolve, reject) {
       var buffer = "";
@@ -434,6 +434,7 @@ Page({
           question: question,
           history: history || [],
           clientId: clientId || null,
+          conversationId: conversationId || null,
           noStream: false,
           format: "jsonl",
         },
@@ -908,6 +909,7 @@ Page({
       question: userContent,
       history: [],
       clientId: self.data.selectedClientId,
+      conversationId: null,
     }).then(function () {
       // 已在 onChunkReceived 中处理完成
     }).catch(function () {
@@ -1060,6 +1062,7 @@ Page({
       question: question,
       history: prevMessages,
       clientId: self.data.selectedClientId,
+      conversationId: self.data.conversationId,
     }).then(function () {
       // 已在 onChunkReceived 中处理完成
     }).catch(function () {

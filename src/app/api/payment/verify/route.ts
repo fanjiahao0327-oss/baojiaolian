@@ -73,11 +73,14 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // 虚拟支付订单：payment_ref 以 "VP-" 开头
-  if (order.payment_ref?.startsWith("VP-")) {
-    await creditOrder(session.userId, orderNo, order.payment_ref || "vp-confirmed");
-    const balance = await getBalance(session.userId);
-    return NextResponse.json({ status: "paid", points: order.points, balance });
+  // 虚拟支付只信任 Midas 服务端回调入账。客户端 verify 只能查询状态。
+  if (order.payment_method === "virtual_pay") {
+    return NextResponse.json({
+      status: order.status,
+      points: order.status === "paid" ? order.points : 0,
+      balance: await getBalance(session.userId),
+      message: order.status === "pending" ? "支付确认中，请稍后刷新" : undefined,
+    });
   }
 
   // 标准微信支付：向微信查询订单状态
