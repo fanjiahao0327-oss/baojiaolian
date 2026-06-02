@@ -52,6 +52,28 @@ export interface Message {
   timestamp: number;
 }
 
+export type CoachMode = "diagnosis" | "objection_followup";
+
+export type ObjectionFollowupScenario =
+  | "after_meeting"
+  | "before_wechat"
+  | "before_call"
+  | "before_next_meeting";
+
+export type ObjectionFollowupGoal =
+  | "wechat"
+  | "call"
+  | "next_meeting"
+  | "pause";
+
+export interface ObjectionFollowupData {
+  customerWords: string;
+  scenario: ObjectionFollowupScenario;
+  agentReply?: string;
+  customerBackground?: string;
+  nextGoal: ObjectionFollowupGoal;
+}
+
 export type FieldType = "text" | "number" | "radio" | "select" | "checkbox-group" | "textarea";
 
 export interface FieldConfig {
