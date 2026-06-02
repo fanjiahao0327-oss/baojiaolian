@@ -165,6 +165,84 @@
   padding-bottom: 60rpx;
 }
 
+.work-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8rpx;
+  margin: 0 20rpx 20rpx;
+  padding: 8rpx;
+  background: #f3f4f6;
+  border-radius: 18rpx;
+}
+.work-mode-item {
+  height: 64rpx;
+  line-height: 64rpx;
+  text-align: center;
+  border-radius: 14rpx;
+  font-size: 26rpx;
+  color: #6b7280;
+  font-weight: 500;
+}
+.work-mode-item.active {
+  background: #fff;
+  color: #1a56db;
+  box-shadow: 0 4rpx 12rpx rgba(15, 23, 42, 0.08);
+}
+
+.objection-card {
+  margin: 0 20rpx;
+  padding: 28rpx 24rpx;
+  background: #fff;
+  border-radius: 18rpx;
+}
+.objection-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 8rpx;
+}
+.objection-desc {
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: #9ca3af;
+  margin-bottom: 28rpx;
+}
+.optional-inline {
+  margin-left: 10rpx;
+  color: #9ca3af;
+  font-size: 22rpx;
+  font-weight: 400;
+}
+.goal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12rpx;
+}
+.goal-item {
+  height: 72rpx;
+  line-height: 72rpx;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 14rpx;
+  font-size: 26rpx;
+  color: #4b5563;
+  background: #fff;
+}
+.goal-item.active {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1a56db;
+  font-weight: 600;
+}
+.objection-submit {
+  width: 100%;
+  margin-top: 12rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  border-radius: 18rpx;
+  font-size: 28rpx;
+}
+
 /* 步骤进度条 */
 .step-progress {
   display: flex; align-items: center; justify-content: center;

@@ -14,7 +14,7 @@
   <!-- 顶部 Tab + 客户选择 -->
   <view class="top-bar">
     <view class="tabs">
-      <view class="tab-item {{tab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">信息填写</view>
+      <view class="tab-item {{tab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">{{workMode === 'objection_followup' ? '卡点跟进' : '信息填写'}}</view>
       <view class="tab-item {{tab === 'coach' ? 'active' : ''}}" data-tab="coach" bindtap="switchTab">教练指导</view>
     </view>
     <view class="top-right">
@@ -45,6 +45,63 @@
   <!-- KYC 步骤式表单 -->
   <view class="form-area" wx:if="{{tab === 'form'}}">
 
+    <view class="work-mode-switch">
+      <view class="work-mode-item {{workMode === 'objection_followup' ? 'active' : ''}}" data-mode="objection_followup" bindtap="switchWorkMode">客户卡点跟进</view>
+      <view class="work-mode-item {{workMode === 'diagnosis' ? 'active' : ''}}" data-mode="diagnosis" bindtap="switchWorkMode">完整诊断</view>
+    </view>
+
+    <block wx:if="{{workMode === 'objection_followup'}}">
+      <view class="objection-card">
+        <view class="objection-title">客户卡点跟进</view>
+        <view class="objection-desc">适合面谈后、微信前或电话前，复盘客户为什么卡住，并准备下一步怎么说。</view>
+
+        <view class="field">
+          <view class="label">客户原话<text class="required">*</text></view>
+          <textarea class="textarea" value="{{objectionForm.customerWords}}" data-key="customerWords" bindinput="onObjectionFieldChange" placeholder="例如：我再考虑一下 / 太贵了 / 我回去跟家人商量 / 别家收益更高" auto-height maxlength="800" />
+        </view>
+
+        <view class="field">
+          <view class="label">当时场景</view>
+          <picker mode="selector" range="{{objectionScenarioLabels}}" value="{{objectionScenarioIndex}}" bindchange="onObjectionScenarioChange">
+            <view class="picker-display">
+              <text>{{objectionScenarioLabel}}</text>
+              <text class="picker-arrow">▼</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="field">
+          <view class="label">我的回应<text class="optional-inline">可选</text></view>
+          <textarea class="textarea" value="{{objectionForm.agentReply}}" data-key="agentReply" bindinput="onObjectionFieldChange" placeholder="例如：我当时继续讲了产品收益，客户没有接话" auto-height maxlength="800" />
+        </view>
+
+        <view class="field">
+          <view class="label">客户背景<text class="optional-inline">可选</text></view>
+          <textarea class="textarea" value="{{objectionForm.customerBackground}}" data-key="customerBackground" bindinput="onObjectionFieldChange" placeholder="例如：35岁，互联网从业，已有百万医疗，最近刚有二胎" auto-height maxlength="800" />
+        </view>
+
+        <view class="field">
+          <view class="label">下一步想做什么</view>
+          <view class="goal-grid">
+            <view
+              class="goal-item {{objectionForm.nextGoal === item.value ? 'active' : ''}}"
+              wx:for="{{objectionGoalOptions}}"
+              wx:key="value"
+              data-value="{{item.value}}"
+              bindtap="onObjectionGoalChange"
+            >
+              {{item.label}}
+            </view>
+          </view>
+        </view>
+
+        <button class="btn-primary objection-submit" bindtap="submitObjectionFollowup" disabled="{{isLoading}}" loading="{{isLoading}}">
+          {{isLoading ? 'AI 正在分析卡点...' : '生成跟进建议'}}
+        </button>
+      </view>
+    </block>
+
+    <block wx:else>
     <!-- 快速模式切换 -->
     <view class="quick-mode-toggle" bindtap="toggleQuickMode">
       <view class="qmt-track {{quickMode ? 'active' : ''}}">
@@ -287,6 +344,7 @@
         {{isLoading ? '教练诊断中...' : '提交给保险教练诊断'}}
       </button>
     </view>
+    </block>
     </block>
   </view>
 

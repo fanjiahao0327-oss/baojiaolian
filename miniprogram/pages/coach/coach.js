@@ -130,13 +130,42 @@ var LOADING_STAGES = [
 
 var QUICK_FIELDS = ["clientName", "age", "gender", "clientIndustry", "annualIncome", "childrenDetail", "protectionInsurance", "triggerScenario", "clientOriginalWords", "clientObjection"];
 
+var OBJECTION_SCENARIO_OPTIONS = [
+  { value: "after_meeting", label: "面谈后复盘" },
+  { value: "before_wechat", label: "微信跟进前" },
+  { value: "before_call", label: "电话跟进前" },
+  { value: "before_next_meeting", label: "下次见面前" },
+];
+
+var OBJECTION_GOAL_OPTIONS = [
+  { value: "wechat", label: "发微信" },
+  { value: "call", label: "打电话" },
+  { value: "next_meeting", label: "约下次见面" },
+  { value: "pause", label: "暂缓观察" },
+];
+
+var EMPTY_OBJECTION_FORM = {
+  customerWords: "",
+  scenario: "after_meeting",
+  agentReply: "",
+  customerBackground: "",
+  nextGoal: "wechat",
+};
+
 Page({
   data: {
     tab: "form",
+    workMode: "objection_followup",
     quickMode: false,
     clients: [],
     selectedClientId: null,
     formData: JSON.parse(JSON.stringify(EMPTY_FORM)),
+    objectionForm: JSON.parse(JSON.stringify(EMPTY_OBJECTION_FORM)),
+    objectionScenarioOptions: OBJECTION_SCENARIO_OPTIONS,
+    objectionScenarioLabels: OBJECTION_SCENARIO_OPTIONS.map(function (item) { return item.label; }),
+    objectionScenarioIndex: 0,
+    objectionScenarioLabel: OBJECTION_SCENARIO_OPTIONS[0].label,
+    objectionGoalOptions: OBJECTION_GOAL_OPTIONS,
     sortedSections: SORTED_SECTIONS,
     currentStep: 0,
     messages: [],
@@ -414,7 +443,7 @@ Page({
   // 流式请求 AI 教练（逐字输出）
   streamCoachRequest(params) {
     var self = this;
-    var { kycData, question, history, clientId, conversationId } = params;
+    var { kycData, question, history, clientId, conversationId, mode, objectionFollowup } = params;
 
     return new Promise(function (resolve, reject) {
       var buffer = "";
@@ -435,6 +464,8 @@ Page({
           history: history || [],
           clientId: clientId || null,
           conversationId: conversationId || null,
+          mode: mode || "diagnosis",
+          objectionFollowup: objectionFollowup || null,
           noStream: false,
           format: "jsonl",
         },
@@ -724,6 +755,13 @@ Page({
   selectClient(e) {
     var self = this;
     var id = e.currentTarget.dataset.id;
+    if (self.data.workMode === "objection_followup") {
+      self.setData({
+        selectedClientId: id ? Number(id) : null,
+        showClientPicker: false,
+      });
+      return;
+    }
     if (self._formHasData()) {
       self.setData({ showClientPicker: false });
       wx.showModal({
@@ -745,6 +783,95 @@ Page({
     data["formData." + key] = val;
     this.setData(data);
     this.saveDraft();
+  },
+
+  switchWorkMode(e) {
+    var mode = e.currentTarget.dataset.mode;
+    if (!mode || mode === this.data.workMode) return;
+    this.setData({ workMode: mode });
+  },
+
+  onObjectionFieldChange(e) {
+    var key = e.currentTarget.dataset.key;
+    var data = {};
+    data["objectionForm." + key] = e.detail.value || "";
+    this.setData(data);
+  },
+
+  onObjectionScenarioChange(e) {
+    var idx = Number(e.detail.value || 0);
+    var option = OBJECTION_SCENARIO_OPTIONS[idx] || OBJECTION_SCENARIO_OPTIONS[0];
+    this.setData({
+      objectionScenarioIndex: idx,
+      objectionScenarioLabel: option.label,
+      "objectionForm.scenario": option.value,
+    });
+  },
+
+  onObjectionGoalChange(e) {
+    var value = e.currentTarget.dataset.value;
+    if (!value) return;
+    this.setData({ "objectionForm.nextGoal": value });
+  },
+
+  submitObjectionFollowup() {
+    var self = this;
+    var raw = self.data.objectionForm;
+    var payload = {
+      customerWords: (raw.customerWords || "").trim(),
+      scenario: raw.scenario || "after_meeting",
+      agentReply: (raw.agentReply || "").trim(),
+      customerBackground: (raw.customerBackground || "").trim(),
+      nextGoal: raw.nextGoal || "wechat",
+    };
+    if (!payload.customerWords) {
+      wx.showToast({ title: "请填写客户原话", icon: "none" });
+      return;
+    }
+    self.ensureLogin().then(function () {
+      self._doSubmitObjectionFollowup(payload);
+    }).catch(function () {
+      wx.showToast({ title: "登录失败，请重试", icon: "none" });
+    });
+  },
+
+  _doSubmitObjectionFollowup(payload) {
+    var self = this;
+    var userContent = "客户卡点跟进：" + payload.customerWords;
+    var userMsg = { role: "user", content: userContent, timestamp: Date.now() };
+    var placeholderMsg = { role: "coach", content: "", timestamp: Date.now() + 1, streaming: true };
+
+    self.setData({
+      isLoading: true,
+      hasSubmitted: true,
+      tab: "coach",
+      messages: [userMsg, placeholderMsg],
+      conversationId: null,
+      lastPointCost: null,
+    });
+    self._startLoadingText();
+
+    self.streamCoachRequest({
+      kycData: {},
+      question: userContent,
+      history: [],
+      clientId: self.data.selectedClientId,
+      conversationId: null,
+      mode: "objection_followup",
+      objectionFollowup: payload,
+    }).then(function () {
+      // 已在 onChunkReceived 中处理完成
+    }).catch(function () {
+      self._stopLoadingText();
+      var msgs = self.data.messages;
+      if (msgs.length > 0) {
+        var last = msgs[msgs.length - 1];
+        if (last.role === "coach" && last.streaming) {
+          msgs[msgs.length - 1] = { role: "coach", content: "提交失败，请稍后重试。", timestamp: Date.now() };
+        }
+      }
+      self.setData({ messages: msgs, isLoading: false });
+    });
   },
 
   nextStep() {

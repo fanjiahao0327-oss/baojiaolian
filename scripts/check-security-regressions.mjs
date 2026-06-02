@@ -60,6 +60,16 @@ assert(
   "web objection form must not import server-side objection prompt helpers into the browser bundle",
 );
 
+const miniCoach = read("miniprogram/pages/coach/coach.js");
+assert(
+  miniCoach.includes("submitObjectionFollowup"),
+  "mini program should expose customer objection followup submission",
+);
+assert(
+  miniCoach.includes("mode: \"objection_followup\""),
+  "mini program should send explicit objection followup mode",
+);
+
 const gitignore = read(".gitignore");
 assert(
   /^\.env$/m.test(gitignore),
