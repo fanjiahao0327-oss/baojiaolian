@@ -7,6 +7,10 @@ function read(rel) {
   return fs.readFileSync(path.join(root, rel), "utf8");
 }
 
+function exists(rel) {
+  return fs.existsSync(path.join(root, rel));
+}
+
 function assert(condition, message) {
   if (!condition) {
     console.error(`FAIL ${message}`);
@@ -48,6 +52,66 @@ assert(
 );
 
 const coachRoute = read("src/app/api/coach/route.ts");
+const knowledgeFiles = [
+  "src/lib/knowledge/index.ts",
+  "src/lib/knowledge/types.ts",
+  "src/lib/knowledge/core.ts",
+  "src/lib/knowledge/methods.ts",
+  "src/lib/knowledge/products-critical-illness.ts",
+  "src/lib/knowledge/products-savings-dividend.ts",
+  "src/lib/knowledge/objections.ts",
+  "src/lib/knowledge/cases.ts",
+  "src/lib/knowledge/selector.ts",
+];
+for (const rel of knowledgeFiles) {
+  assert(exists(rel), `knowledge module file should exist: ${rel}`);
+}
+const knowledgeIndex = exists("src/lib/knowledge/index.ts") ? read("src/lib/knowledge/index.ts") : "";
+const knowledgeTypes = exists("src/lib/knowledge/types.ts") ? read("src/lib/knowledge/types.ts") : "";
+const knowledgeSelector = exists("src/lib/knowledge/selector.ts") ? read("src/lib/knowledge/selector.ts") : "";
+const criticalIllnessKnowledge = exists("src/lib/knowledge/products-critical-illness.ts") ? read("src/lib/knowledge/products-critical-illness.ts") : "";
+const savingsDividendKnowledge = exists("src/lib/knowledge/products-savings-dividend.ts") ? read("src/lib/knowledge/products-savings-dividend.ts") : "";
+const legacyKnowledge = read("src/lib/knowledge.ts");
+assert(
+  knowledgeTypes.includes("sourceRefs") &&
+    knowledgeTypes.includes("KnowledgeTopic") &&
+    knowledgeTypes.includes("KnowledgeMode"),
+  "knowledge modules should expose topic, mode, and internal source metadata",
+);
+assert(
+  legacyKnowledge.includes("export * from \"./knowledge/index\""),
+  "legacy knowledge import path should re-export the modular knowledge index",
+);
+assert(
+  knowledgeSelector.includes("detectKnowledgeTopics") &&
+    knowledgeSelector.includes("selectModules") &&
+    knowledgeSelector.includes("selectModulesForFollowUp"),
+  "knowledge selector should expose topic detection and preserve public selection APIs",
+);
+assert(
+  criticalIllnessKnowledge.includes("critical_illness_positioning") &&
+    criticalIllnessKnowledge.includes("medical_vs_ci_cashflow") &&
+    criticalIllnessKnowledge.includes("premium_inversion_objection"),
+  "critical illness knowledge should include positioning, cashflow, and premium inversion modules",
+);
+assert(
+  savingsDividendKnowledge.includes("dividend_interest_rate_shift") &&
+    savingsDividendKnowledge.includes("education_retirement_visualization") &&
+    savingsDividendKnowledge.includes("appropriation_interest_usage_risks"),
+  "savings and dividend knowledge should include rate shift, visualization, and risk modules",
+);
+assert(
+  knowledgeSelector.includes("critical_illness") &&
+    knowledgeSelector.includes("dividend") &&
+    knowledgeSelector.includes("retirement") &&
+    knowledgeSelector.includes("inheritance"),
+  "knowledge selector should score critical illness, dividend, retirement, and inheritance topics",
+);
+assert(
+  knowledgeIndex.includes("COACH_KNOWLEDGE_BASE") &&
+    knowledgeIndex.includes("ALL_MODULES"),
+  "knowledge index should preserve compatibility exports",
+);
 assert(
   !coachRoute.includes("ORDER BY created_at DESC LIMIT 1"),
   "coach route must not attach requests to the latest conversation implicitly",
