@@ -16,6 +16,14 @@ function assert(condition, message) {
   }
 }
 
+const instrumentation = read("src/instrumentation.ts");
+assert(
+  instrumentation.includes("try") &&
+    instrumentation.includes("catch") &&
+    instrumentation.includes("[instrumentation] initDB failed"),
+  "database init in instrumentation must not crash serverless responses on transient Neon failures",
+);
+
 const verifyRoute = read("src/app/api/payment/verify/route.ts");
 assert(
   !verifyRoute.includes("startsWith(\"VP-\")") && !verifyRoute.includes("startsWith('VP-')"),
@@ -97,6 +105,12 @@ assert(
 assert(
   miniCoach.includes("conversationMode") && miniCoach.includes("mode: self.data.conversationMode"),
   "mini program should preserve coach mode for follow-up questions",
+);
+assert(
+  miniCoach.includes("applyCoachStreamError") &&
+    miniCoach.includes("抱歉，AI 服务暂时不可用") &&
+    !miniCoach.includes('reject(new Error(msg.msg || "服务错误"));'),
+  "mini program should display server stream errors instead of masking them as empty responses",
 );
 
 const miniPoints = read("miniprogram/pages/points/points.js");

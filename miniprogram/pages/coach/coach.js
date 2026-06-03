@@ -449,6 +449,21 @@ Page({
     return new Promise(function (resolve, reject) {
       var buffer = "";
       var accumulatedText = "";
+      var streamErrored = false;
+
+      function applyCoachStreamError(message) {
+        streamErrored = true;
+        self._stopLoadingText();
+        var emsgs = self.data.messages;
+        if (emsgs.length > 0) {
+          var elast = emsgs[emsgs.length - 1];
+          if (elast.role === "coach" && elast.streaming) {
+            elast.content = message || "抱歉，AI 服务暂时不可用，请稍后重试。";
+            delete elast.streaming;
+          }
+        }
+        self.setData({ messages: emsgs, isLoading: false });
+      }
 
       var reqTask = wx.request({
         url: getApp().globalData.apiBase + "/api/coach",
@@ -471,6 +486,7 @@ Page({
           format: "jsonl",
         },
         success: function (res) {
+          if (streamErrored) return;
           // 如果 onChunkReceived 没有触发（降级），用完整响应兜底
           if (!accumulatedText && res.data) {
             try {
@@ -495,6 +511,10 @@ Page({
                     self._stopLoadingText();
                     self.setData({ messages: fmsgs2, isLoading: false, conversationId: fb.cid, lastPointCost: fb.pointCost });
                     resolve({ conversationId: fb.cid });
+                    return;
+                  } else if (fb.type === "error") {
+                    applyCoachStreamError(fb.msg || "抱歉，AI 服务暂时不可用，请稍后重试。");
+                    reject(new Error(fb.msg || "AI service unavailable"));
                     return;
                   }
                 } catch (_) {}
@@ -595,9 +615,9 @@ Page({
                 setTimeout(function () { self.scrollChatToBottom(); }, 300);
                 resolve({ conversationId: msg.cid });
               } else if (msg.type === "error") {
-                self._stopLoadingText();
-                self.setData({ isLoading: false });
-                reject(new Error(msg.msg || "服务错误"));
+                applyCoachStreamError(msg.msg || "抱歉，AI 服务暂时不可用，请稍后重试。");
+                reject(new Error(msg.msg || "AI service unavailable"));
+                return;
               }
             } catch (_) {
               // 不完整的 JSON 行，继续累积
