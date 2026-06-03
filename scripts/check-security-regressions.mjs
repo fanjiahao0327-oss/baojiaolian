@@ -134,6 +134,10 @@ assert(
   "mini program should expose pre-meeting prep submission",
 );
 assert(
+  miniCoach.includes("submitMeetingReview"),
+  "mini program should expose meeting review submission",
+);
+assert(
   miniCoach.includes("mode: \"objection_followup\""),
   "mini program should send explicit objection followup mode",
 );
@@ -141,6 +145,11 @@ assert(
   miniCoach.includes("mode: \"pre_meeting_prep\"") &&
     miniCoach.includes("preMeetingPrep:"),
   "mini program should send explicit pre-meeting prep mode and payload",
+);
+assert(
+  miniCoach.includes("mode: \"meeting_review\"") &&
+    miniCoach.includes("meetingReview:"),
+  "mini program should send explicit meeting review mode and payload",
 );
 assert(
   miniCoach.includes("conversationMode") && miniCoach.includes("mode: self.data.conversationMode"),
@@ -151,6 +160,17 @@ assert(
     miniCoachWxml.includes("见前准备") &&
     miniCoachWxml.includes("面谈作战卡"),
   "mini program should render the pre-meeting prep form entry",
+);
+assert(
+  miniCoach.includes("meetingReviewForm") &&
+    miniCoachWxml.includes("面谈复盘") &&
+    miniCoachWxml.includes("语音复盘"),
+  "mini program should render the meeting review form and voice recap entry",
+);
+assert(
+  miniCoach.includes("voiceTarget") &&
+    miniCoach.includes("_applyVoiceText"),
+  "mini program voice recognition should route recognized text to the active input target",
 );
 assert(
   miniCoach.includes("applyCoachStreamError") &&

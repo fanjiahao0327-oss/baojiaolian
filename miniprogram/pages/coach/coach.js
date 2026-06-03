@@ -163,6 +163,23 @@ var PREP_GOAL_OPTIONS = [
   { value: "solution_discussion", label: "方案沟通" },
 ];
 
+var MEETING_REVIEW_RESULT_OPTIONS = [
+  { value: "interested", label: "有兴趣" },
+  { value: "hesitant", label: "犹豫" },
+  { value: "rejected", label: "明确拒绝" },
+  { value: "booked_next", label: "约了下次" },
+  { value: "family_discussion", label: "需要家人商量" },
+  { value: "info_missing", label: "信息不足" },
+];
+
+var MEETING_REVIEW_GOAL_OPTIONS = [
+  { value: "wechat", label: "发微信" },
+  { value: "call", label: "打电话" },
+  { value: "next_meeting", label: "约下次见面" },
+  { value: "send_material", label: "补充资料" },
+  { value: "pause", label: "暂缓观察" },
+];
+
 var EMPTY_OBJECTION_FORM = {
   customerWords: "",
   scenario: "after_meeting",
@@ -179,6 +196,14 @@ var EMPTY_PREP_FORM = {
   desiredOutcome: "discover_needs",
 };
 
+var EMPTY_MEETING_REVIEW_FORM = {
+  recap: "",
+  meetingResult: "info_missing",
+  customerQuotes: "",
+  agentResponse: "",
+  nextGoal: "wechat",
+};
+
 Page({
   data: {
     tab: "form",
@@ -190,6 +215,7 @@ Page({
     formData: JSON.parse(JSON.stringify(EMPTY_FORM)),
     objectionForm: JSON.parse(JSON.stringify(EMPTY_OBJECTION_FORM)),
     preMeetingPrepForm: JSON.parse(JSON.stringify(EMPTY_PREP_FORM)),
+    meetingReviewForm: JSON.parse(JSON.stringify(EMPTY_MEETING_REVIEW_FORM)),
     objectionScenarioOptions: OBJECTION_SCENARIO_OPTIONS,
     objectionScenarioLabels: OBJECTION_SCENARIO_OPTIONS.map(function (item) { return item.label; }),
     objectionScenarioIndex: 0,
@@ -200,6 +226,11 @@ Page({
     preMeetingPurposeIndex: 0,
     preMeetingPurposeLabel: PREP_PURPOSE_OPTIONS[0].label,
     preMeetingGoalOptions: PREP_GOAL_OPTIONS,
+    meetingReviewResultOptions: MEETING_REVIEW_RESULT_OPTIONS,
+    meetingReviewResultLabels: MEETING_REVIEW_RESULT_OPTIONS.map(function (item) { return item.label; }),
+    meetingReviewResultIndex: 5,
+    meetingReviewResultLabel: MEETING_REVIEW_RESULT_OPTIONS[5].label,
+    meetingReviewGoalOptions: MEETING_REVIEW_GOAL_OPTIONS,
     sortedSections: SORTED_SECTIONS,
     currentStep: 0,
     messages: [],
@@ -223,6 +254,7 @@ Page({
     recording: false,
     voiceText: "",
     voiceParsingKyc: false,
+    voiceTarget: "",
     expandedSections: {},
     balance: -1,
   },
@@ -342,8 +374,7 @@ Page({
         self.setData({ recording: false });
         if (res.result) {
           self.setData({ voiceText: res.result });
-          // 自动调用 AI 解析
-          self._parseVoiceText(res.result);
+          self._applyVoiceText(res.result);
         }
       };
       self._voiceManager.onError = function (res) {
@@ -364,10 +395,30 @@ Page({
   },
 
   cancelVoiceInput() {
+    this.setData({ recording: false, voiceText: "", voiceTarget: "" });
     if (this._voiceManager) {
       this._voiceManager.stop();
     }
-    this.setData({ recording: false, voiceText: "" });
+  },
+
+  startMeetingReviewVoiceInput() {
+    this.setData({ voiceTarget: "meetingReviewRecap" });
+    this.startVoiceInput();
+  },
+
+  _applyVoiceText(text) {
+    var clean = String(text || "").trim();
+    if (!clean) return;
+    if (this.data.voiceTarget === "meetingReviewRecap") {
+      var current = (this.data.meetingReviewForm.recap || "").trim();
+      this.setData({
+        "meetingReviewForm.recap": current ? current + "\n" + clean : clean,
+        voiceTarget: "",
+      });
+      wx.showToast({ title: "已填入面谈复盘", icon: "success" });
+      return;
+    }
+    this._parseVoiceText(clean);
   },
 
   // AI 解析语音文本，自动提取 KYC 信息
@@ -484,7 +535,7 @@ Page({
   // 请求 AI 教练。小程序端使用完整 JSON 响应，避免分块流式在部分微信环境中丢失结束信号。
   streamCoachRequest(params) {
     var self = this;
-    var { kycData, question, history, clientId, conversationId, mode, objectionFollowup, preMeetingPrep } = params;
+    var { kycData, question, history, clientId, conversationId, mode, objectionFollowup, preMeetingPrep, meetingReview } = params;
 
     return new Promise(function (resolve, reject) {
       function applyCoachStreamError(message) {
@@ -517,6 +568,7 @@ Page({
           mode: mode || "diagnosis",
           objectionFollowup: objectionFollowup || null,
           preMeetingPrep: preMeetingPrep || null,
+          meetingReview: meetingReview || null,
           noStream: true,
         },
         success: function (res) {
@@ -657,6 +709,8 @@ Page({
           inferredMode = "objection_followup";
         } else if (firstMessage.indexOf("# 见前准备") >= 0 || firstMessage.indexOf("见前准备") === 0) {
           inferredMode = "pre_meeting_prep";
+        } else if (firstMessage.indexOf("# 面谈复盘") >= 0 || firstMessage.indexOf("面谈复盘") === 0) {
+          inferredMode = "meeting_review";
         }
         self.setData({
           messages: conv.messages,
@@ -687,6 +741,9 @@ Page({
     }
     if (firstMessage.indexOf("# 见前准备") >= 0 || firstMessage.indexOf("见前准备") === 0) {
       return "pre_meeting_prep";
+    }
+    if (firstMessage.indexOf("# 面谈复盘") >= 0 || firstMessage.indexOf("面谈复盘") === 0) {
+      return "meeting_review";
     }
     return "diagnosis";
   },
@@ -770,7 +827,11 @@ Page({
   selectClient(e) {
     var self = this;
     var id = e.currentTarget.dataset.id;
-    if (self.data.workMode === "objection_followup" || self.data.workMode === "pre_meeting_prep") {
+    if (
+      self.data.workMode === "objection_followup" ||
+      self.data.workMode === "pre_meeting_prep" ||
+      self.data.workMode === "meeting_review"
+    ) {
       self.setData({
         selectedClientId: id ? Number(id) : null,
         showClientPicker: false,
@@ -850,6 +911,29 @@ Page({
     var value = e.currentTarget.dataset.value;
     if (!value) return;
     this.setData({ "preMeetingPrepForm.desiredOutcome": value });
+  },
+
+  onMeetingReviewFieldChange(e) {
+    var key = e.currentTarget.dataset.key;
+    var data = {};
+    data["meetingReviewForm." + key] = e.detail.value || "";
+    this.setData(data);
+  },
+
+  onMeetingReviewResultChange(e) {
+    var idx = Number(e.detail.value || 0);
+    var option = MEETING_REVIEW_RESULT_OPTIONS[idx] || MEETING_REVIEW_RESULT_OPTIONS[5];
+    this.setData({
+      meetingReviewResultIndex: idx,
+      meetingReviewResultLabel: option.label,
+      "meetingReviewForm.meetingResult": option.value,
+    });
+  },
+
+  onMeetingReviewGoalChange(e) {
+    var value = e.currentTarget.dataset.value;
+    if (!value) return;
+    this.setData({ "meetingReviewForm.nextGoal": value });
   },
 
   submitObjectionFollowup() {
@@ -962,6 +1046,66 @@ Page({
       preMeetingPrep: payload,
     }).then(function () {
       // 已在完整响应中处理完成
+    }).catch(function () {
+      self._stopLoadingText();
+      var msgs = self.data.messages;
+      if (msgs.length > 0) {
+        var last = msgs[msgs.length - 1];
+        if (last.role === "coach" && last.streaming) {
+          msgs[msgs.length - 1] = { role: "coach", content: "提交失败，请稍后重试。", timestamp: Date.now() };
+        }
+      }
+      self.setData({ messages: msgs, isLoading: false });
+    });
+  },
+
+  submitMeetingReview() {
+    var self = this;
+    var raw = self.data.meetingReviewForm;
+    var payload = {
+      recap: (raw.recap || "").trim(),
+      meetingResult: raw.meetingResult || "info_missing",
+      customerQuotes: (raw.customerQuotes || "").trim(),
+      agentResponse: (raw.agentResponse || "").trim(),
+      nextGoal: raw.nextGoal || "wechat",
+    };
+    if (!payload.recap) {
+      wx.showToast({ title: "请填写面谈过程复盘", icon: "none" });
+      return;
+    }
+    self.ensureLogin().then(function () {
+      self._doSubmitMeetingReview(payload);
+    }).catch(function () {
+      wx.showToast({ title: "登录失败，请重试", icon: "none" });
+    });
+  },
+
+  _doSubmitMeetingReview(payload) {
+    var self = this;
+    var resultLabel = self.data.meetingReviewResultLabel || "面谈复盘";
+    var userContent = "面谈复盘：" + resultLabel + "｜" + payload.recap;
+    var userMsg = { role: "user", content: userContent, timestamp: Date.now() };
+    var placeholderMsg = { role: "coach", content: "", timestamp: Date.now() + 1, streaming: true };
+
+    self.setData({
+      isLoading: true,
+      hasSubmitted: true,
+      tab: "coach",
+      messages: [userMsg, placeholderMsg],
+      conversationId: null,
+      conversationMode: "meeting_review",
+      lastPointCost: null,
+    });
+    self._startLoadingText();
+
+    self.streamCoachRequest({
+      kycData: {},
+      question: userContent,
+      history: [],
+      clientId: self.data.selectedClientId,
+      conversationId: null,
+      mode: "meeting_review",
+      meetingReview: payload,
     }).catch(function () {
       self._stopLoadingText();
       var msgs = self.data.messages;

@@ -14,7 +14,7 @@
   <!-- 顶部 Tab + 客户选择 -->
   <view class="top-bar">
     <view class="tabs">
-      <view class="tab-item {{tab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">{{workMode === 'objection_followup' ? '卡点跟进' : (workMode === 'pre_meeting_prep' ? '见前准备' : '信息填写')}}</view>
+      <view class="tab-item {{tab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">{{workMode === 'objection_followup' ? '卡点跟进' : (workMode === 'pre_meeting_prep' ? '见前准备' : (workMode === 'meeting_review' ? '面谈复盘' : '信息填写'))}}</view>
       <view class="tab-item {{tab === 'coach' ? 'active' : ''}}" data-tab="coach" bindtap="switchTab">教练指导</view>
     </view>
     <view class="top-right">
@@ -48,6 +48,7 @@
     <view class="work-mode-switch">
       <view class="work-mode-item {{workMode === 'objection_followup' ? 'active' : ''}}" data-mode="objection_followup" bindtap="switchWorkMode">客户卡点跟进</view>
       <view class="work-mode-item {{workMode === 'pre_meeting_prep' ? 'active' : ''}}" data-mode="pre_meeting_prep" bindtap="switchWorkMode">见前准备</view>
+      <view class="work-mode-item {{workMode === 'meeting_review' ? 'active' : ''}}" data-mode="meeting_review" bindtap="switchWorkMode">面谈复盘</view>
       <view class="work-mode-item {{workMode === 'diagnosis' ? 'active' : ''}}" data-mode="diagnosis" bindtap="switchWorkMode">完整诊断</view>
     </view>
 
@@ -153,6 +154,63 @@
       </view>
     </block>
 
+    <block wx:elif="{{workMode === 'meeting_review'}}">
+      <view class="objection-card meeting-review-card">
+        <view class="objection-title">面谈复盘</view>
+        <view class="objection-desc">适合面谈结束后，把刚才聊了什么、客户反应和下一步目标整理成跟进计划。</view>
+
+        <view class="voice-entry meeting-review-voice-entry" bindtap="startMeetingReviewVoiceInput">
+          <text class="voice-icon">🎤</text>
+          <text class="voice-label">语音复盘</text>
+          <text class="voice-hint">口述面谈过程，自动转文字</text>
+        </view>
+
+        <view class="field">
+          <view class="label">面谈过程复盘<text class="required">*</text></view>
+          <textarea class="textarea" value="{{meetingReviewForm.recap}}" data-key="recap" bindinput="onMeetingReviewFieldChange" placeholder="例如：今天先聊了家庭和孩子教育，客户说担心未来医疗和孩子留学，但我后面太快讲到产品，客户说回去考虑一下" auto-height maxlength="1600" />
+        </view>
+
+        <view class="field">
+          <view class="label">面谈结果</view>
+          <picker mode="selector" range="{{meetingReviewResultLabels}}" value="{{meetingReviewResultIndex}}" bindchange="onMeetingReviewResultChange">
+            <view class="picker-display">
+              <text>{{meetingReviewResultLabel}}</text>
+              <text class="picker-arrow">▼</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="field">
+          <view class="label">客户关键原话<text class="optional-inline">可选</text></view>
+          <textarea class="textarea" value="{{meetingReviewForm.customerQuotes}}" data-key="customerQuotes" bindinput="onMeetingReviewFieldChange" placeholder="例如：我觉得这个有点贵 / 我想跟家里人商量一下 / 收益能不能高一点" auto-height maxlength="800" />
+        </view>
+
+        <view class="field">
+          <view class="label">我的回应<text class="optional-inline">可选</text></view>
+          <textarea class="textarea" value="{{meetingReviewForm.agentResponse}}" data-key="agentResponse" bindinput="onMeetingReviewFieldChange" placeholder="例如：我当时继续解释了保障责任，客户后面不太接话" auto-height maxlength="800" />
+        </view>
+
+        <view class="field">
+          <view class="label">下一步目标</view>
+          <view class="goal-grid meeting-review-goal-grid">
+            <view
+              class="goal-item {{meetingReviewForm.nextGoal === item.value ? 'active' : ''}}"
+              wx:for="{{meetingReviewGoalOptions}}"
+              wx:key="value"
+              data-value="{{item.value}}"
+              bindtap="onMeetingReviewGoalChange"
+            >
+              {{item.label}}
+            </view>
+          </view>
+        </view>
+
+        <button class="btn-primary objection-submit" bindtap="submitMeetingReview" disabled="{{isLoading}}" loading="{{isLoading}}">
+          {{isLoading ? 'AI 正在复盘面谈...' : '生成复盘建议'}}
+        </button>
+      </view>
+    </block>
+
     <block wx:else>
     <!-- 快速模式切换 -->
     <view class="quick-mode-toggle" bindtap="toggleQuickMode">
@@ -161,13 +219,6 @@
       </view>
       <text class="qmt-label">{{quickMode ? '快速模式' : '完整模式'}}</text>
       <text class="qmt-desc">{{quickMode ? '10个核心字段，快速诊断' : '6步详细填写，深度诊断'}}</text>
-    </view>
-
-    <!-- 语音录入入口（暂时隐藏，调试中）
-    <view class="voice-entry" wx:if="{{false}}" bindtap="startVoiceInput">
-      <text class="voice-icon">🎤</text>
-      <text class="voice-label">语音快速录入</text>
-      <text class="voice-hint">说出客户信息，AI 自动填表</text>
     </view>
 
     <!-- ====== 快速模式表单 ====== -->
@@ -458,8 +509,8 @@
     </view>
   </view>
 
-  <!-- 语音录制浮层（暂时隐藏）
-  <view class="voice-overlay" wx:if="{{false}}">
+  <!-- 语音录制浮层 -->
+  <view class="voice-overlay" wx:if="{{recording}}">
     <view class="voice-overlay-mask" bindtap="cancelVoiceInput"></view>
     <view class="voice-overlay-content">
       <view class="voice-wave">
@@ -478,8 +529,8 @@
     </view>
   </view>
 
-  <!-- AI 解析中（暂时隐藏）
-  <view class="voice-parsing-overlay" wx:if="{{false}}">
+  <!-- AI 解析中 -->
+  <view class="voice-parsing-overlay" wx:if="{{voiceParsingKyc}}">
     <view class="voice-parsing-mask"></view>
     <view class="voice-parsing-toast">
       <text>🤖 AI 正在解析中...</text>

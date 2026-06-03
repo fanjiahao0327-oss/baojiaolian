@@ -167,8 +167,8 @@
 
 .work-mode-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 8rpx;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6rpx;
   margin: 0 20rpx 20rpx;
   padding: 8rpx;
   background: #f3f4f6;
@@ -179,7 +179,7 @@
   line-height: 64rpx;
   text-align: center;
   border-radius: 14rpx;
-  font-size: 24rpx;
+  font-size: 22rpx;
   color: #6b7280;
   font-weight: 500;
 }
@@ -219,6 +219,12 @@
   gap: 12rpx;
 }
 .prep-goal-grid {
+  grid-template-columns: 1fr 1fr;
+}
+.meeting-review-card .voice-entry {
+  margin-bottom: 28rpx;
+}
+.meeting-review-goal-grid {
   grid-template-columns: 1fr 1fr;
 }
 .goal-item {
