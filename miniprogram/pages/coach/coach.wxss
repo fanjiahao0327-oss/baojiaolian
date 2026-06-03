@@ -167,7 +167,7 @@
 
 .work-mode-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 8rpx;
   margin: 0 20rpx 20rpx;
   padding: 8rpx;
@@ -179,7 +179,7 @@
   line-height: 64rpx;
   text-align: center;
   border-radius: 14rpx;
-  font-size: 26rpx;
+  font-size: 24rpx;
   color: #6b7280;
   font-weight: 500;
 }
@@ -217,6 +217,9 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12rpx;
+}
+.prep-goal-grid {
+  grid-template-columns: 1fr 1fr;
 }
 .goal-item {
   height: 72rpx;

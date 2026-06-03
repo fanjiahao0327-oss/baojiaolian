@@ -52,7 +52,7 @@ export interface Message {
   timestamp: number;
 }
 
-export type CoachMode = "diagnosis" | "objection_followup";
+export type CoachMode = "diagnosis" | "objection_followup" | "pre_meeting_prep";
 
 export type ObjectionFollowupScenario =
   | "after_meeting"
@@ -72,6 +72,29 @@ export interface ObjectionFollowupData {
   agentReply?: string;
   customerBackground?: string;
   nextGoal: ObjectionFollowupGoal;
+}
+
+export type PreMeetingPurpose =
+  | "first_meeting"
+  | "second_meeting"
+  | "policy_review"
+  | "referral"
+  | "existing_customer_addon"
+  | "other";
+
+export type PreMeetingGoal =
+  | "build_trust"
+  | "discover_needs"
+  | "book_next_meeting"
+  | "policy_review"
+  | "solution_discussion";
+
+export interface PreMeetingPrepData {
+  meetingPurpose: PreMeetingPurpose;
+  meetingBackground: string;
+  knownCustomerInfo?: string;
+  worryPoint?: string;
+  desiredOutcome?: PreMeetingGoal;
 }
 
 export type FieldType = "text" | "number" | "radio" | "select" | "checkbox-group" | "textarea";

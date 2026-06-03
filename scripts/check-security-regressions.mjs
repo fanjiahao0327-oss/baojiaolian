@@ -61,12 +61,24 @@ assert(
   "coach route should support explicit objection followup mode",
 );
 assert(
+  coachRoute.includes("pre_meeting_prep"),
+  "coach route should support explicit pre-meeting prep mode",
+);
+assert(
   coachRoute.includes("buildObjectionModeInstructions"),
   "coach route should apply objection followup mode instructions",
 );
 assert(
+  coachRoute.includes("buildPreMeetingPrepModeInstructions"),
+  "coach route should apply pre-meeting prep mode instructions",
+);
+assert(
   coachRoute.includes("normalizeObjectionFollowupData"),
   "coach route should normalize objection followup payloads",
+);
+assert(
+  coachRoute.includes("normalizePreMeetingPrepData"),
+  "coach route should normalize pre-meeting prep payloads",
 );
 assert(
   coachRoute.includes("hasObjectionPayload"),
@@ -100,12 +112,27 @@ assert(
   "mini program should expose customer objection followup submission",
 );
 assert(
+  miniCoach.includes("submitPreMeetingPrep"),
+  "mini program should expose pre-meeting prep submission",
+);
+assert(
   miniCoach.includes("mode: \"objection_followup\""),
   "mini program should send explicit objection followup mode",
 );
 assert(
+  miniCoach.includes("mode: \"pre_meeting_prep\"") &&
+    miniCoach.includes("preMeetingPrep:"),
+  "mini program should send explicit pre-meeting prep mode and payload",
+);
+assert(
   miniCoach.includes("conversationMode") && miniCoach.includes("mode: self.data.conversationMode"),
   "mini program should preserve coach mode for follow-up questions",
+);
+assert(
+  miniCoach.includes("preMeetingPrepForm") &&
+    miniCoachWxml.includes("见前准备") &&
+    miniCoachWxml.includes("面谈作战卡"),
+  "mini program should render the pre-meeting prep form entry",
 );
 assert(
   miniCoach.includes("applyCoachStreamError") &&

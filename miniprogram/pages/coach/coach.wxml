@@ -14,7 +14,7 @@
   <!-- 顶部 Tab + 客户选择 -->
   <view class="top-bar">
     <view class="tabs">
-      <view class="tab-item {{tab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">{{workMode === 'objection_followup' ? '卡点跟进' : '信息填写'}}</view>
+      <view class="tab-item {{tab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">{{workMode === 'objection_followup' ? '卡点跟进' : (workMode === 'pre_meeting_prep' ? '见前准备' : '信息填写')}}</view>
       <view class="tab-item {{tab === 'coach' ? 'active' : ''}}" data-tab="coach" bindtap="switchTab">教练指导</view>
     </view>
     <view class="top-right">
@@ -47,6 +47,7 @@
 
     <view class="work-mode-switch">
       <view class="work-mode-item {{workMode === 'objection_followup' ? 'active' : ''}}" data-mode="objection_followup" bindtap="switchWorkMode">客户卡点跟进</view>
+      <view class="work-mode-item {{workMode === 'pre_meeting_prep' ? 'active' : ''}}" data-mode="pre_meeting_prep" bindtap="switchWorkMode">见前准备</view>
       <view class="work-mode-item {{workMode === 'diagnosis' ? 'active' : ''}}" data-mode="diagnosis" bindtap="switchWorkMode">完整诊断</view>
     </view>
 
@@ -97,6 +98,57 @@
 
         <button class="btn-primary objection-submit" bindtap="submitObjectionFollowup" disabled="{{isLoading}}" loading="{{isLoading}}">
           {{isLoading ? 'AI 正在分析卡点...' : '生成跟进建议'}}
+        </button>
+      </view>
+    </block>
+
+    <block wx:elif="{{workMode === 'pre_meeting_prep'}}">
+      <view class="objection-card">
+        <view class="objection-title">见前准备</view>
+        <view class="objection-desc">适合见客户前 2-5 分钟，生成一张能快速扫一眼的面谈作战卡。</view>
+
+        <view class="field">
+          <view class="label">这次见面目的</view>
+          <picker mode="selector" range="{{preMeetingPurposeLabels}}" value="{{preMeetingPurposeIndex}}" bindchange="onPreMeetingPurposeChange">
+            <view class="picker-display">
+              <text>{{preMeetingPurposeLabel}}</text>
+              <text class="picker-arrow">▼</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="field">
+          <view class="label">本次见面背景或触发点<text class="required">*</text></view>
+          <textarea class="textarea" value="{{preMeetingPrepForm.meetingBackground}}" data-key="meetingBackground" bindinput="onPreMeetingPrepFieldChange" placeholder="例如：朋友介绍，客户刚生二胎 / 老客户想看看已有保单够不够 / 客户最近聊到孩子教育" auto-height maxlength="800" />
+        </view>
+
+        <view class="field">
+          <view class="label">已知客户背景<text class="optional-inline">可选</text></view>
+          <textarea class="textarea" value="{{preMeetingPrepForm.knownCustomerInfo}}" data-key="knownCustomerInfo" bindinput="onPreMeetingPrepFieldChange" placeholder="例如：35岁，互联网从业，已有百万医疗，家庭年收入约50万" auto-height maxlength="800" />
+        </view>
+
+        <view class="field">
+          <view class="label">我最担心的问题<text class="optional-inline">可选</text></view>
+          <textarea class="textarea" value="{{preMeetingPrepForm.worryPoint}}" data-key="worryPoint" bindinput="onPreMeetingPrepFieldChange" placeholder="例如：怕客户觉得我推销 / 怕聊不到保险 / 怕客户只问收益 / 怕客户说没预算" auto-height maxlength="500" />
+        </view>
+
+        <view class="field">
+          <view class="label">希望这次达成什么</view>
+          <view class="goal-grid prep-goal-grid">
+            <view
+              class="goal-item {{preMeetingPrepForm.desiredOutcome === item.value ? 'active' : ''}}"
+              wx:for="{{preMeetingGoalOptions}}"
+              wx:key="value"
+              data-value="{{item.value}}"
+              bindtap="onPreMeetingGoalChange"
+            >
+              {{item.label}}
+            </view>
+          </view>
+        </view>
+
+        <button class="btn-primary objection-submit" bindtap="submitPreMeetingPrep" disabled="{{isLoading}}" loading="{{isLoading}}">
+          {{isLoading ? 'AI 正在生成作战卡...' : '生成面谈作战卡'}}
         </button>
       </view>
     </block>
