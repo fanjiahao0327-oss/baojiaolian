@@ -357,8 +357,8 @@ export async function POST(request: NextRequest) {
 
     // 追问模式：仅加载核心层模块（模型已在历史上下文中学习方法层和参考层知识）
     const modules = isFollowUp
-      ? selectModulesForFollowUp()
-      : selectModules(safeKycData as unknown as KYCFormData);
+      ? selectModulesForFollowUp(safeKycData as unknown as KYCFormData, mode, effectiveQuestion)
+      : selectModules(safeKycData as unknown as KYCFormData, mode, effectiveQuestion);
     const moduleContents = modules.map((m) => m.content).join("\n");
     const modeInstructions =
       mode === "objection_followup"

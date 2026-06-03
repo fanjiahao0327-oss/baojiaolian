@@ -164,6 +164,11 @@ assert(
   coachRoute.includes("hasObjectionPayload"),
   "coach route should allow objection followup conversation follow-ups without requiring the first-submit payload again",
 );
+assert(
+  coachRoute.includes("selectModules(safeKycData as unknown as KYCFormData, mode, effectiveQuestion)") &&
+    coachRoute.includes("selectModulesForFollowUp(safeKycData as unknown as KYCFormData, mode, effectiveQuestion)"),
+  "coach route should pass mode and user input into knowledge selection",
+);
 
 const webHome = read("src/app/page.tsx");
 assert(
