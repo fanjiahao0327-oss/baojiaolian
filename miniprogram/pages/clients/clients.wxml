@@ -87,5 +87,22 @@
         </block>
       </view>
     </view>
+
+    <view class="history-section">
+      <view class="history-header">
+        <text class="history-title">历史记录</text>
+        <text class="history-count">{{selected.conversations ? selected.conversations.length : 0}} 条</text>
+      </view>
+      <block wx:if="{{selected.conversations && selected.conversations.length}}">
+        <view class="history-item" wx:for="{{selected.conversations}}" wx:key="id" data-id="{{item.id}}" bindtap="openConversation">
+          <view class="history-main">
+            <text class="history-item-title">{{item.title}}</text>
+            <text class="history-item-time">{{item.created_at}}</text>
+          </view>
+          <text class="history-arrow">→</text>
+        </view>
+      </block>
+      <view wx:else class="history-empty">暂无历史记录</view>
+    </view>
   </view>
 </view>

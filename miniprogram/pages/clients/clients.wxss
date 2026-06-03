@@ -143,3 +143,63 @@
   background: #f9fafb;
   box-sizing: border-box;
 }
+
+/* 历史记录 */
+.history-section {
+  background: #fff;
+  margin: 16rpx 20rpx;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22rpx 24rpx;
+  background: #f9fafb;
+}
+.history-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1f2937;
+}
+.history-count {
+  font-size: 22rpx;
+  color: #9ca3af;
+}
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 22rpx 24rpx;
+  border-top: 1px solid #f3f4f6;
+}
+.history-main {
+  flex: 1;
+  min-width: 0;
+}
+.history-item-title {
+  display: block;
+  font-size: 27rpx;
+  color: #333;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-item-time {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #9ca3af;
+}
+.history-arrow {
+  font-size: 24rpx;
+  color: #cbd5e1;
+}
+.history-empty {
+  padding: 28rpx 24rpx;
+  color: #9ca3af;
+  font-size: 24rpx;
+}

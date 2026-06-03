@@ -107,6 +107,8 @@ assert(
 
 const miniCoach = read("miniprogram/pages/coach/coach.js");
 const miniCoachWxml = read("miniprogram/pages/coach/coach.wxml");
+const miniClients = read("miniprogram/pages/clients/clients.js");
+const miniClientsWxml = read("miniprogram/pages/clients/clients.wxml");
 assert(
   miniCoach.includes("submitObjectionFollowup"),
   "mini program should expose customer objection followup submission",
@@ -156,6 +158,18 @@ assert(
   miniCoachWxml.includes("完整生成后会一次展示") &&
     miniCoachWxml.includes("loadingSeconds"),
   "mini program coach loading bubble should explain full-response waiting instead of looking stuck",
+);
+assert(
+  miniClients.includes("openConversation") &&
+    miniClientsWxml.includes("历史记录") &&
+    miniClientsWxml.includes("selected.conversations"),
+  "mini program client detail should show customer conversation history",
+);
+assert(
+  miniCoach.includes("loadConversationById") &&
+    miniCoach.includes("openConversation") &&
+    miniCoach.includes("/api/conversations/"),
+  "mini program coach page should open a selected historical conversation",
 );
 
 const miniPoints = read("miniprogram/pages/points/points.js");

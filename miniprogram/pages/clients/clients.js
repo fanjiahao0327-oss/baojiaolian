@@ -139,6 +139,14 @@ Page({
         kyc = typeof data.kyc_snapshot === "string" ? JSON.parse(data.kyc_snapshot) : (data.kyc_snapshot || {});
       } catch { kyc = {}; }
       data.kyc_snapshot = kyc;
+      var conversations = (data.conversations || []).map(function (conv) {
+        return {
+          id: conv.id,
+          title: conv.title || "未命名对话",
+          created_at: conv.created_at ? this.formatTime(conv.created_at) : "",
+        };
+      }.bind(this));
+      data.conversations = conversations;
       const sections = this.buildSections(kyc);
       const editData = {};
       Object.entries(kyc).forEach(([k, v]) => { if (v !== undefined && v !== null) editData[k] = v; });
@@ -256,6 +264,17 @@ Page({
   continueCoach() {
     const app = getApp();
     app.globalData.continueClientId = this.data.selected.id;
+    wx.switchTab({ url: "/pages/coach/coach" });
+  },
+
+  openConversation(e) {
+    var conversationId = e.currentTarget.dataset.id;
+    if (!conversationId || !this.data.selected) return;
+    const app = getApp();
+    app.globalData.openConversation = {
+      conversationId: Number(conversationId),
+      clientId: this.data.selected.id,
+    };
     wx.switchTab({ url: "/pages/coach/coach" });
   },
 

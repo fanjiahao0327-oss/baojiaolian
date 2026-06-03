@@ -283,6 +283,11 @@ Page({
       app.globalData.continueClientId = null;
       this.selectClientById(id);
     }
+    if (app.globalData.openConversation) {
+      var target = app.globalData.openConversation;
+      app.globalData.openConversation = null;
+      this.loadConversationById(target.conversationId, target.clientId);
+    }
   },
 
   dismissGuide() {
@@ -672,6 +677,43 @@ Page({
       }
     }).catch(function (e) {
       console.error("[coach] loadClientAndHistory:", e);
+    });
+  },
+
+  _inferConversationMode(messages) {
+    var firstMessage = String((messages && messages[0] && messages[0].content) || "");
+    if (firstMessage.indexOf("# 客户卡点跟进") >= 0 || firstMessage.indexOf("客户卡点跟进") === 0) {
+      return "objection_followup";
+    }
+    if (firstMessage.indexOf("# 见前准备") >= 0 || firstMessage.indexOf("见前准备") === 0) {
+      return "pre_meeting_prep";
+    }
+    return "diagnosis";
+  },
+
+  loadConversationById(conversationId, clientId) {
+    var self = this;
+    if (!conversationId) return;
+    wx.showLoading({ title: "加载中" });
+    api.get("/api/conversations/" + conversationId).then(function (conv) {
+      var messages = conv && conv.messages ? conv.messages : [];
+      var inferredMode = self._inferConversationMode(messages);
+      self.setData({
+        selectedClientId: clientId ? Number(clientId) : (conv && conv.client_id ? Number(conv.client_id) : null),
+        messages: messages,
+        hasSubmitted: messages.length > 0,
+        conversationId: Number(conversationId),
+        tab: "coach",
+        conversationMode: inferredMode,
+        workMode: inferredMode,
+        isLoading: false,
+      });
+      setTimeout(function () { self.scrollChatToBottom(); }, 300);
+    }).catch(function (e) {
+      console.error("[coach] loadConversationById:", e);
+      wx.showToast({ title: "历史记录加载失败", icon: "none" });
+    }).finally(function () {
+      wx.hideLoading();
     });
   },
 
