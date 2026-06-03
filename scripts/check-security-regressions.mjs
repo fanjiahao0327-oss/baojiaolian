@@ -65,6 +65,10 @@ assert(
   "coach route should support explicit pre-meeting prep mode",
 );
 assert(
+  coachRoute.includes("meeting_review"),
+  "coach route should support explicit meeting review mode",
+);
+assert(
   coachRoute.includes("buildObjectionModeInstructions"),
   "coach route should apply objection followup mode instructions",
 );
@@ -73,12 +77,24 @@ assert(
   "coach route should apply pre-meeting prep mode instructions",
 );
 assert(
+  coachRoute.includes("buildMeetingReviewModeInstructions"),
+  "coach route should apply meeting review mode instructions",
+);
+assert(
   coachRoute.includes("normalizeObjectionFollowupData"),
   "coach route should normalize objection followup payloads",
 );
 assert(
   coachRoute.includes("normalizePreMeetingPrepData"),
   "coach route should normalize pre-meeting prep payloads",
+);
+assert(
+  coachRoute.includes("normalizeMeetingReviewData"),
+  "coach route should normalize meeting review payloads",
+);
+assert(
+  coachRoute.includes("meetingReviewFields"),
+  "coach route should scan meeting review payloads for prompt injection",
 );
 assert(
   coachRoute.includes("hasObjectionPayload"),

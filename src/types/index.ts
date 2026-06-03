@@ -52,7 +52,7 @@ export interface Message {
   timestamp: number;
 }
 
-export type CoachMode = "diagnosis" | "objection_followup" | "pre_meeting_prep";
+export type CoachMode = "diagnosis" | "objection_followup" | "pre_meeting_prep" | "meeting_review";
 
 export type ObjectionFollowupScenario =
   | "after_meeting"
@@ -95,6 +95,29 @@ export interface PreMeetingPrepData {
   knownCustomerInfo?: string;
   worryPoint?: string;
   desiredOutcome?: PreMeetingGoal;
+}
+
+export type MeetingReviewResult =
+  | "interested"
+  | "hesitant"
+  | "rejected"
+  | "booked_next"
+  | "family_discussion"
+  | "info_missing";
+
+export type MeetingReviewNextGoal =
+  | "wechat"
+  | "call"
+  | "next_meeting"
+  | "send_material"
+  | "pause";
+
+export interface MeetingReviewData {
+  recap: string;
+  meetingResult?: MeetingReviewResult;
+  customerQuotes?: string;
+  agentResponse?: string;
+  nextGoal?: MeetingReviewNextGoal;
 }
 
 export type FieldType = "text" | "number" | "radio" | "select" | "checkbox-group" | "textarea";
