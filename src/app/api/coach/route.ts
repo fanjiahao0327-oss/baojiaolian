@@ -14,6 +14,13 @@ import {
   normalizePreMeetingPrepData,
   validatePreMeetingPrepData,
 } from "@/lib/pre-meeting-prep";
+import {
+  buildMeetingReviewConversationTitle,
+  buildMeetingReviewModeInstructions,
+  buildMeetingReviewQuestion,
+  normalizeMeetingReviewData,
+  validateMeetingReviewData,
+} from "@/lib/meeting-review";
 import type { CoachMode, KYCFormData, Message } from "@/types";
 import { getSession } from "@/lib/auth";
 import { consumePoints, getBalance, MIN_BALANCE, calcPoints } from "@/lib/points";
@@ -157,6 +164,7 @@ export async function POST(request: NextRequest) {
       mode: rawMode,
       objectionFollowup,
       preMeetingPrep,
+      meetingReview,
     } = body;
 
     const mode: CoachMode =
@@ -164,6 +172,8 @@ export async function POST(request: NextRequest) {
         ? "objection_followup"
         : rawMode === "pre_meeting_prep"
           ? "pre_meeting_prep"
+          : rawMode === "meeting_review"
+            ? "meeting_review"
           : "diagnosis";
     const rawObjection = objectionFollowup as Record<string, unknown> | null | undefined;
     const hasObjectionPayload =
@@ -197,11 +207,29 @@ export async function POST(request: NextRequest) {
     if (mode === "pre_meeting_prep" && !hasPreMeetingPrepPayload && !(rawConversationId && Number(rawConversationId) > 0)) {
       return NextResponse.json({ error: "请填写本次见面背景" }, { status: 400 });
     }
+    const rawMeetingReview = meetingReview as Record<string, unknown> | null | undefined;
+    const hasMeetingReviewPayload =
+      mode === "meeting_review" &&
+      !!rawMeetingReview &&
+      typeof rawMeetingReview === "object" &&
+      String(rawMeetingReview.recap || "").trim().length > 0;
+    const meetingReviewData = hasMeetingReviewPayload
+      ? normalizeMeetingReviewData(meetingReview)
+      : null;
+    const meetingReviewError = meetingReviewData ? validateMeetingReviewData(meetingReviewData) : null;
+    if (meetingReviewError) {
+      return NextResponse.json({ error: meetingReviewError }, { status: 400 });
+    }
+    if (mode === "meeting_review" && !hasMeetingReviewPayload && !(rawConversationId && Number(rawConversationId) > 0)) {
+      return NextResponse.json({ error: "请填写面谈过程复盘" }, { status: 400 });
+    }
 
     const userInput = mode === "objection_followup" && objectionData
       ? buildObjectionFollowupQuestion(objectionData)
       : mode === "pre_meeting_prep" && preMeetingPrepData
         ? buildPreMeetingPrepQuestion(preMeetingPrepData)
+        : mode === "meeting_review" && meetingReviewData
+          ? buildMeetingReviewQuestion(meetingReviewData)
       : String(question || "");
     const frontendKyc: Record<string, unknown> = (kycData as Record<string, unknown>) || {};
     const isFollowUp = history && Array.isArray(history) && history.length > 0;
@@ -218,11 +246,19 @@ export async function POST(request: NextRequest) {
           preMeetingPrepData.worryPoint || "",
         ]
       : [];
+    const meetingReviewFields = meetingReviewData
+      ? [
+          meetingReviewData.recap,
+          meetingReviewData.customerQuotes || "",
+          meetingReviewData.agentResponse || "",
+        ]
+      : [];
     if (
       detectInjection(userInput) ||
       detectKycInjection(frontendKyc) ||
       objectionFields.some((field) => detectInjection(field)) ||
-      preMeetingPrepFields.some((field) => detectInjection(field))
+      preMeetingPrepFields.some((field) => detectInjection(field)) ||
+      meetingReviewFields.some((field) => detectInjection(field))
     ) {
       return NextResponse.json(
         { error: "抱歉，无法处理此问题。如需帮助请联系作者。" },
@@ -295,6 +331,8 @@ export async function POST(request: NextRequest) {
       ? buildObjectionConversationTitle(objectionData)
       : mode === "pre_meeting_prep" && preMeetingPrepData
         ? buildPreMeetingPrepConversationTitle(preMeetingPrepData, safeKycData)
+        : mode === "meeting_review" && meetingReviewData
+          ? buildMeetingReviewConversationTitle(meetingReviewData, safeKycData)
       : generateClientName(safeKycData);
 
     // 处理对话记录
@@ -327,6 +365,8 @@ export async function POST(request: NextRequest) {
         ? buildObjectionModeInstructions()
         : mode === "pre_meeting_prep"
           ? buildPreMeetingPrepModeInstructions()
+          : mode === "meeting_review"
+            ? buildMeetingReviewModeInstructions()
           : "";
     console.log(`[coach] modules=${modules.map(m => m.id).join(",")} isFollowUp=${isFollowUp}`);
     const kycContext = buildKycContext(safeKycData);
@@ -338,7 +378,7 @@ export async function POST(request: NextRequest) {
 - 字段键名仅限于以下列表：clientName, age, gender, city, maritalStatus, childrenDetail, personality, healthCondition, hobbies, parentsDetail, step1Notes, clientIndustry, clientCompany, clientPosition, careerDevelopment, breadwinner, spouseIndustry, spouseCompany, spousePosition, annualIncome, monthlyExpense, majorExpensePlan, step2Notes, fixedAssets, liquidAssets, investmentAmount, investmentStyle, riskTolerance, liabilities, expensePressure, step3Notes, protectionInsurance, savingsInsurance, otherInsurance, insuranceAttitude, step4Notes, triggerScenario, clientOriginalWords, clientObjection, agentResponse, pastInteraction
 - 如果代理人提到的新信息是对现有字段的补充而非完全替换，请用"补充：XXX"的格式，保留原有信息
 - JSON 必须是合法可解析的单行格式`
-      : `5. **KYC 自动更新：** 当前是${mode === "pre_meeting_prep" ? "见前准备" : "客户卡点跟进"}模式，不要输出 [KYC_UPDATE] 标签；如果发现客户档案有值得补充的信息，只在回答中提醒代理人后续手动补充。`;
+      : `5. **KYC 自动更新：** 当前是${mode === "pre_meeting_prep" ? "见前准备" : mode === "meeting_review" ? "面谈复盘" : "客户卡点跟进"}模式，不要输出 [KYC_UPDATE] 标签；如果发现客户档案有值得补充的信息，只在回答中提醒代理人后续手动补充。`;
 
     const systemPrompt = `${moduleContents}
 
@@ -396,6 +436,7 @@ ${kycUpdateInstructions}
       mode: _m,
       objectionFollowup: _of,
       preMeetingPrep: _prep,
+      meetingReview: _meetingReview,
       ...restBody
     } = body;
     const isJsonl = (restBody as Record<string, unknown>).format === "jsonl";
