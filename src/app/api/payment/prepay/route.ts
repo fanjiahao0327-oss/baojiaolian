@@ -6,6 +6,7 @@ import { getPackageByPoints } from "@/lib/pricing";
 import { prepareVirtualPaymentParams, isVirtualPayConfigured } from "@/lib/midas";
 import { rateLimit } from "@/lib/rate-limit";
 import { getBalance } from "@/lib/points";
+import { unsealWechatSessionKey } from "@/lib/wechat-session-key";
 
 function genOrderNo(): string {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -51,7 +52,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请先绑定微信" }, { status: 400 });
     }
 
-    const sessionKey = session.sessionKey || user.wechat_session_key;
+    const storedSessionKey = user.wechat_session_key
+      ? unsealWechatSessionKey(user.wechat_session_key)
+      : null;
+    const sessionKey = session.sessionKey || storedSessionKey;
     if (!sessionKey) {
       return NextResponse.json({ error: "请重新登录微信后再购买" }, { status: 401 });
     }

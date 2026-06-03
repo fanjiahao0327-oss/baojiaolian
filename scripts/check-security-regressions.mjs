@@ -27,6 +27,17 @@ assert(
   !prepayRoute.includes("createJSAPIPrepay") && !prepayRoute.includes("payParams"),
   "mini program virtual products must not fall back to standard JSAPI payment params",
 );
+assert(
+  prepayRoute.includes("unsealWechatSessionKey"),
+  "virtual payment should decrypt stored WeChat session keys only on the server",
+);
+
+const wechatLoginRoute = read("src/app/api/auth/wechat-login/route.ts");
+assert(
+  wechatLoginRoute.includes("sealWechatSessionKey(sessionKey)") &&
+    !wechatLoginRoute.includes("wechat_session_key = ${sessionKey}"),
+  "wechat session keys should be sealed before database storage",
+);
 
 const coachRoute = read("src/app/api/coach/route.ts");
 assert(

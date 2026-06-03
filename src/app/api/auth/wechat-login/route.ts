@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { getDb, rows, row } from "@/lib/db";
 import { createToken } from "@/lib/token";
 import { INITIAL_POINTS } from "@/lib/points";
+import { sealWechatSessionKey } from "@/lib/wechat-session-key";
 
 const WECHAT_APPID = process.env.WECHAT_APPID || "";
 const WECHAT_SECRET = process.env.WECHAT_SECRET;
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
 
     const openid = wxData.openid as string;
     const sessionKey = wxData.session_key as string;
+    const sealedSessionKey = sealWechatSessionKey(sessionKey);
 
     // 查找或创建用户
     const sql = getDb();
@@ -44,13 +46,13 @@ export async function POST(request: NextRequest) {
       user = row<{ id: number; phone: string | null }>(existing);
       await sql`
         UPDATE users
-        SET last_login_at = NOW(), wechat_session_key = ${sessionKey}, updated_at = NOW()
+        SET last_login_at = NOW(), wechat_session_key = ${sealedSessionKey}, updated_at = NOW()
         WHERE id = ${user.id}
       `;
     } else {
       const result = await sql`
         INSERT INTO users (wechat_openid, wechat_session_key, last_login_at)
-        VALUES (${openid}, ${sessionKey}, NOW())
+        VALUES (${openid}, ${sealedSessionKey}, NOW())
         RETURNING id, phone
       `;
       user = row<{ id: number; phone: string | null }>(result);
