@@ -94,8 +94,36 @@ assert(
   "mini program point purchases must use official virtual payment only",
 );
 assert(
+  miniPoints.includes("mode: vp.mode") && miniPoints.includes("signature: vp.signature"),
+  "mini program virtual payment must pass official mode and user signature",
+);
+assert(
+  !miniPoints.includes("offerId: vp.offerId") && !miniPoints.includes("buyQuantity: 1"),
+  "mini program virtual payment must keep purchase fields inside signData",
+);
+assert(
   !miniPoints.includes("网页端") && !miniPoints.includes("baojiaolian.com.cn"),
   "mini program must not guide virtual product purchases to external web recharge",
+);
+
+const midasClient = read("src/lib/midas.ts");
+assert(
+  midasClient.includes("mode: \"short_series_goods\""),
+  "virtual payment params should use official goods mode",
+);
+assert(
+  midasClient.includes("goodsPrice") && midasClient.includes("signature"),
+  "virtual payment params should include official goodsPrice and user signature",
+);
+assert(
+  !midasClient.includes("offer_id") &&
+    !midasClient.includes("buy_quantity") &&
+    !midasClient.includes("out_trade_no"),
+  "virtual payment signData should use official camelCase wx.requestVirtualPayment fields",
+);
+assert(
+  midasClient.includes("requestVirtualPayment") && midasClient.includes("uri + \"&\" + signData"),
+  "virtual payment paySig should sign the requestVirtualPayment URI plus signData",
 );
 
 const gitignore = read(".gitignore");

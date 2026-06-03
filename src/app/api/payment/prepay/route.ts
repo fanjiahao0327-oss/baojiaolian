@@ -44,10 +44,16 @@ export async function POST(request: NextRequest) {
 
     // 获取 openid
     const sql = getDb();
-    const userRows = await sql`SELECT wechat_openid FROM users WHERE id = ${userId}`;
-    const user = rows<{ wechat_openid: string | null }>(userRows)[0];
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS wechat_session_key TEXT`;
+    const userRows = await sql`SELECT wechat_openid, wechat_session_key FROM users WHERE id = ${userId}`;
+    const user = rows<{ wechat_openid: string | null; wechat_session_key: string | null }>(userRows)[0];
     if (!user?.wechat_openid) {
       return NextResponse.json({ error: "请先绑定微信" }, { status: 400 });
+    }
+
+    const sessionKey = session.sessionKey || user.wechat_session_key;
+    if (!sessionKey) {
+      return NextResponse.json({ error: "请重新登录微信后再购买" }, { status: 401 });
     }
 
     const orderNo = genOrderNo();
@@ -58,10 +64,12 @@ export async function POST(request: NextRequest) {
     `;
 
     const vp = prepareVirtualPaymentParams({
-      openid: user.wechat_openid,
+      sessionKey,
       outTradeNo: orderNo,
       buyQuantity: 1,
       productId: pkg.id,
+      goodsPrice: pkg.amountCents,
+      attach: orderNo,
       // env 由 midas.ts 内部根据 WECHAT_VIRTUAL_PAY_ENV 决定
     });
 

@@ -5,7 +5,7 @@
  * https://developers.weixin.qq.com/miniprogram/dev/platform-capabilities/business-capabilities/virtual-payment.html
  *
  * 配置项（在微信 MP 后台 → 虚拟支付 → 基本配置 获取）：
- * - WECHAT_VIRTUAL_PAY_OFFER_ID: 米大师分配的 offer_id
+ * - WECHAT_VIRTUAL_PAY_OFFER_ID: 米大师分配的 Offer ID
  * - WECHAT_VIRTUAL_PAY_APPKEY_SANDBOX: 沙箱环境 AppKey
  * - WECHAT_VIRTUAL_PAY_APPKEY_PRODUCTION: 现网环境 AppKey
  */
@@ -15,6 +15,8 @@ import crypto from "crypto";
 const OFFER_ID = process.env.WECHAT_VIRTUAL_PAY_OFFER_ID || "";
 const APPKEY_SANDBOX = process.env.WECHAT_VIRTUAL_PAY_APPKEY_SANDBOX || "";
 const APPKEY_PRODUCTION = process.env.WECHAT_VIRTUAL_PAY_APPKEY_PRODUCTION || "";
+const REQUEST_VIRTUAL_PAYMENT_URI = "requestVirtualPayment";
+const GOODS_MODE = "short_series_goods";
 
 /** 获取当前环境的 AppKey */
 function getAppKey(env: number): string {
@@ -27,13 +29,12 @@ const PAY_ENV = Number(process.env.WECHAT_VIRTUAL_PAY_ENV || "1");
 /**
  * 生成 pay_sig 签名
  *
- * 签名算法：将 signData 字段按 key 字母序排序，
- * 拼接为 key1=val1&key2=val2&... 格式，末尾追加 &key=<appkey>，
- * 整体做 HMAC-SHA256 得到 pay_sig。
+ * 签名算法：to_hex(hmac_sha256(appKey, uri + "&" + signData))
  */
 export function generatePaySig(
-  params: Record<string, string | number>,
-  env: number = PAY_ENV
+  signData: string,
+  env: number = PAY_ENV,
+  uri: string = REQUEST_VIRTUAL_PAYMENT_URI,
 ): string {
   const appkey = getAppKey(env);
   if (!appkey) {
@@ -42,28 +43,37 @@ export function generatePaySig(
     );
   }
 
-  const sortedKeys = Object.keys(params).sort();
-  const signStr =
-    sortedKeys.map((k) => `${k}=${params[k]}`).join("&") + `&key=${appkey}`;
+  const signStr = uri + "&" + signData;
 
   return crypto.createHmac("sha256", appkey).update(signStr).digest("hex");
+}
+
+/** 生成 wx.requestVirtualPayment 所需的用户态签名 */
+export function generateUserSignature(signData: string, sessionKey: string): string {
+  if (!sessionKey) {
+    throw new Error("缺少微信 session_key，请重新登录微信后再购买");
+  }
+
+  return crypto.createHmac("sha256", sessionKey).update(signData).digest("hex");
 }
 
 /**
  * 为小程序端 wx.requestVirtualPayment 准备支付参数
  */
 export function prepareVirtualPaymentParams(params: {
-  openid: string;
+  sessionKey: string;
   outTradeNo: string;
   buyQuantity: number;
-  productId?: string;
+  productId: string;
+  goodsPrice: number;
+  attach?: string;
   zoneId?: string;
   env?: number;
 }): {
   paySig: string;
-  signData: Record<string, string | number>;
-  offerId: string;
-  env: number;
+  signature: string;
+  signData: string;
+  mode: typeof GOODS_MODE;
   outTradeNo: string;
 } {
   if (!OFFER_ID) {
@@ -72,35 +82,35 @@ export function prepareVirtualPaymentParams(params: {
 
   const env = params.env ?? PAY_ENV;
 
-  const signData: Record<string, string | number> = {
-    offer_id: OFFER_ID,
-    openid: params.openid,
-    out_trade_no: params.outTradeNo,
-    buy_quantity: params.buyQuantity,
-    currency_type: "CNY",
+  const signDataPayload: Record<string, string | number> = {
+    offerId: OFFER_ID,
+    buyQuantity: params.buyQuantity,
     env,
-    ts: Math.floor(Date.now() / 1000),
+    currencyType: "CNY",
+    productId: params.productId,
+    goodsPrice: params.goodsPrice,
+    outTradeNo: params.outTradeNo,
+    attach: params.attach ?? params.outTradeNo,
   };
 
-  if (params.productId) {
-    signData.product_id = params.productId;
-  }
   if (params.zoneId) {
-    signData.zoneid = params.zoneId;
+    signDataPayload.zoneId = params.zoneId;
   }
 
+  const signData = JSON.stringify(signDataPayload);
   const paySig = generatePaySig(signData, env);
+  const signature = generateUserSignature(signData, params.sessionKey);
 
   return {
     paySig,
+    signature,
     signData,
-    offerId: OFFER_ID,
-    env,
+    mode: "short_series_goods",
     outTradeNo: params.outTradeNo,
   };
 }
 
 /** 检查虚拟支付是否已配置 */
 export function isVirtualPayConfigured(): boolean {
-  return !!(OFFER_ID && (APPKEY_SANDBOX || APPKEY_PRODUCTION));
+  return !!(OFFER_ID && getAppKey(PAY_ENV));
 }

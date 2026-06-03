@@ -30,11 +30,13 @@ export async function initDB() {
       id SERIAL PRIMARY KEY,
       phone TEXT UNIQUE,
       wechat_openid TEXT UNIQUE,
+      wechat_session_key TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
   await s`ALTER TABLE users ADD COLUMN IF NOT EXISTS wechat_openid TEXT UNIQUE`;
+  await s`ALTER TABLE users ADD COLUMN IF NOT EXISTS wechat_session_key TEXT`;
   await s`ALTER TABLE users ALTER COLUMN phone DROP NOT NULL`;
   await s`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
 

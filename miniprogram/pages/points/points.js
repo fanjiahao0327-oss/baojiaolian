@@ -186,13 +186,15 @@ Page({
           return;
         }
 
-        await wx.requestVirtualPayment({
-          offerId: vp.offerId,
-          buyQuantity: 1,
-          currencyType: "CNY",
-          env: vp.env,
-          paySig: vp.paySig,
-          signData: vp.signData,
+        await new Promise(function (resolve, reject) {
+          wx.requestVirtualPayment({
+            signData: vp.signData,
+            paySig: vp.paySig,
+            signature: vp.signature,
+            mode: vp.mode,
+            success: resolve,
+            fail: reject,
+          });
         });
 
         // 支付成功，向服务端确认
