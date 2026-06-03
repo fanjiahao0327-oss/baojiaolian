@@ -112,6 +112,12 @@ assert(
     !miniCoach.includes('reject(new Error(msg.msg || "服务错误"));'),
   "mini program should display server stream errors instead of masking them as empty responses",
 );
+assert(
+  miniCoach.includes("noStream: true") &&
+    !miniCoach.includes("enableChunked: true") &&
+    !miniCoach.includes("onChunkReceived"),
+  "mini program coach requests should use non-streaming JSON to avoid lost chunk completion in WeChat",
+);
 
 const miniPoints = read("miniprogram/pages/points/points.js");
 assert(

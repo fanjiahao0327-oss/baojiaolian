@@ -441,18 +441,13 @@ Page({
     this.setData({ chatScrollHeight: Math.max(h, 300) });
   },
 
-  // 流式请求 AI 教练（逐字输出）
+  // 请求 AI 教练。小程序端使用完整 JSON 响应，避免分块流式在部分微信环境中丢失结束信号。
   streamCoachRequest(params) {
     var self = this;
     var { kycData, question, history, clientId, conversationId, mode, objectionFollowup } = params;
 
     return new Promise(function (resolve, reject) {
-      var buffer = "";
-      var accumulatedText = "";
-      var streamErrored = false;
-
       function applyCoachStreamError(message) {
-        streamErrored = true;
         self._stopLoadingText();
         var emsgs = self.data.messages;
         if (emsgs.length > 0) {
@@ -468,7 +463,6 @@ Page({
       var reqTask = wx.request({
         url: getApp().globalData.apiBase + "/api/coach",
         method: "POST",
-        enableChunked: true,
         timeout: 180000,
         header: {
           "Content-Type": "application/json",
@@ -482,150 +476,62 @@ Page({
           conversationId: conversationId || null,
           mode: mode || "diagnosis",
           objectionFollowup: objectionFollowup || null,
-          noStream: false,
-          format: "jsonl",
+          noStream: true,
         },
         success: function (res) {
-          if (streamErrored) return;
-          // 如果 onChunkReceived 没有触发（降级），用完整响应兜底
-          if (!accumulatedText && res.data) {
-            try {
-              var fallback = typeof res.data === "string" ? res.data : JSON.stringify(res.data);
-              var lines = fallback.split("\n");
-              for (var j = 0; j < lines.length; j++) {
-                var line = lines[j].trim();
-                if (!line) continue;
-                try {
-                  var fb = JSON.parse(line);
-                  if (fb.type === "text" && fb.c) accumulatedText += fb.c;
-                  else if (fb.type === "done") {
-                    var fmsgs2 = self.data.messages;
-                    if (fmsgs2.length > 0) {
-                      var flast2 = fmsgs2[fmsgs2.length - 1];
-                      if (flast2.role === "coach" && flast2.streaming) {
-                        flast2.content = accumulatedText;
-                        flast2.contentHtml = fb.html || accumulatedText;
-                        delete flast2.streaming;
-                      }
-                    }
-                    self._stopLoadingText();
-                    self.setData({ messages: fmsgs2, isLoading: false, conversationId: fb.cid, lastPointCost: fb.pointCost });
-                    resolve({ conversationId: fb.cid });
-                    return;
-                  } else if (fb.type === "error") {
-                    applyCoachStreamError(fb.msg || "抱歉，AI 服务暂时不可用，请稍后重试。");
-                    reject(new Error(fb.msg || "AI service unavailable"));
-                    return;
-                  }
-                } catch (_) {}
-              }
-            } catch (_) {}
+          var data = res.data || {};
+          if (typeof data === "string") {
+            try { data = JSON.parse(data); } catch (_) { data = { content: data }; }
           }
-          if (!accumulatedText) {
-            self._stopLoadingText();
-            var fmsgs = self.data.messages;
-            if (fmsgs.length > 0) {
-              var flast = fmsgs[fmsgs.length - 1];
-              if (flast.role === "coach" && flast.streaming) {
-                flast.content = "抱歉，服务未返回结果，请重试。";
-                delete flast.streaming;
-              }
-            }
-            self.setData({ messages: fmsgs, isLoading: false });
+
+          if (res.statusCode === 401) {
+            applyCoachStreamError("请先登录后再使用 AI 教练。");
+            reject(new Error("未登录"));
+            return;
+          }
+          if (res.statusCode === 402) {
+            applyCoachStreamError("积分不足，请先充值后再使用 AI 教练。");
+            reject(new Error("积分不足"));
+            return;
+          }
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            var errorMessage = data.error || data.message || "抱歉，AI 服务暂时不可用，请稍后重试。";
+            applyCoachStreamError(errorMessage);
+            reject(new Error(errorMessage));
+            return;
+          }
+
+          if (!data.content) {
+            applyCoachStreamError("抱歉，服务未返回结果，请重试。");
             reject(new Error("No response received"));
             return;
           }
-          // 收到了分块内容但没收到 done 消息：兜底结束流式状态
+
+          var html = data.content;
+          var plainText = String(html).replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim();
           var fmsgs = self.data.messages;
           if (fmsgs.length > 0) {
             var flast = fmsgs[fmsgs.length - 1];
             if (flast.role === "coach" && flast.streaming) {
+              flast.content = plainText || html;
+              flast.contentHtml = html;
               delete flast.streaming;
             }
           }
           self._stopLoadingText();
-          self.setData({ messages: fmsgs, isLoading: false });
-          resolve({ conversationId: null });
+          self.setData({
+            messages: fmsgs,
+            isLoading: false,
+            conversationId: data.conversationId || conversationId || null,
+            lastPointCost: data.pointCost,
+          });
+          setTimeout(function () { self.scrollChatToBottom(); }, 300);
+          resolve({ conversationId: data.conversationId || conversationId || null });
         },
         fail: function (err) {
-          self._stopLoadingText();
-          // 移除流式占位消息，替换为错误提示
-          var fmsgs = self.data.messages;
-          if (fmsgs.length > 0) {
-            var flast = fmsgs[fmsgs.length - 1];
-            if (flast.role === "coach" && flast.streaming) {
-              flast.content = "抱歉，连接中断，请重试。";
-              delete flast.streaming;
-            }
-          }
-          self.setData({ messages: fmsgs, isLoading: false });
+          applyCoachStreamError("抱歉，连接中断，请重试。");
           reject(err);
         },
-      });
-
-      reqTask.onChunkReceived(function (res) {
-        try {
-          var chunk = res.data;
-          if (chunk instanceof ArrayBuffer) {
-            chunk = new TextDecoder("utf-8").decode(new Uint8Array(chunk));
-          }
-          if (typeof chunk !== "string") return;
-
-          buffer += chunk;
-          // 处理完整的 JSON 行
-          var lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (var i = 0; i < lines.length; i++) {
-            var line = lines[i].trim();
-            if (!line) continue;
-
-            try {
-              var msg = JSON.parse(line);
-
-              if (msg.type === "text" && msg.c) {
-                accumulatedText += msg.c;
-                var msgs = self.data.messages;
-                if (msgs.length > 0) {
-                  var lastMsg = msgs[msgs.length - 1];
-                  if (lastMsg.role === "coach" && lastMsg.streaming) {
-                    lastMsg.content = accumulatedText;
-                    self.setData({ messages: msgs });
-                    // 滚动到底部
-                    setTimeout(function () { self.scrollChatToBottom(); }, 50);
-                  }
-                }
-              } else if (msg.type === "done") {
-                var msgs = self.data.messages;
-                if (msgs.length > 0) {
-                  var lastMsg = msgs[msgs.length - 1];
-                  if (lastMsg.role === "coach" && lastMsg.streaming) {
-                    lastMsg.content = accumulatedText;
-                    lastMsg.contentHtml = msg.html || accumulatedText;
-                    delete lastMsg.streaming;
-                  }
-                }
-                self._stopLoadingText();
-                self.setData({
-                  messages: msgs,
-                  isLoading: false,
-                  conversationId: msg.cid,
-                  lastPointCost: msg.pointCost,
-                });
-                setTimeout(function () { self.scrollChatToBottom(); }, 300);
-                resolve({ conversationId: msg.cid });
-              } else if (msg.type === "error") {
-                applyCoachStreamError(msg.msg || "抱歉，AI 服务暂时不可用，请稍后重试。");
-                reject(new Error(msg.msg || "AI service unavailable"));
-                return;
-              }
-            } catch (_) {
-              // 不完整的 JSON 行，继续累积
-            }
-          }
-        } catch (_) {
-          // 解析异常，忽略
-        }
       });
     });
   },
@@ -889,7 +795,7 @@ Page({
       mode: "objection_followup",
       objectionFollowup: payload,
     }).then(function () {
-      // 已在 onChunkReceived 中处理完成
+      // 已在完整响应中处理完成
     }).catch(function () {
       self._stopLoadingText();
       var msgs = self.data.messages;
@@ -1068,10 +974,10 @@ Page({
       clientId: self.data.selectedClientId,
       conversationId: null,
     }).then(function () {
-      // 已在 onChunkReceived 中处理完成
+      // 已在完整响应中处理完成
     }).catch(function () {
       self._stopLoadingText();
-      // 流式传输中断时，尝试从服务端恢复最新对话（AI 可能已在服务端完成处理）
+      // 请求中断时，尝试从服务端恢复最新对话（AI 可能已在服务端完成处理）
       api.get("/api/conversations?limit=1").then(function (list) {
         if (list && list.length > 0 && list[0].id) {
           wx.showLoading({ title: "加载中" });
@@ -1080,7 +986,7 @@ Page({
         return null;
       }).then(function (detail) {
         if (detail && detail.messages && detail.messages.length > 1) {
-          // 找到未完成的流式占位消息，替换为完整内容
+          // 找到未完成的占位消息，替换为完整内容
           var recovered = detail.messages.map(function (m) {
             if (m.role === "coach" && m.contentHtml) {
               return { role: "coach", content: m.content || m.contentHtml, contentHtml: m.contentHtml, timestamp: m.timestamp };
@@ -1222,7 +1128,7 @@ Page({
       conversationId: self.data.conversationId,
       mode: self.data.conversationMode,
     }).then(function () {
-      // 已在 onChunkReceived 中处理完成
+      // 已在完整响应中处理完成
     }).catch(function () {
       self._stopLoadingText();
       var errMsg = { role: "coach", content: "抱歉，发生了错误，请稍后重试。", timestamp: Date.now() };
@@ -1231,6 +1137,8 @@ Page({
         var lastMsg = currentMessages[currentMessages.length - 1];
         if (lastMsg.role === "coach" && lastMsg.streaming) {
           currentMessages[currentMessages.length - 1] = errMsg;
+        } else if (lastMsg.role === "coach" && lastMsg.content) {
+          // 请求函数已经展示了更具体的错误文案，不再追加泛化错误。
         } else {
           currentMessages.push(errMsg);
         }
