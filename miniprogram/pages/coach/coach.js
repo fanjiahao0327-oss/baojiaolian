@@ -124,8 +124,10 @@ SECTIONS.forEach(function (s) {
 });
 
 var LOADING_STAGES = [
-  "正在分析客户情况…",
-  "AI 教练生成诊断中…",
+  "正在整理客户背景…",
+  "正在匹配顾问式方法…",
+  "正在生成跟进建议…",
+  "内容较长，继续生成中…",
 ];
 
 var QUICK_FIELDS = ["clientName", "age", "gender", "clientIndustry", "annualIncome", "childrenDetail", "protectionInsurance", "triggerScenario", "clientOriginalWords", "clientObjection"];
@@ -179,6 +181,7 @@ Page({
     scrollToBottom: false,
     scrollIntoView: "",
     loadingText: LOADING_STAGES[0],
+    loadingSeconds: 0,
     isLoggedIn: false,
     needBindPhone: false,
     hidePhoneBanner: false,
@@ -195,6 +198,7 @@ Page({
 
   onLoad() {
     this._loadingTimer = null;
+    this._loadingStartedAt = 0;
     this._draftTimer = null;
     this._stageIndex = 0;
     this.checkLoginState();
@@ -1151,12 +1155,19 @@ Page({
 
   _startLoadingText() {
     var self = this;
+    if (self._loadingTimer) {
+      clearInterval(self._loadingTimer);
+      self._loadingTimer = null;
+    }
+    self._loadingStartedAt = Date.now();
     self._stageIndex = 0;
-    self.setData({ loadingText: LOADING_STAGES[0] });
+    self.setData({ loadingText: LOADING_STAGES[0], loadingSeconds: 0 });
     self._loadingTimer = setInterval(function () {
-      self._stageIndex = (self._stageIndex + 1) % LOADING_STAGES.length;
-      self.setData({ loadingText: LOADING_STAGES[self._stageIndex] });
-    }, 2500);
+      var elapsed = Math.floor((Date.now() - self._loadingStartedAt) / 1000);
+      var stageIndex = Math.min(Math.floor(elapsed / 8), LOADING_STAGES.length - 1);
+      self._stageIndex = stageIndex;
+      self.setData({ loadingSeconds: elapsed, loadingText: LOADING_STAGES[stageIndex] });
+    }, 1000);
   },
 
   _stopLoadingText() {
@@ -1164,6 +1175,8 @@ Page({
       clearInterval(this._loadingTimer);
       this._loadingTimer = null;
     }
+    this._loadingStartedAt = 0;
+    this.setData({ loadingSeconds: 0, loadingText: LOADING_STAGES[0] });
   },
 
   onChatScroll(e) {

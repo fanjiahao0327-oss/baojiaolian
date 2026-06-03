@@ -371,6 +371,7 @@
               <text class="msg-text" wx:if="{{item.role === 'user' || (item.streaming && item.content)}}" selectable>{{item.content}}</text>
               <block wx:elif="{{item.streaming && !item.content}}">
                 <text class="loading-stage">{{loadingText}}</text>
+                <text class="loading-hint">完整生成后会一次展示，已等待 {{loadingSeconds}} 秒</text>
                 <view class="typing-dots">
                   <view class="dot"></view><view class="dot"></view><view class="dot"></view>
                 </view>

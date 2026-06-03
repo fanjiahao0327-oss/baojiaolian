@@ -94,6 +94,7 @@ assert(
 );
 
 const miniCoach = read("miniprogram/pages/coach/coach.js");
+const miniCoachWxml = read("miniprogram/pages/coach/coach.wxml");
 assert(
   miniCoach.includes("submitObjectionFollowup"),
   "mini program should expose customer objection followup submission",
@@ -117,6 +118,17 @@ assert(
     !miniCoach.includes("enableChunked: true") &&
     !miniCoach.includes("onChunkReceived"),
   "mini program coach requests should use non-streaming JSON to avoid lost chunk completion in WeChat",
+);
+assert(
+  miniCoach.includes("loadingSeconds") &&
+    miniCoach.includes("_loadingStartedAt") &&
+    miniCoach.includes("Math.floor(elapsed / 8)"),
+  "mini program coach loading should show elapsed wait time and steady progress stages",
+);
+assert(
+  miniCoachWxml.includes("完整生成后会一次展示") &&
+    miniCoachWxml.includes("loadingSeconds"),
+  "mini program coach loading bubble should explain full-response waiting instead of looking stuck",
 );
 
 const miniPoints = read("miniprogram/pages/points/points.js");

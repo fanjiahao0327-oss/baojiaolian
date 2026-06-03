@@ -515,6 +515,13 @@
   display: block;
   margin-bottom: 8rpx;
 }
+.loading-hint {
+  display: block;
+  font-size: 22rpx;
+  color: #6b7280;
+  line-height: 1.5;
+  margin-bottom: 8rpx;
+}
 
 /* 滚到底部按钮 */
 .scroll-bottom-btn {
