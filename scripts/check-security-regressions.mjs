@@ -61,6 +61,7 @@ assert(
 
 const loginRoute = read("src/app/api/auth/login/route.ts");
 const loginPage = read("src/app/login/page.tsx");
+const adminPage = read("src/app/admin/page.tsx");
 const tokenModule = read("src/lib/token.ts");
 const proxyModule = read("src/proxy.ts");
 assert(
@@ -72,6 +73,13 @@ assert(
 assert(
   !loginPage.includes("固定验证码：1234"),
   "web login page must not advertise a fixed verification code",
+);
+assert(
+  adminPage.includes("容量监控") &&
+    adminPage.includes("fetchCapacity") &&
+    adminPage.includes("/api/admin/capacity") &&
+    !adminPage.includes("DATABASE_URL"),
+  "admin page should render protected capacity monitoring without exposing database secrets",
 );
 assert(
   tokenModule.includes("constantTimeEqual") &&
@@ -88,6 +96,12 @@ const adminRoute = read("src/app/api/admin/orders/route.ts");
 const adminConfirmRoute = read("src/app/api/admin/orders/[order_no]/confirm/route.ts");
 const adminCancelRoute = read("src/app/api/admin/orders/[order_no]/cancel/route.ts");
 const pointsChargeRoute = read("src/app/api/points/charge/route.ts");
+const capacityRouteExists = exists("src/app/api/admin/capacity/route.ts");
+const capacityRoute = capacityRouteExists ? read("src/app/api/admin/capacity/route.ts") : "";
+const capacityModuleExists = exists("src/lib/capacity.ts");
+const capacityModule = capacityModuleExists ? read("src/lib/capacity.ts") : "";
+const capacityScriptExists = exists("scripts/check-db-capacity.mjs");
+const capacityScript = capacityScriptExists ? read("scripts/check-db-capacity.mjs") : "";
 assert(
   securityModule.includes("timingSafeEqual") &&
     adminRoute.includes("isAdminKeyValid(adminKey)") &&
@@ -95,6 +109,29 @@ assert(
     adminCancelRoute.includes("isAdminKeyValid(adminKey)") &&
     pointsChargeRoute.includes("isAdminKeyValid(adminKey)"),
   "admin keys should be verified with timing-safe comparison in all admin paths",
+);
+assert(
+  capacityRouteExists &&
+    capacityRoute.includes("isAdminKeyValid(adminKey)") &&
+    capacityRoute.includes("getDatabaseCapacityReport") &&
+    capacityRoute.includes("无权限"),
+  "admin capacity route should exist and be protected by the existing admin key",
+);
+assert(
+  capacityModuleExists &&
+    capacityModule.includes("DATABASE_CAPACITY_BYTES") &&
+    capacityModule.includes("pg_database_size") &&
+    capacityModule.includes("pg_total_relation_size") &&
+    capacityModule.includes("information_schema.tables") &&
+    !capacityModule.includes("DATABASE_URL"),
+  "capacity module should query aggregate database metadata without exposing connection secrets",
+);
+assert(
+  capacityScriptExists &&
+    capacityScript.includes("getDatabaseCapacityReport") &&
+    capacityScript.includes("容量监控") &&
+    !capacityScript.includes("DATABASE_URL="),
+  "local capacity script should print an aggregate capacity report without printing secrets",
 );
 
 const coachRoute = read("src/app/api/coach/route.ts");
