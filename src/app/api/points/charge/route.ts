@@ -3,6 +3,7 @@ import { getBalance } from "@/lib/points";
 import { getDb } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
+import { isAdminKeyValid } from "@/lib/security";
 
 export async function POST(request: NextRequest) {
   const session = await getSession();
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
       { status: 403 }
     );
   }
-  if (!adminKey || adminKey !== configuredKey) {
+  if (!isAdminKeyValid(adminKey)) {
     return NextResponse.json(
       { error: "无权操作，请联系管理员" },
       { status: 403 }

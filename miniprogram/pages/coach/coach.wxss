@@ -164,7 +164,8 @@
   color: #9ca3af;
 }
 .client-context-name,
-.client-context-empty {
+.client-context-empty,
+.client-context-new {
   font-size: 28rpx;
   font-weight: 600;
   color: #1f2937;
@@ -174,6 +175,9 @@
 }
 .client-context-empty {
   color: #ef4444;
+}
+.client-context-new {
+  color: #1a56db;
 }
 .client-context-action {
   flex-shrink: 0;

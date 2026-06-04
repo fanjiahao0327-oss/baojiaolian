@@ -53,9 +53,9 @@
         <view class="client-context-main">
           <text class="client-context-label">客户归属</text>
           <text class="client-context-name" wx:if="{{selectedClientName}}">{{selectedClientName}}</text>
-          <text class="client-context-empty" wx:else>{{workMode === 'diagnosis' ? '新建客户' : '未选择客户'}}</text>
+          <text class="{{workMode === 'diagnosis' ? 'client-context-new' : 'client-context-empty'}}" wx:else>{{workMode === 'diagnosis' ? '新建客户' : '未选择客户'}}</text>
         </view>
-        <view class="client-context-action" bindtap="toggleClientPicker">{{selectedClientId ? '更换客户' : '选择客户'}}</view>
+        <view class="client-context-action" bindtap="toggleClientPicker">{{selectedClientId ? '更换客户' : (workMode === 'diagnosis' ? '选择已有客户' : '选择客户')}}</view>
       </view>
       <input
         wx:if="{{workMode !== 'diagnosis' && !selectedClientId}}"
@@ -462,7 +462,7 @@
           <view class="guide-step-num">1</view>
           <view class="guide-step-text">
             <view class="guide-step-title">新建客户</view>
-            <view class="guide-step-desc">点击顶部「+ 新建客户」，录入面谈对象的基本信息</view>
+            <view class="guide-step-desc">在「客户归属」选择已有客户，或直接填写名称新建客户</view>
           </view>
         </view>
         <view class="guide-step">

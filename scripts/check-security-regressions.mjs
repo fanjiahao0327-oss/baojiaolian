@@ -21,6 +21,14 @@ function assert(condition, message) {
 }
 
 const instrumentation = read("src/instrumentation.ts");
+const pkg = JSON.parse(read("package.json"));
+assert(
+  pkg.overrides &&
+    pkg.overrides.next &&
+    pkg.overrides.next.postcss &&
+    !String(pkg.overrides.next.postcss).startsWith("8.4."),
+  "Next.js nested PostCSS should be overridden to a patched version",
+);
 assert(
   instrumentation.includes("try") &&
     instrumentation.includes("catch") &&
@@ -49,6 +57,44 @@ assert(
   wechatLoginRoute.includes("sealWechatSessionKey(sessionKey)") &&
     !wechatLoginRoute.includes("wechat_session_key = ${sessionKey}"),
   "wechat session keys should be sealed before database storage",
+);
+
+const loginRoute = read("src/app/api/auth/login/route.ts");
+const loginPage = read("src/app/login/page.tsx");
+const tokenModule = read("src/lib/token.ts");
+const proxyModule = read("src/proxy.ts");
+assert(
+  loginRoute.includes("isFixedCodeLoginAllowed") &&
+    loginRoute.includes("Web 短信登录暂未开通") &&
+    !loginRoute.includes('if (code !== "1234")'),
+  "production web login must not accept the fixed internal test code",
+);
+assert(
+  !loginPage.includes("固定验证码：1234"),
+  "web login page must not advertise a fixed verification code",
+);
+assert(
+  tokenModule.includes("constantTimeEqual") &&
+    !tokenModule.includes(") !== sig"),
+  "mini program bearer token signatures should be compared in constant time",
+);
+assert(
+  proxyModule.includes("scriptSources") &&
+    !proxyModule.includes("script-src 'self' 'unsafe-inline' 'unsafe-eval'"),
+  "production CSP should not allow unsafe-eval by default",
+);
+const securityModule = exists("src/lib/security.ts") ? read("src/lib/security.ts") : "";
+const adminRoute = read("src/app/api/admin/orders/route.ts");
+const adminConfirmRoute = read("src/app/api/admin/orders/[order_no]/confirm/route.ts");
+const adminCancelRoute = read("src/app/api/admin/orders/[order_no]/cancel/route.ts");
+const pointsChargeRoute = read("src/app/api/points/charge/route.ts");
+assert(
+  securityModule.includes("timingSafeEqual") &&
+    adminRoute.includes("isAdminKeyValid(adminKey)") &&
+    adminConfirmRoute.includes("isAdminKeyValid(adminKey)") &&
+    adminCancelRoute.includes("isAdminKeyValid(adminKey)") &&
+    pointsChargeRoute.includes("isAdminKeyValid(adminKey)"),
+  "admin keys should be verified with timing-safe comparison in all admin paths",
 );
 
 const coachRoute = read("src/app/api/coach/route.ts");
@@ -192,6 +238,7 @@ assert(
 
 const miniCoach = read("miniprogram/pages/coach/coach.js");
 const miniCoachWxml = read("miniprogram/pages/coach/coach.wxml");
+const miniCoachWxss = read("miniprogram/pages/coach/coach.wxss");
 const miniClients = read("miniprogram/pages/clients/clients.js");
 const miniClientsWxml = read("miniprogram/pages/clients/clients.wxml");
 assert(
@@ -292,6 +339,13 @@ assert(
     miniCoachWxml.includes("按下方名称自动建档") &&
     miniCoachWxml.includes("已读取该客户档案，本次诊断会保存到客户历史记录"),
   "mini program customer diagnosis should show explicit customer ownership and save destination",
+);
+assert(
+  miniCoachWxml.includes("client-context-new") &&
+    miniCoachWxss.includes(".client-context-new") &&
+    miniCoachWxml.includes("选择已有客户") &&
+    !miniCoachWxml.includes("点击顶部「+ 新建客户」"),
+  "mini program diagnosis new-customer ownership should be neutral and guide copy should match the current flow",
 );
 assert(
   miniCoach.includes("loadClientForDiagnosisForm") &&

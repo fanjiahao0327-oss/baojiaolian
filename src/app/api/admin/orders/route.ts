@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, rows } from "@/lib/db";
+import { isAdminKeyValid } from "@/lib/security";
 
 export async function GET(request: NextRequest) {
   const adminKey = request.headers.get("x-admin-key");
-  const configuredKey = process.env.ADMIN_KEY;
-  if (!configuredKey || adminKey !== configuredKey) {
+  if (!isAdminKeyValid(adminKey)) {
     return NextResponse.json({ error: "无权限" }, { status: 403 });
   }
 
