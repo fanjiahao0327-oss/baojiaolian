@@ -657,21 +657,24 @@ Page({
     this.saveDraft();
   },
 
+  _mergeClientSnapshot(snapshot, fallbackName) {
+    if (typeof snapshot === "string") {
+      try { snapshot = JSON.parse(snapshot); } catch (e) { snapshot = {}; }
+    }
+    var merged = JSON.parse(JSON.stringify(EMPTY_FORM));
+    if (snapshot) {
+      for (var k in snapshot) {
+        if (snapshot.hasOwnProperty(k)) merged[k] = snapshot[k];
+      }
+    }
+    if (!merged.clientName && fallbackName) merged.clientName = fallbackName;
+    return merged;
+  },
+
   loadClientAndHistory(id) {
     var self = this;
     api.get("/api/clients/" + id + "?_=" + Date.now()).then(function (client) {
-      var snapshot = client.kyc_snapshot;
-      if (typeof snapshot === "string") {
-        try { snapshot = JSON.parse(snapshot); } catch (e) { snapshot = {}; }
-      }
-      // 合并 snapshot 到 EMPTY_FORM，保留数组类型字段
-      var merged = JSON.parse(JSON.stringify(EMPTY_FORM));
-      if (snapshot) {
-        for (var k in snapshot) {
-          if (snapshot.hasOwnProperty(k)) merged[k] = snapshot[k];
-        }
-      }
-      // 确保 checkbox-group 字段是数组
+      var merged = self._mergeClientSnapshot(client.kyc_snapshot, client.name || self._findClientNameById(id));
       self.setData({
         selectedClientId: Number(id),
         selectedClientName: client.name || self._findClientNameById(id),
@@ -715,6 +718,36 @@ Page({
       }
     }).catch(function (e) {
       console.error("[coach] loadClientAndHistory:", e);
+    });
+  },
+
+  loadClientForDiagnosisForm(id) {
+    var self = this;
+    if (!id) return;
+    wx.showLoading({ title: "加载中" });
+    api.get("/api/clients/" + id + "?_=" + Date.now()).then(function (client) {
+      var clientName = client.name || self._findClientNameById(id);
+      var merged = self._mergeClientSnapshot(client.kyc_snapshot, clientName);
+      self.setData({
+        selectedClientId: Number(id),
+        selectedClientName: clientName,
+        lightClientName: "",
+        formData: merged,
+        messages: [],
+        hasSubmitted: false,
+        conversationId: null,
+        conversationMode: "diagnosis",
+        workMode: "diagnosis",
+        showClientPicker: false,
+        tab: "form",
+        isLoading: false,
+      });
+      wx.hideLoading();
+      wx.showToast({ title: "继续填写诊断", icon: "none" });
+    }).catch(function (e) {
+      console.error("[coach] loadClientForDiagnosisForm:", e);
+      wx.hideLoading();
+      wx.showToast({ title: "客户档案加载失败", icon: "none" });
     });
   },
 
@@ -886,9 +919,16 @@ Page({
         title: "切换客户",
         content: "切换客户会丢失当前填写内容，是否继续？",
         success: function (res) {
-          if (res.confirm) self._confirmSwitchClient(id);
+          if (!res.confirm) return;
+          if (id) {
+            self.loadClientForDiagnosisForm(id);
+          } else {
+            self._confirmSwitchClient(id);
+          }
         },
       });
+    } else if (id) {
+      self.loadClientForDiagnosisForm(id);
     } else {
       self._confirmSwitchClient(id);
     }

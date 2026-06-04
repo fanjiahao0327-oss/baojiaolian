@@ -284,6 +284,18 @@ assert(
   "mini program lightweight coach modes should clearly show customer ownership before submission",
 );
 assert(
+  !miniCoachWxml.includes('class="client-context-card" wx:if="{{workMode !== \'diagnosis\'}}"') &&
+    miniCoachWxml.includes("按下方名称自动建档") &&
+    miniCoachWxml.includes("已读取该客户档案，本次诊断会保存到客户历史记录"),
+  "mini program customer diagnosis should show explicit customer ownership and save destination",
+);
+assert(
+  miniCoach.includes("loadClientForDiagnosisForm") &&
+    miniCoach.includes("继续填写诊断") &&
+    miniCoach.includes("self.loadClientForDiagnosisForm(id)"),
+  "mini program selecting a customer in diagnosis should keep the agent in the diagnosis form",
+);
+assert(
   miniClients.includes("recentConversations") &&
     miniClients.includes("openRecentConversation") &&
     miniClientsWxml.includes("最近教练记录"),

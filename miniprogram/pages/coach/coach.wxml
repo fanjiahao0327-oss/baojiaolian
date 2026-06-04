@@ -52,23 +52,25 @@
       <view class="work-mode-item {{workMode === 'diagnosis' ? 'active' : ''}}" data-mode="diagnosis" bindtap="switchWorkMode">客户诊断</view>
     </view>
 
-    <view class="client-context-card" wx:if="{{workMode !== 'diagnosis'}}">
+    <view class="client-context-card">
       <view class="client-context-row">
         <view class="client-context-main">
           <text class="client-context-label">客户归属</text>
           <text class="client-context-name" wx:if="{{selectedClientName}}">{{selectedClientName}}</text>
-          <text class="client-context-empty" wx:else>未选择客户</text>
+          <text class="client-context-empty" wx:else>{{workMode === 'diagnosis' ? '新建客户' : '未选择客户'}}</text>
         </view>
-        <view class="client-context-action" bindtap="toggleClientPicker">选择客户</view>
+        <view class="client-context-action" bindtap="toggleClientPicker">{{selectedClientId ? '更换客户' : '选择客户'}}</view>
       </view>
       <input
-        wx:if="{{!selectedClientId}}"
+        wx:if="{{workMode !== 'diagnosis' && !selectedClientId}}"
         class="client-name-input"
         value="{{lightClientName}}"
         bindinput="onLightClientNameInput"
         placeholder="填写客户称呼，提交时会自动建档"
       />
-      <text class="client-context-hint" wx:if="{{!selectedClientId}}">未选择已有客户时，提交时会自动建档并保存到客户历史。</text>
+      <text class="client-context-hint" wx:if="{{workMode === 'diagnosis' && !selectedClientId}}">提交后会按下方名称自动建档，并保存到客户历史记录。</text>
+      <text class="client-context-hint" wx:elif="{{workMode === 'diagnosis'}}">已读取该客户档案，本次诊断会保存到客户历史记录。</text>
+      <text class="client-context-hint" wx:elif="{{!selectedClientId}}">未选择已有客户时，提交时会自动建档并保存到客户历史。</text>
       <text class="client-context-hint" wx:else>本次记录会保存到该客户的历史记录里。</text>
     </view>
 
