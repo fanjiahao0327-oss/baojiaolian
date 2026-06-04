@@ -296,10 +296,16 @@ assert(
 );
 assert(
   miniCoachWxml.includes("客户诊断") &&
-    miniCoachWxml.includes("快速诊断") &&
-    miniCoachWxml.includes("深度诊断") &&
-    !miniCoachWxml.includes("完整诊断"),
-  "mini program diagnosis entry should be renamed to customer diagnosis with quick/deep modes",
+    miniCoachWxml.includes("补充更多客户信息") &&
+    miniCoach.includes("showDeepDiagnosisFields") &&
+    miniCoach.includes("toggleDeepDiagnosisFields") &&
+    miniCoach.includes("DIAGNOSIS_SUPPLEMENT_SECTIONS") &&
+    !miniCoachWxml.includes("quick-mode-toggle") &&
+    !miniCoachWxml.includes("深度诊断") &&
+    !miniCoachWxml.includes("完整诊断") &&
+    !miniCoach.includes("quickMode") &&
+    !miniCoach.includes("toggleQuickMode"),
+  "mini program customer diagnosis should be a single progressive form without quick/deep mode switching",
 );
 assert(
   miniCoach.includes("QUICK_REQUIRED_FIELDS") &&

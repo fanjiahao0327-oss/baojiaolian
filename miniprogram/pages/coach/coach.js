@@ -89,29 +89,6 @@ const SECTIONS = [
   },
 ];
 
-// 预排序 sections：recommended 优先，optional 在后
-var SORTED_SECTIONS = SECTIONS.map(function (section) {
-  var sorted = section.fields.slice().sort(function (a, b) {
-    var pa = a.priority || (a.required ? "recommended" : "optional");
-    var pb = b.priority || (b.required ? "recommended" : "optional");
-    if (pa === "optional" && pb !== "optional") return 1;
-    if (pa !== "optional" && pb === "optional") return -1;
-    return 0;
-  });
-  var dividerIdx = -1;
-  for (var i = 0; i < sorted.length; i++) {
-    var p = sorted[i].priority || (sorted[i].required ? "recommended" : "optional");
-    if (p === "optional") { dividerIdx = i; break; }
-  }
-  return {
-    title: section.title,
-    recommended: dividerIdx >= 0 ? sorted.slice(0, dividerIdx) : sorted,
-    optional: dividerIdx >= 0 ? sorted.slice(dividerIdx) : [],
-    hasOptional: dividerIdx >= 0,
-    allFields: section.fields, // keep original for validation
-  };
-});
-
 var EMPTY_FORM = {};
 SECTIONS.forEach(function (s) {
   s.fields.forEach(function (f) {
@@ -132,6 +109,20 @@ var LOADING_STAGES = [
 
 var QUICK_FIELDS = ["clientName", "age", "gender", "clientIndustry", "annualIncome", "childrenDetail", "protectionInsurance", "triggerScenario", "clientOriginalWords", "clientObjection"];
 var QUICK_REQUIRED_FIELDS = ["clientName", "age", "gender", "triggerScenario", "clientOriginalWords"];
+var QUICK_FIELD_SET = QUICK_FIELDS.reduce(function (acc, key) {
+  acc[key] = true;
+  return acc;
+}, {});
+var DIAGNOSIS_SUPPLEMENT_SECTIONS = SECTIONS.map(function (section) {
+  return {
+    title: section.title,
+    fields: section.fields.filter(function (field) {
+      return !QUICK_FIELD_SET[field.key];
+    }),
+  };
+}).filter(function (section) {
+  return section.fields.length > 0;
+});
 
 var OBJECTION_SCENARIO_OPTIONS = [
   { value: "after_meeting", label: "面谈后复盘" },
@@ -210,7 +201,7 @@ Page({
     tab: "form",
     workMode: "objection_followup",
     conversationMode: "diagnosis",
-    quickMode: false,
+    showDeepDiagnosisFields: false,
     clients: [],
     selectedClientId: null,
     selectedClientName: "",
@@ -234,8 +225,7 @@ Page({
     meetingReviewResultIndex: 5,
     meetingReviewResultLabel: MEETING_REVIEW_RESULT_OPTIONS[5].label,
     meetingReviewGoalOptions: MEETING_REVIEW_GOAL_OPTIONS,
-    sortedSections: SORTED_SECTIONS,
-    currentStep: 0,
+    diagnosisSupplementSections: DIAGNOSIS_SUPPLEMENT_SECTIONS,
     messages: [],
     followUp: "",
     isLoading: false,
@@ -258,7 +248,6 @@ Page({
     voiceText: "",
     voiceParsingKyc: false,
     voiceTarget: "",
-    expandedSections: {},
     balance: -1,
   },
 
@@ -630,16 +619,6 @@ Page({
         },
       });
     });
-  },
-
-  // 折叠/展开可选字段
-  toggleExpand(e) {
-    var step = e.currentTarget.dataset.step;
-    var expanded = this.data.expandedSections;
-    var newExpanded = {};
-    for (var k in expanded) { newExpanded[k] = expanded[k]; }
-    newExpanded[step] = !newExpanded[step];
-    this.setData({ expandedSections: newExpanded });
   },
 
   // picker 选择
@@ -1217,37 +1196,6 @@ Page({
     });
   },
 
-  nextStep() {
-    var currentStep = this.data.currentStep;
-    var section = SECTIONS[currentStep];
-    var formData = this.data.formData;
-    var missing = null;
-    for (var i = 0; i < section.fields.length; i++) {
-      var f = section.fields[i];
-      if (!f.required) continue;
-      var v = formData[f.key];
-      if (Array.isArray(v) ? v.length === 0 : !v) {
-        missing = f;
-        break;
-      }
-    }
-    if (missing) {
-      wx.showToast({ title: "请填写：" + missing.label, icon: "none" });
-      return;
-    }
-    if (currentStep < SECTIONS.length - 1) {
-      this.setData({ currentStep: currentStep + 1 });
-      wx.pageScrollTo({ scrollTop: 0, duration: 200 });
-    }
-  },
-
-  prevStep() {
-    if (this.data.currentStep > 0) {
-      this.setData({ currentStep: this.data.currentStep - 1 });
-      wx.pageScrollTo({ scrollTop: 0, duration: 200 });
-    }
-  },
-
   ensureLogin() {
     var self = this;
     var app = getApp();
@@ -1281,38 +1229,21 @@ Page({
     var formData = self.data.formData;
     var missing = null;
 
-    if (self.data.quickMode) {
-      // 快速诊断：仅校验界面标星的核心字段
-      for (var i = 0; i < QUICK_REQUIRED_FIELDS.length; i++) {
-        var key = QUICK_REQUIRED_FIELDS[i];
-        var v = formData[key];
-        if (!v) {
-          for (var si = 0; si < SECTIONS.length; si++) {
-            for (var fi = 0; fi < SECTIONS[si].fields.length; fi++) {
-              if (SECTIONS[si].fields[fi].key === key) {
-                missing = SECTIONS[si].fields[fi];
-                break;
-              }
+    // 客户诊断：只校验核心字段，补充信息填了会提升准确度，但不阻塞提交。
+    for (var i = 0; i < QUICK_REQUIRED_FIELDS.length; i++) {
+      var key = QUICK_REQUIRED_FIELDS[i];
+      var v = formData[key];
+      if (!v) {
+        for (var si = 0; si < SECTIONS.length; si++) {
+          for (var fi = 0; fi < SECTIONS[si].fields.length; fi++) {
+            if (SECTIONS[si].fields[fi].key === key) {
+              missing = SECTIONS[si].fields[fi];
+              break;
             }
-            if (missing) break;
           }
-          break;
+          if (missing) break;
         }
-      }
-    } else {
-      // 深度诊断：校验所有必填字段
-      for (var si = 0; si < SECTIONS.length; si++) {
-        var fields = SECTIONS[si].fields;
-        for (var fi = 0; fi < fields.length; fi++) {
-          var f = fields[fi];
-          if (!f.required) continue;
-          var v2 = formData[f.key];
-          if (Array.isArray(v2) ? v2.length === 0 : !v2) {
-            missing = f;
-            break;
-          }
-        }
-        if (missing) break;
+        break;
       }
     }
     if (missing) {
@@ -1331,17 +1262,12 @@ Page({
   _doSubmit() {
     var self = this;
     var formData = self.data.formData;
-    var userContent = self.data.quickMode
-      ? self.buildQuickUserContent()
-      : self.buildUserContent();
+    var userContent = self.buildCustomerDiagnosisUserContent();
+    var kycData = self._pickDiagnosisKycFields(formData);
 
-    var kycData = self.data.quickMode
-      ? self._pickQuickKycFields(formData)
-      : formData;
-
-    // 快速诊断未选客户时：先用名称自动创建客户，避免与深度诊断的对话混到同一个客户下
-    if (self.data.quickMode && !self.data.selectedClientId) {
-      var clientName = (formData.clientName || "").trim() || "快速诊断客户";
+    // 客户诊断未选客户时：先用名称自动创建客户，避免无归属历史。
+    if (!self.data.selectedClientId) {
+      var clientName = (formData.clientName || "").trim() || "客户诊断客户";
       api.post("/api/clients", {
         name: clientName,
         kycSnapshot: kycData
@@ -1414,66 +1340,12 @@ Page({
     });
   },
 
-  buildUserContent() {
-    var d = this.data.formData;
-    var kv = function (label, val) { return "- " + label + "：" + (val || "未填写"); };
-    return "客户信息：\n\n" +
-      "## 客户画像与生活状态\n" +
-      kv("名称", d.clientName) + "\n" +
-      kv("性别", d.gender === "male" ? "男" : d.gender === "female" ? "女" : "") + "\n" +
-      kv("年龄", d.age) + "\n" +
-      kv("所在城市", d.city) + "\n" +
-      kv("身体情况", d.healthCondition) + "\n" +
-      kv("婚姻状况", d.maritalStatus) + "\n" +
-      kv("子女详情", d.childrenDetail) + "\n" +
-      kv("父母情况", d.parentsDetail) + "\n" +
-      kv("性格特征", d.personality) + "\n" +
-      kv("兴趣爱好", d.hobbies) + "\n" +
-      kv("补充信息", d.step1Notes) + "\n\n" +
-      "## 工作与收支\n" +
-      kv("行业", d.clientIndustry) + "\n" +
-      kv("公司", d.clientCompany) + "\n" +
-      kv("职责&职位", d.clientPosition) + "\n" +
-      kv("职业发展空间", d.careerDevelopment) + "\n" +
-      kv("家庭经济支柱", d.breadwinner) + "\n" +
-      kv("主要收入来源", d.incomeSources) + "\n" +
-      kv("家庭年收入（万元）", d.annualIncome) + "\n" +
-      kv("配偶行业", d.spouseIndustry) + "\n" +
-      kv("配偶公司", d.spouseCompany) + "\n" +
-      kv("配偶职责&职位", d.spousePosition) + "\n" +
-      kv("月度固定支出（万元）", d.monthlyExpense) + "\n" +
-      kv("未来大额支出计划", d.majorExpensePlan) + "\n" +
-      kv("补充信息", d.step2Notes) + "\n\n" +
-      "## 资产情况\n" +
-      kv("固定资产", d.fixedAssets) + "\n" +
-      kv("流动资产合计（万元）", d.liquidAssets) + "\n" +
-      kv("负债情况", d.liabilities) + "\n" +
-      kv("投资金额（万元）", d.investmentAmount) + "\n" +
-      kv("投资偏好", d.investmentStyle) + "\n" +
-      kv("风险承受能力", d.riskTolerance) + "\n" +
-      kv("支出压力感知", d.expensePressure) + "\n" +
-      kv("补充信息", d.step3Notes) + "\n\n" +
-      "## 已有保障\n" +
-      kv("保障类保险", d.protectionInsurance) + "\n" +
-      kv("储蓄类保险", d.savingsInsurance) + "\n" +
-      kv("对保险的态度", d.insuranceAttitude) + "\n" +
-      kv("其他保险", d.otherInsurance) + "\n" +
-      kv("补充信息", d.step4Notes) + "\n\n" +
-      "## 本次面谈入口\n" +
-      kv("触发场景", d.triggerScenario) + "\n" +
-      kv("客户原话或背景描述", d.clientOriginalWords) + "\n" +
-      kv("历史互动摘要", d.pastInteraction) + "\n\n" +
-      "## 当前卡点\n" +
-      kv("客户提出的异议或卡点原话", d.clientObjection) + "\n" +
-      kv("代理人当时的回应方式简述", d.agentResponse) + "\n\n" +
-      "请给出：1. 卡点诊断 2. 推演方向 3. 建议话术";
-  },
-
-  buildQuickUserContent() {
+  buildCustomerDiagnosisUserContent() {
     var d = this.data.formData;
     var kv = function (label, val) { return "- " + label + "：" + (val || "未填写"); };
     var genderLabel = d.gender === "male" ? "男" : d.gender === "female" ? "女" : "";
-    return "快速诊断模式：\n\n" +
+    var supplemental = this._buildSupplementalDiagnosisContent();
+    return "客户诊断模式：\n\n" +
       "## 客户画像\n" +
       kv("名称", d.clientName) + "\n" +
       kv("年龄", d.age) + "\n" +
@@ -1487,17 +1359,48 @@ Page({
       kv("触发场景", d.triggerScenario) + "\n" +
       kv("客户原话或背景描述", d.clientOriginalWords) + "\n" +
       kv("客户异议/卡点", d.clientObjection) + "\n\n" +
-      "请基于以上信息给出：1. 卡点诊断 2. 推演方向 3. 建议话术（话术可含待确认信息的提问方式）";
+      supplemental +
+      "请基于以上信息给出：1. 客户当前优先沟通方向 2. 还缺哪些关键信息 3. 下一步先问什么 4. 建议话术（话术可含待确认信息的提问方式）";
   },
 
-  _pickQuickKycFields(formData) {
-    var picked = {};
-    for (var i = 0; i < QUICK_FIELDS.length; i++) {
-      var k = QUICK_FIELDS[i];
-      if (formData[k] !== undefined && formData[k] !== "") {
-        picked[k] = formData[k];
+  _buildSupplementalDiagnosisContent() {
+    var self = this;
+    var d = self.data.formData;
+    var blocks = [];
+    var formatVal = function (val) {
+      if (Array.isArray(val)) return val.join("、");
+      if (val === undefined || val === null) return "";
+      return String(val).trim();
+    };
+
+    DIAGNOSIS_SUPPLEMENT_SECTIONS.forEach(function (section) {
+      var lines = [];
+      section.fields.forEach(function (field) {
+        var val = formatVal(d[field.key]);
+        if (val) lines.push("- " + field.label + "：" + val);
+      });
+      if (lines.length > 0) {
+        blocks.push("## 补充信息：" + section.title + "\n" + lines.join("\n"));
       }
-    }
+    });
+
+    return blocks.length ? blocks.join("\n\n") + "\n\n" : "";
+  },
+
+  _pickDiagnosisKycFields(formData) {
+    var picked = {};
+    SECTIONS.forEach(function (section) {
+      section.fields.forEach(function (field) {
+        var value = formData[field.key];
+        if (Array.isArray(value)) {
+          if (value.length > 0) picked[field.key] = value;
+          return;
+        }
+        if (value !== undefined && value !== null && String(value).trim() !== "") {
+          picked[field.key] = value;
+        }
+      });
+    });
     return picked;
   },
 
@@ -1640,9 +1543,8 @@ Page({
     wx.switchTab({ url: "/pages/points/points" });
   },
 
-  toggleQuickMode() {
-    var newMode = !this.data.quickMode;
-    this.setData({ quickMode: newMode, currentStep: 0 });
+  toggleDeepDiagnosisFields() {
+    this.setData({ showDeepDiagnosisFields: !this.data.showDeepDiagnosisFields });
   },
 
   switchTab(e) {
