@@ -284,6 +284,10 @@ assert(
   "mini program lightweight coach modes should clearly show customer ownership before submission",
 );
 assert(
+  !miniCoachWxml.includes("client-picker-btn"),
+  "mini program coach top bar should not expose a duplicate customer picker",
+);
+assert(
   !miniCoachWxml.includes('class="client-context-card" wx:if="{{workMode !== \'diagnosis\'}}"') &&
     miniCoachWxml.includes("按下方名称自动建档") &&
     miniCoachWxml.includes("已读取该客户档案，本次诊断会保存到客户历史记录"),

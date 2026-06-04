@@ -27,10 +27,6 @@
         <text class="balance-dot"></text>
         <text>{{balance}} 积分</text>
       </view>
-      <view class="client-picker-btn" bindtap="toggleClientPicker" wx:if="{{isLoggedIn}}">
-        <text>{{selectedClientName || (selectedClientId ? '已选客户' : '选择客户')}}</text>
-        <text class="arrow">▾</text>
-      </view>
     </view>
   </view>
 

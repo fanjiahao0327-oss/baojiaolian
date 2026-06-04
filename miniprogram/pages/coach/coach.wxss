@@ -77,19 +77,6 @@
   background: #1a56db;
   border-radius: 2rpx;
 }
-.client-picker-btn {
-  display: flex; align-items: center; gap: 8rpx;
-  padding: 10rpx 20rpx; background: #f0f0f0;
-  border-radius: 20rpx; font-size: 24rpx; color: #666;
-  max-width: 180rpx;
-  min-width: 0;
-}
-.client-picker-btn text:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.arrow { font-size: 20rpx; }
 .top-right { display: flex; align-items: center; gap: 12rpx; }
 .balance-tag {
   display: flex; align-items: center; gap: 6rpx;
