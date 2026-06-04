@@ -14,7 +14,7 @@
   <!-- 顶部 Tab + 客户选择 -->
   <view class="top-bar">
     <view class="tabs">
-      <view class="tab-item {{tab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">{{workMode === 'objection_followup' ? '卡点跟进' : (workMode === 'pre_meeting_prep' ? '见前准备' : (workMode === 'meeting_review' ? '面谈复盘' : '信息填写'))}}</view>
+      <view class="tab-item {{tab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">{{workMode === 'objection_followup' ? '卡点跟进' : (workMode === 'pre_meeting_prep' ? '见前准备' : (workMode === 'meeting_review' ? '面谈复盘' : '客户诊断'))}}</view>
       <view class="tab-item {{tab === 'coach' ? 'active' : ''}}" data-tab="coach" bindtap="switchTab">教练指导</view>
     </view>
     <view class="top-right">
@@ -28,7 +28,7 @@
         <text>{{balance}} 积分</text>
       </view>
       <view class="client-picker-btn" bindtap="toggleClientPicker" wx:if="{{isLoggedIn}}">
-        <text>{{selectedClientId ? '已选客户' : '选择客户'}}</text>
+        <text>{{selectedClientName || (selectedClientId ? '已选客户' : '选择客户')}}</text>
         <text class="arrow">▾</text>
       </view>
     </view>
@@ -38,7 +38,7 @@
   <view class="picker-overlay" wx:if="{{showClientPicker}}" bindtap="toggleClientPicker"></view>
   <view class="picker-popup {{showClientPicker ? 'show' : ''}}">
     <view class="picker-title">选择客户</view>
-    <view class="picker-option" data-id="" bindtap="selectClient">+ 新建客户</view>
+    <view class="picker-option" data-id="" bindtap="selectClient">{{workMode === 'diagnosis' ? '+ 新建客户' : '不选择已有客户'}}</view>
     <view class="picker-option" wx:for="{{clients}}" wx:key="id" data-id="{{item.id}}" bindtap="selectClient">{{item.name}}</view>
   </view>
 
@@ -49,7 +49,27 @@
       <view class="work-mode-item {{workMode === 'objection_followup' ? 'active' : ''}}" data-mode="objection_followup" bindtap="switchWorkMode">客户卡点跟进</view>
       <view class="work-mode-item {{workMode === 'pre_meeting_prep' ? 'active' : ''}}" data-mode="pre_meeting_prep" bindtap="switchWorkMode">见前准备</view>
       <view class="work-mode-item {{workMode === 'meeting_review' ? 'active' : ''}}" data-mode="meeting_review" bindtap="switchWorkMode">面谈复盘</view>
-      <view class="work-mode-item {{workMode === 'diagnosis' ? 'active' : ''}}" data-mode="diagnosis" bindtap="switchWorkMode">完整诊断</view>
+      <view class="work-mode-item {{workMode === 'diagnosis' ? 'active' : ''}}" data-mode="diagnosis" bindtap="switchWorkMode">客户诊断</view>
+    </view>
+
+    <view class="client-context-card" wx:if="{{workMode !== 'diagnosis'}}">
+      <view class="client-context-row">
+        <view class="client-context-main">
+          <text class="client-context-label">客户归属</text>
+          <text class="client-context-name" wx:if="{{selectedClientName}}">{{selectedClientName}}</text>
+          <text class="client-context-empty" wx:else>未选择客户</text>
+        </view>
+        <view class="client-context-action" bindtap="toggleClientPicker">选择客户</view>
+      </view>
+      <input
+        wx:if="{{!selectedClientId}}"
+        class="client-name-input"
+        value="{{lightClientName}}"
+        bindinput="onLightClientNameInput"
+        placeholder="填写客户称呼，提交时会自动建档"
+      />
+      <text class="client-context-hint" wx:if="{{!selectedClientId}}">未选择已有客户时，提交时会自动建档并保存到客户历史。</text>
+      <text class="client-context-hint" wx:else>本次记录会保存到该客户的历史记录里。</text>
     </view>
 
     <block wx:if="{{workMode === 'objection_followup'}}">
@@ -217,8 +237,8 @@
       <view class="qmt-track {{quickMode ? 'active' : ''}}">
         <view class="qmt-thumb"></view>
       </view>
-      <text class="qmt-label">{{quickMode ? '快速模式' : '完整模式'}}</text>
-      <text class="qmt-desc">{{quickMode ? '10个核心字段，快速诊断' : '6步详细填写，深度诊断'}}</text>
+      <text class="qmt-label">{{quickMode ? '快速诊断' : '深度诊断'}}</text>
+      <text class="qmt-desc">{{quickMode ? '少量核心字段，先判断方向' : '6步补全KYC，适合建档和深度分析'}}</text>
     </view>
 
     <!-- ====== 快速模式表单 ====== -->
@@ -298,7 +318,7 @@
       </view>
     </view>
 
-    <!-- ====== 完整模式表单（原有 6 步） ====== -->
+    <!-- ====== 深度诊断表单（原有 6 步） ====== -->
     <block wx:if="{{!quickMode}}">
     <!-- 步骤进度条 -->
     <view class="step-progress">
@@ -463,7 +483,7 @@
           <text class="ef-item">✅ 推演方向</text>
           <text class="ef-item">✅ 建议话术</text>
         </view>
-        <text class="empty-hint">切换到「信息填写」开始吧 →</text>
+        <text class="empty-hint">切换到「客户诊断」开始吧 →</text>
       </view>
 
       <view class="msg-list" wx:else>

@@ -125,6 +125,13 @@
   display: flex; align-items: center; gap: 8rpx;
   padding: 10rpx 20rpx; background: #f0f0f0;
   border-radius: 20rpx; font-size: 24rpx; color: #666;
+  max-width: 180rpx;
+  min-width: 0;
+}
+.client-picker-btn text:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .arrow { font-size: 20rpx; }
 .top-right { display: flex; align-items: center; gap: 12rpx; }
@@ -187,6 +194,69 @@
   background: #fff;
   color: #1a56db;
   box-shadow: 0 4rpx 12rpx rgba(15, 23, 42, 0.08);
+}
+
+.client-context-card {
+  margin: 0 20rpx 20rpx;
+  padding: 20rpx 22rpx;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18rpx;
+}
+.client-context-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+.client-context-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+.client-context-label {
+  font-size: 22rpx;
+  color: #9ca3af;
+}
+.client-context-name,
+.client-context-empty {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1f2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.client-context-empty {
+  color: #ef4444;
+}
+.client-context-action {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: #1a56db;
+  padding: 10rpx 16rpx;
+  background: #eff6ff;
+  border-radius: 999rpx;
+}
+.client-name-input {
+  height: 76rpx;
+  line-height: 76rpx;
+  margin-top: 18rpx;
+  padding: 0 18rpx;
+  border: 1px solid #dbeafe;
+  border-radius: 14rpx;
+  font-size: 28rpx;
+  background: #f8fbff;
+  box-sizing: border-box;
+}
+.client-context-hint {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #6b7280;
+  line-height: 1.5;
 }
 
 .objection-card {

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const clientIdFilter = searchParams.get("client_id");
 
   const sql = getDb();
-  let query = sql`SELECT c.id, c.title, c.messages, c.created_at, c.status, cl.name as client_name
+  let query = sql`SELECT c.id, c.client_id, c.title, c.messages, c.created_at, c.status, cl.name as client_name
     FROM conversations c
     LEFT JOIN clients cl ON c.client_id = cl.id
     WHERE c.user_id = ${session.userId}`;
@@ -29,7 +29,15 @@ export async function GET(request: NextRequest) {
 
   const rows = await query;
 
-  const list = (rows as { id: number; title: string; messages: string; created_at: string; status: string; client_name: string | null }[]).map((row) => {
+  const list = (rows as {
+    id: number;
+    client_id: number | null;
+    title: string;
+    messages: string;
+    created_at: string;
+    status: string;
+    client_name: string | null;
+  }[]).map((row) => {
     const msgs = JSON.parse(row.messages);
     const firstUserMsg = msgs.find((m: { role: string }) => m.role === "user");
     const preview = firstUserMsg
@@ -41,6 +49,8 @@ export async function GET(request: NextRequest) {
       preview,
       created_at: row.created_at,
       status: row.status,
+      client_id: row.client_id,
+      clientId: row.client_id,
       client_name: row.client_name,
     };
   });

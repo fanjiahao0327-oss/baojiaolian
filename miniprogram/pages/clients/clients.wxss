@@ -70,6 +70,67 @@
 .empty-icon { font-size: 80rpx; margin-bottom: 24rpx; }
 .empty-sub { font-size: 24rpx; color: #ccc; margin-top: 12rpx; }
 
+/* 最近教练记录 */
+.recent-section {
+  background: #fff;
+  margin: 28rpx 20rpx 16rpx;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+.recent-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 22rpx 24rpx;
+  background: #f9fafb;
+}
+.recent-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1f2937;
+}
+.recent-sub {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: #9ca3af;
+}
+.recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 22rpx 24rpx;
+  border-top: 1px solid #f3f4f6;
+}
+.recent-main {
+  flex: 1;
+  min-width: 0;
+}
+.recent-item-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 27rpx;
+  color: #333;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.recent-meta,
+.recent-preview {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #9ca3af;
+}
+.recent-preview {
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* 详情头部 */
 .detail-header {
   display: flex;
@@ -179,8 +240,40 @@
   flex: 1;
   min-width: 0;
 }
+.history-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  min-width: 0;
+}
+.history-type {
+  flex-shrink: 0;
+  padding: 4rpx 10rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  line-height: 1.3;
+  color: #1a56db;
+  background: #eff6ff;
+}
+.history-type.type-objection {
+  color: #b45309;
+  background: #fffbeb;
+}
+.history-type.type-prep {
+  color: #047857;
+  background: #ecfdf5;
+}
+.history-type.type-review {
+  color: #7c3aed;
+  background: #f5f3ff;
+}
+.history-type.type-diagnosis {
+  color: #1a56db;
+  background: #eff6ff;
+}
 .history-item-title {
-  display: block;
+  flex: 1;
+  min-width: 0;
   font-size: 27rpx;
   color: #333;
   font-weight: 500;
@@ -193,6 +286,15 @@
   margin-top: 8rpx;
   font-size: 22rpx;
   color: #9ca3af;
+}
+.history-preview {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .history-arrow {
   font-size: 24rpx;

@@ -85,7 +85,37 @@ export async function GET(
   }
   const client = rows(clientRows)[0];
 
-  const conversations = await sql`SELECT id, title, created_at FROM conversations WHERE client_id = ${numId} AND user_id = ${session.userId} ORDER BY created_at DESC`;
+  const conversationRows = await sql`
+    SELECT id, client_id, title, messages, created_at
+    FROM conversations
+    WHERE client_id = ${numId} AND user_id = ${session.userId}
+    ORDER BY created_at DESC
+  `;
+
+  const conversations = rows<{
+    id: number;
+    client_id: number | null;
+    title: string | null;
+    messages: string;
+    created_at: string;
+  }>(conversationRows).map((conv) => {
+    let preview = "";
+    try {
+      const messages = JSON.parse(conv.messages || "[]") as Array<{ role?: string; content?: string }>;
+      const firstUserMessage = messages.find((msg) => msg.role === "user" && msg.content);
+      preview = firstUserMessage?.content?.replace(/\s+/g, " ").slice(0, 80) || "";
+    } catch {
+      preview = "";
+    }
+    return {
+      id: conv.id,
+      client_id: conv.client_id,
+      clientId: conv.client_id,
+      title: conv.title || "未命名对话",
+      preview,
+      created_at: conv.created_at,
+    };
+  });
 
   let kycSnapshot: Record<string, unknown> = {};
   try {

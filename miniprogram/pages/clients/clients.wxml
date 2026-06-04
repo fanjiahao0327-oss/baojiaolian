@@ -37,6 +37,31 @@
           <text class="c-arrow">→</text>
         </view>
       </view>
+
+      <view class="recent-section" wx:if="{{recentConversations && recentConversations.length}}">
+        <view class="recent-header">
+          <text class="recent-title">最近教练记录</text>
+          <text class="recent-sub">可找回未绑定客户的旧记录</text>
+        </view>
+        <view
+          class="recent-item"
+          wx:for="{{recentConversations}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          data-client-id="{{item.clientId}}"
+          bindtap="openRecentConversation"
+        >
+          <view class="recent-main">
+            <view class="history-title-row">
+              <text class="history-type {{item.typeClass}}">{{item.typeLabel}}</text>
+              <text class="recent-item-title">{{item.title}}</text>
+            </view>
+            <text class="recent-meta">{{item.clientName || '未绑定客户'}} · {{item.created_at}}</text>
+            <text class="recent-preview" wx:if="{{item.preview}}">{{item.preview}}</text>
+          </view>
+          <text class="history-arrow">→</text>
+        </view>
+      </view>
     </view>
   </view>
 
@@ -96,8 +121,12 @@
       <block wx:if="{{selected.conversations && selected.conversations.length}}">
         <view class="history-item" wx:for="{{selected.conversations}}" wx:key="id" data-id="{{item.id}}" bindtap="openConversation">
           <view class="history-main">
-            <text class="history-item-title">{{item.title}}</text>
+            <view class="history-title-row">
+              <text class="history-type {{item.typeClass}}">{{item.typeLabel}}</text>
+              <text class="history-item-title">{{item.title}}</text>
+            </view>
             <text class="history-item-time">{{item.created_at}}</text>
+            <text class="history-preview" wx:if="{{item.preview}}">{{item.preview}}</text>
           </view>
           <text class="history-arrow">→</text>
         </view>

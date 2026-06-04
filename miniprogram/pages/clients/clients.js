@@ -53,14 +53,21 @@ Page({
     searchText: "",
     loading: true,
     selected: null,
+    recentConversations: [],
     sections: [],
     editData: {},
     editing: false,
     collapsedSections: {},
   },
 
-  onLoad() { this.loadClients(); },
-  onShow() { this.loadClients(); },
+  onLoad() {
+    this.loadClients();
+    this.loadRecentConversations();
+  },
+  onShow() {
+    this.loadClients();
+    this.loadRecentConversations();
+  },
 
   onPullDownRefresh() {
     var self = this;
@@ -113,6 +120,40 @@ Page({
     this.setData({ clients: list });
   },
 
+  loadRecentConversations() {
+    var self = this;
+    return api.get("/api/conversations").then(function (list) {
+      var recent = (list || []).slice(0, 8).map(function (conv) {
+        return self.decorateConversation(conv);
+      });
+      self.setData({ recentConversations: recent });
+    }).catch(function (e) {
+      console.warn("[clients] loadRecentConversations:", e);
+    });
+  },
+
+  inferConversationType(conv) {
+    var text = ((conv && conv.title) || "") + " " + ((conv && conv.preview) || "");
+    if (text.indexOf("客户卡点跟进") >= 0) return { label: "卡点", className: "type-objection" };
+    if (text.indexOf("见前准备") >= 0) return { label: "见前", className: "type-prep" };
+    if (text.indexOf("面谈复盘") >= 0) return { label: "复盘", className: "type-review" };
+    return { label: "诊断", className: "type-diagnosis" };
+  },
+
+  decorateConversation(conv) {
+    var type = this.inferConversationType(conv);
+    return {
+      id: conv.id,
+      clientId: conv.clientId || conv.client_id || null,
+      clientName: conv.client_name || conv.clientName || "",
+      title: conv.title || "未命名对话",
+      preview: conv.preview || "",
+      created_at: conv.created_at ? this.formatTime(conv.created_at) : "",
+      typeLabel: type.label,
+      typeClass: type.className,
+    };
+  },
+
   formatTime(iso) {
     try {
       const d = new Date(iso);
@@ -140,11 +181,7 @@ Page({
       } catch { kyc = {}; }
       data.kyc_snapshot = kyc;
       var conversations = (data.conversations || []).map(function (conv) {
-        return {
-          id: conv.id,
-          title: conv.title || "未命名对话",
-          created_at: conv.created_at ? this.formatTime(conv.created_at) : "",
-        };
+        return this.decorateConversation(conv);
       }.bind(this));
       data.conversations = conversations;
       const sections = this.buildSections(kyc);
@@ -274,6 +311,18 @@ Page({
     app.globalData.openConversation = {
       conversationId: Number(conversationId),
       clientId: this.data.selected.id,
+    };
+    wx.switchTab({ url: "/pages/coach/coach" });
+  },
+
+  openRecentConversation(e) {
+    var conversationId = e.currentTarget.dataset.id;
+    var clientId = e.currentTarget.dataset.clientId;
+    if (!conversationId) return;
+    const app = getApp();
+    app.globalData.openConversation = {
+      conversationId: Number(conversationId),
+      clientId: clientId ? Number(clientId) : null,
     };
     wx.switchTab({ url: "/pages/coach/coach" });
   },

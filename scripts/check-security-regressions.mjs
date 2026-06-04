@@ -271,10 +271,60 @@ assert(
   "mini program client detail should show customer conversation history",
 );
 assert(
+  miniCoach.includes("lightClientName") &&
+    miniCoach.includes("_ensureLightClientContext") &&
+    miniCoach.includes("请先选择客户或填写客户称呼") &&
+    miniCoach.includes("api.post(\"/api/clients\""),
+  "mini program lightweight coach modes should create and bind a customer before submission",
+);
+assert(
+  miniCoach.includes("selectedClientName") &&
+    miniCoachWxml.includes("客户归属") &&
+    miniCoachWxml.includes("提交时会自动建档"),
+  "mini program lightweight coach modes should clearly show customer ownership before submission",
+);
+assert(
+  miniClients.includes("recentConversations") &&
+    miniClients.includes("openRecentConversation") &&
+    miniClientsWxml.includes("最近教练记录"),
+  "mini program clients page should expose recent coach records for finding unbound history",
+);
+assert(
+  miniClients.includes("typeLabel") &&
+    miniClientsWxml.includes("history-type"),
+  "mini program customer history should render conversation type labels",
+);
+assert(
+  miniCoachWxml.includes("客户诊断") &&
+    miniCoachWxml.includes("快速诊断") &&
+    miniCoachWxml.includes("深度诊断") &&
+    !miniCoachWxml.includes("完整诊断"),
+  "mini program diagnosis entry should be renamed to customer diagnosis with quick/deep modes",
+);
+assert(
+  miniCoach.includes("QUICK_REQUIRED_FIELDS") &&
+    miniCoach.includes("for (var i = 0; i < QUICK_REQUIRED_FIELDS.length; i++)"),
+  "mini program quick diagnosis should only block on fields marked required in the quick form",
+);
+assert(
   miniCoach.includes("loadConversationById") &&
     miniCoach.includes("openConversation") &&
     miniCoach.includes("/api/conversations/"),
   "mini program coach page should open a selected historical conversation",
+);
+
+const clientsDetailRoute = read("src/app/api/clients/[id]/route.ts");
+const conversationsRoute = read("src/app/api/conversations/route.ts");
+assert(
+  clientsDetailRoute.includes("messages") &&
+    clientsDetailRoute.includes("preview") &&
+    clientsDetailRoute.includes("clientId"),
+  "client detail API should return conversation previews and client ids for history rows",
+);
+assert(
+  conversationsRoute.includes("c.client_id") &&
+    conversationsRoute.includes("clientId"),
+  "conversation list API should return client ids so recent history can reopen with ownership",
 );
 
 const miniPoints = read("miniprogram/pages/points/points.js");

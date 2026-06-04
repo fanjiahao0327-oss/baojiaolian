@@ -131,6 +131,7 @@ var LOADING_STAGES = [
 ];
 
 var QUICK_FIELDS = ["clientName", "age", "gender", "clientIndustry", "annualIncome", "childrenDetail", "protectionInsurance", "triggerScenario", "clientOriginalWords", "clientObjection"];
+var QUICK_REQUIRED_FIELDS = ["clientName", "age", "gender", "triggerScenario", "clientOriginalWords"];
 
 var OBJECTION_SCENARIO_OPTIONS = [
   { value: "after_meeting", label: "面谈后复盘" },
@@ -212,6 +213,8 @@ Page({
     quickMode: false,
     clients: [],
     selectedClientId: null,
+    selectedClientName: "",
+    lightClientName: "",
     formData: JSON.parse(JSON.stringify(EMPTY_FORM)),
     objectionForm: JSON.parse(JSON.stringify(EMPTY_OBJECTION_FORM)),
     preMeetingPrepForm: JSON.parse(JSON.stringify(EMPTY_PREP_FORM)),
@@ -692,6 +695,8 @@ Page({
       // 确保 checkbox-group 字段是数组
       self.setData({
         selectedClientId: Number(id),
+        selectedClientName: client.name || self._findClientNameById(id),
+        lightClientName: "",
         formData: merged,
         showClientPicker: false,
       });
@@ -755,8 +760,13 @@ Page({
     api.get("/api/conversations/" + conversationId).then(function (conv) {
       var messages = conv && conv.messages ? conv.messages : [];
       var inferredMode = self._inferConversationMode(messages);
+      var resolvedClientId = clientId
+        ? Number(clientId)
+        : (conv && (conv.clientId || conv.client_id) ? Number(conv.clientId || conv.client_id) : null);
       self.setData({
-        selectedClientId: clientId ? Number(clientId) : (conv && conv.client_id ? Number(conv.client_id) : null),
+        selectedClientId: resolvedClientId,
+        selectedClientName: resolvedClientId ? self._findClientNameById(resolvedClientId) : "",
+        lightClientName: "",
         messages: messages,
         hasSubmitted: messages.length > 0,
         conversationId: Number(conversationId),
@@ -794,6 +804,55 @@ Page({
     this.setData({ showClientPicker: !this.data.showClientPicker });
   },
 
+  _findClientNameById(id) {
+    var targetId = Number(id);
+    var list = this.data.clients || [];
+    for (var i = 0; i < list.length; i++) {
+      if (Number(list[i].id) === targetId) return list[i].name || "";
+    }
+    return "";
+  },
+
+  onLightClientNameInput(e) {
+    this.setData({ lightClientName: e.detail.value || "" });
+  },
+
+  _requireLightClientName() {
+    if (this.data.selectedClientId) return true;
+    if ((this.data.lightClientName || "").trim()) return true;
+    wx.showToast({ title: "请先选择客户或填写客户称呼", icon: "none" });
+    return false;
+  },
+
+  _ensureLightClientContext(snapshot) {
+    var self = this;
+    if (self.data.selectedClientId) {
+      return Promise.resolve(Number(self.data.selectedClientId));
+    }
+
+    var name = (self.data.lightClientName || "").trim();
+    if (!name) {
+      return Promise.reject(new Error("missing light client name"));
+    }
+
+    var kycSnapshot = Object.assign({ clientName: name }, snapshot || {});
+    return api.post("/api/clients", {
+      name: name,
+      kycSnapshot: kycSnapshot,
+    }).then(function (res) {
+      var id = Number(res.id);
+      self.setData({
+        selectedClientId: id,
+        selectedClientName: name,
+        lightClientName: "",
+      });
+      self.loadClients();
+      return id;
+    }).catch(function () {
+      throw new Error("create light client failed");
+    });
+  },
+
   _formHasData() {
     var fd = this.data.formData;
     for (var i = 0; i < SECTIONS.length; i++) {
@@ -811,6 +870,8 @@ Page({
     if (!id) {
       self.setData({
         selectedClientId: null,
+        selectedClientName: "",
+        lightClientName: "",
         formData: JSON.parse(JSON.stringify(EMPTY_FORM)),
         messages: [],
         hasSubmitted: false,
@@ -834,6 +895,8 @@ Page({
     ) {
       self.setData({
         selectedClientId: id ? Number(id) : null,
+        selectedClientName: id ? self._findClientNameById(id) : "",
+        lightClientName: "",
         showClientPicker: false,
       });
       return;
@@ -950,10 +1013,22 @@ Page({
       wx.showToast({ title: "请填写客户原话", icon: "none" });
       return;
     }
+    if (!self._requireLightClientName()) return;
+
     self.ensureLogin().then(function () {
+      return self._ensureLightClientContext({
+        clientOriginalWords: payload.customerWords,
+        clientObjection: payload.customerWords,
+        agentResponse: payload.agentReply,
+        pastInteraction: payload.customerBackground,
+      });
+    }).then(function () {
       self._doSubmitObjectionFollowup(payload);
-    }).catch(function () {
-      wx.showToast({ title: "登录失败，请重试", icon: "none" });
+    }).catch(function (err) {
+      wx.showToast({
+        title: err && err.message === "create light client failed" ? "创建客户失败，请重试" : "登录失败，请重试",
+        icon: "none",
+      });
     });
   },
 
@@ -1011,10 +1086,21 @@ Page({
       wx.showToast({ title: "请填写见面背景", icon: "none" });
       return;
     }
+    if (!self._requireLightClientName()) return;
+
     self.ensureLogin().then(function () {
+      return self._ensureLightClientContext({
+        clientOriginalWords: payload.meetingBackground,
+        pastInteraction: payload.knownCustomerInfo,
+        step1Notes: payload.worryPoint,
+      });
+    }).then(function () {
       self._doSubmitPreMeetingPrep(payload);
-    }).catch(function () {
-      wx.showToast({ title: "登录失败，请重试", icon: "none" });
+    }).catch(function (err) {
+      wx.showToast({
+        title: err && err.message === "create light client failed" ? "创建客户失败，请重试" : "登录失败，请重试",
+        icon: "none",
+      });
     });
   },
 
@@ -1073,10 +1159,22 @@ Page({
       wx.showToast({ title: "请填写面谈过程复盘", icon: "none" });
       return;
     }
+    if (!self._requireLightClientName()) return;
+
     self.ensureLogin().then(function () {
+      return self._ensureLightClientContext({
+        pastInteraction: payload.recap,
+        clientObjection: payload.customerQuotes,
+        agentResponse: payload.agentResponse,
+        step1Notes: "面谈结果：" + (self.data.meetingReviewResultLabel || "信息不足"),
+      });
+    }).then(function () {
       self._doSubmitMeetingReview(payload);
-    }).catch(function () {
-      wx.showToast({ title: "登录失败，请重试", icon: "none" });
+    }).catch(function (err) {
+      wx.showToast({
+        title: err && err.message === "create light client failed" ? "创建客户失败，请重试" : "登录失败，请重试",
+        icon: "none",
+      });
     });
   },
 
@@ -1184,9 +1282,9 @@ Page({
     var missing = null;
 
     if (self.data.quickMode) {
-      // 快速模式：仅校验 5 个核心字段
-      for (var i = 0; i < QUICK_FIELDS.length; i++) {
-        var key = QUICK_FIELDS[i];
+      // 快速诊断：仅校验界面标星的核心字段
+      for (var i = 0; i < QUICK_REQUIRED_FIELDS.length; i++) {
+        var key = QUICK_REQUIRED_FIELDS[i];
         var v = formData[key];
         if (!v) {
           for (var si = 0; si < SECTIONS.length; si++) {
@@ -1202,7 +1300,7 @@ Page({
         }
       }
     } else {
-      // 完整模式：校验所有必填字段
+      // 深度诊断：校验所有必填字段
       for (var si = 0; si < SECTIONS.length; si++) {
         var fields = SECTIONS[si].fields;
         for (var fi = 0; fi < fields.length; fi++) {
@@ -1241,14 +1339,14 @@ Page({
       ? self._pickQuickKycFields(formData)
       : formData;
 
-    // 快速模式未选客户时：先用名称自动创建客户，避免与完整模式的对话混到同一个客户下
+    // 快速诊断未选客户时：先用名称自动创建客户，避免与深度诊断的对话混到同一个客户下
     if (self.data.quickMode && !self.data.selectedClientId) {
       var clientName = (formData.clientName || "").trim() || "快速诊断客户";
       api.post("/api/clients", {
         name: clientName,
         kycSnapshot: kycData
       }).then(function (res) {
-        self.setData({ selectedClientId: res.id });
+        self.setData({ selectedClientId: res.id, selectedClientName: clientName });
         self._doSubmitCore(userContent, kycData);
       }).catch(function () {
         wx.showToast({ title: "创建客户失败，请重试", icon: "none" });
