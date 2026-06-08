@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restore official WeChat sharing for all coach workflows without exposing customer data.
+**Goal:** Restore official friend and Moments sharing for promoting the mini program without exposing customer data.
 
-**Architecture:** Add a mode-aware share helper and `onShareAppMessage` to the existing coach page, activate the native share menu, and use native `button open-type="share"` controls. Shared links contain only a validated workflow mode.
+**Architecture:** Add `onShareAppMessage` and `onShareTimeline` to the existing coach page, activate both native share menu entries, and use a native `button open-type="share"` control. All shares open the main coach page with no private query parameters.
 
 **Tech Stack:** WeChat Mini Program Page API, WXML, WXSS, existing Node security regression script.
 
@@ -15,7 +15,7 @@
 **Files:**
 - Modify: `scripts/check-security-regressions.mjs`
 
-- [ ] Assert that `coach.js` defines `onShareAppMessage`, calls `wx.showShareMenu`, validates the shared mode, and does not add customer or conversation identifiers to the share path.
+- [ ] Assert that `coach.js` defines `onShareAppMessage` and `onShareTimeline`, enables both share menu entries, and does not add customer or conversation identifiers to the share destination.
 - [ ] Assert that `coach.wxml` uses `button` with `open-type="share"`.
 - [ ] Run `npm run check:security` and confirm the new assertions fail.
 
@@ -26,10 +26,9 @@
 - Modify: `miniprogram/pages/coach/coach.wxml`
 - Modify: `miniprogram/pages/coach/coach.wxss`
 
-- [ ] Parse a validated `mode` query parameter in `onLoad`.
-- [ ] Call `wx.showShareMenu` for `shareAppMessage`.
-- [ ] Add a mode-aware `onShareAppMessage` callback with privacy-safe titles and paths.
-- [ ] Add native share buttons to the top bar and completed result area.
+- [ ] Call `wx.showShareMenu` for `shareAppMessage` and `shareTimeline`.
+- [ ] Add privacy-safe promotional callbacks for friend and Moments sharing.
+- [ ] Add a native share button to the top bar.
 - [ ] Style the buttons without overriding native share behavior or appearing disabled.
 
 ### Task 3: Verify And Handoff

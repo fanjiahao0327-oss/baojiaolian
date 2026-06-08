@@ -78,6 +78,21 @@
   border-radius: 2rpx;
 }
 .top-right { display: flex; align-items: center; gap: 12rpx; }
+.share-entry-btn {
+  min-width: 0;
+  margin: 0;
+  padding: 8rpx 16rpx;
+  border: none;
+  border-radius: 20rpx;
+  background: #eff6ff;
+  color: #1a56db;
+  font-size: 22rpx;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.share-entry-btn::after {
+  border: none;
+}
 .balance-tag {
   display: flex; align-items: center; gap: 6rpx;
   padding: 8rpx 16rpx;

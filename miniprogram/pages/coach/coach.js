@@ -256,9 +256,28 @@ Page({
     this._loadingStartedAt = 0;
     this._draftTimer = null;
     this._stageIndex = 0;
+    if (wx.showShareMenu) {
+      wx.showShareMenu({
+        menus: ["shareAppMessage", "shareTimeline"],
+      });
+    }
     this.checkLoginState();
     this.calcChatHeight();
     this.restoreDraft();
+  },
+
+  onShareAppMessage() {
+    return {
+      title: "AI 保险教练｜陪你做好每一次客户沟通",
+      path: "/pages/coach/coach",
+    };
+  },
+
+  onShareTimeline() {
+    return {
+      title: "AI 保险教练｜见前准备、客户诊断、面谈复盘",
+      query: "",
+    };
   },
 
   restoreDraft() {

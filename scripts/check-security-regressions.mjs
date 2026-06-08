@@ -279,6 +279,28 @@ const miniCoachWxss = read("miniprogram/pages/coach/coach.wxss");
 const miniClients = read("miniprogram/pages/clients/clients.js");
 const miniClientsWxml = read("miniprogram/pages/clients/clients.wxml");
 assert(
+  miniCoach.includes("onShareAppMessage") &&
+    miniCoach.includes("onShareTimeline") &&
+    miniCoach.includes("wx.showShareMenu") &&
+    miniCoach.includes('"shareAppMessage"') &&
+    miniCoach.includes('"shareTimeline"') &&
+    miniCoach.includes('path: "/pages/coach/coach"'),
+  "mini program coach page should enable official friend and Moments sharing",
+);
+assert(
+  miniCoachWxml.includes('open-type="share"') &&
+    miniCoachWxml.includes("share-entry-btn"),
+  "mini program coach page should use a native button for friend sharing",
+);
+assert(
+  !miniCoach.includes("?clientId=") &&
+    !miniCoach.includes("&clientId=") &&
+    !miniCoach.includes("?conversationId=") &&
+    !miniCoach.includes("&conversationId=") &&
+    !miniCoach.includes("?clientName="),
+  "mini program share paths must not expose customer or conversation identifiers",
+);
+assert(
   miniCoach.includes("submitObjectionFollowup"),
   "mini program should expose customer objection followup submission",
 );

@@ -18,6 +18,7 @@
       <view class="tab-item {{tab === 'coach' ? 'active' : ''}}" data-tab="coach" bindtap="switchTab">教练指导</view>
     </view>
     <view class="top-right">
+      <button class="share-entry-btn" open-type="share">分享</button>
       <!-- 未登录：显示登录入口 -->
       <button wx:if="{{!isLoggedIn}}" class="login-entry-btn" bindtap="handleWechatLogin" loading="{{logining}}" disabled="{{logining}}">
         登录
