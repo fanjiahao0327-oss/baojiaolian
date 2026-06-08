@@ -3,6 +3,11 @@ import { getSession } from "@/lib/auth";
 import { getDb, rows } from "@/lib/db";
 import { queryOrderByOutTradeNo } from "@/lib/wechatpay";
 import { getBalance } from "@/lib/points";
+import {
+  isVirtualPaymentOrderPaid,
+  notifyVirtualPaymentGoodsProvided,
+  queryVirtualPaymentOrder,
+} from "@/lib/midas";
 
 /** 处理充值积分（事务保护） */
 async function creditOrder(userId: number, orderNo: string, transactionId: string) {
@@ -53,8 +58,16 @@ export async function POST(request: NextRequest) {
     status: string;
     payment_ref: string;
     payment_method: string;
+    amount_cents: number;
+    wechat_openid: string | null;
   }>(
-    await sql`SELECT id, user_id, points, status, payment_ref, payment_method FROM payment_orders WHERE order_no = ${orderNo}`
+    await sql`
+      SELECT po.id, po.user_id, po.points, po.status, po.payment_ref,
+             po.payment_method, po.amount_cents, u.wechat_openid
+      FROM payment_orders po
+      JOIN users u ON u.id = po.user_id
+      WHERE po.order_no = ${orderNo}
+    `
   );
 
   if (orders.length === 0) {
@@ -73,13 +86,51 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // 虚拟支付只信任 Midas 服务端回调入账。客户端 verify 只能查询状态。
+  // 虚拟支付必须由服务端向微信查单，不能信任客户端支付结果。
   if (order.payment_method === "virtual_pay") {
+    if (!order.wechat_openid) {
+      return NextResponse.json({ error: "微信账号未绑定" }, { status: 400 });
+    }
+
+    const midasOrder = await queryVirtualPaymentOrder({
+      openid: order.wechat_openid,
+      orderId: orderNo,
+    });
+
+    if (
+      midasOrder &&
+      isVirtualPaymentOrderPaid(midasOrder, orderNo, order.amount_cents)
+    ) {
+      const transactionId =
+        midasOrder.wxpay_order_id ||
+        midasOrder.wx_order_id ||
+        midasOrder.channel_order_id ||
+        orderNo;
+      await creditOrder(session.userId, orderNo, transactionId);
+
+      if (midasOrder.status !== 4) {
+        try {
+          await notifyVirtualPaymentGoodsProvided({
+            orderId: orderNo,
+            wxOrderId: midasOrder.wx_order_id,
+          });
+        } catch (error) {
+          console.error("[verify] virtual payment delivery confirmation failed:", error);
+        }
+      }
+
+      return NextResponse.json({
+        status: "paid",
+        points: order.points,
+        balance: await getBalance(session.userId),
+      });
+    }
+
     return NextResponse.json({
       status: order.status,
-      points: order.status === "paid" ? order.points : 0,
+      points: 0,
       balance: await getBalance(session.userId),
-      message: order.status === "pending" ? "支付确认中，请稍后刷新" : undefined,
+      message: "支付确认中，请稍后刷新",
     });
   }
 

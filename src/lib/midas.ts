@@ -11,6 +11,7 @@
  */
 
 import crypto from "crypto";
+import { getAccessToken } from "@/lib/wechat";
 
 const OFFER_ID = process.env.WECHAT_VIRTUAL_PAY_OFFER_ID || "";
 const APPKEY_SANDBOX = process.env.WECHAT_VIRTUAL_PAY_APPKEY_SANDBOX || "";
@@ -25,6 +26,22 @@ function getAppKey(env: number): string {
 
 /** 当前使用沙箱还是正式环境（默认沙箱 1，正式上线前改为 0） */
 const PAY_ENV = Number(process.env.WECHAT_VIRTUAL_PAY_ENV || "1");
+
+export interface VirtualPaymentOrder {
+  order_id: string;
+  status: number;
+  paid_fee: number;
+  order_type: number;
+  wx_order_id?: string;
+  channel_order_id?: string;
+  wxpay_order_id?: string;
+}
+
+interface MidasOrderResponse {
+  errcode: number;
+  errmsg?: string;
+  order?: VirtualPaymentOrder;
+}
 
 /**
  * 生成 pay_sig 签名
@@ -55,6 +72,87 @@ export function generateUserSignature(signData: string, sessionKey: string): str
   }
 
   return crypto.createHmac("sha256", sessionKey).update(signData).digest("hex");
+}
+
+export function isVirtualPaymentOrderPaid(
+  order: VirtualPaymentOrder,
+  expectedOrderId: string,
+  expectedAmountCents: number,
+): boolean {
+  return (
+    order.order_id === expectedOrderId &&
+    [2, 3, 4].includes(order.status) &&
+    [0, 7].includes(order.order_type) &&
+    order.paid_fee === expectedAmountCents
+  );
+}
+
+async function callMidasApi<T>(
+  uri: string,
+  body: Record<string, string | number>,
+  options: { sign?: boolean } = {},
+): Promise<T> {
+  const accessToken = await getAccessToken();
+  const bodyText = JSON.stringify(body);
+  const paySig = options.sign === false
+    ? ""
+    : generatePaySig(bodyText, Number(body.env ?? PAY_ENV), uri);
+  const query = new URLSearchParams({ access_token: accessToken });
+  if (paySig) query.set("pay_sig", paySig);
+
+  const response = await fetch(`https://api.weixin.qq.com${uri}?${query}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: bodyText,
+  });
+
+  if (!response.ok) {
+    throw new Error(`微信虚拟支付接口请求失败: HTTP ${response.status}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export async function queryVirtualPaymentOrder(params: {
+  openid: string;
+  orderId: string;
+  env?: number;
+}): Promise<VirtualPaymentOrder | null> {
+  const env = params.env ?? PAY_ENV;
+  const result = await callMidasApi<MidasOrderResponse>(
+    "/xpay/query_order",
+    {
+      openid: params.openid,
+      env,
+      order_id: params.orderId,
+    },
+  );
+
+  if (result.errcode !== 0) {
+    if (result.errcode === 268490002) return null;
+    throw new Error(`查询微信虚拟支付订单失败: ${result.errmsg || result.errcode}`);
+  }
+
+  return result.order || null;
+}
+
+export async function notifyVirtualPaymentGoodsProvided(params: {
+  orderId: string;
+  wxOrderId?: string;
+  env?: number;
+}): Promise<void> {
+  const env = params.env ?? PAY_ENV;
+  const body: Record<string, string | number> = {
+    order_id: params.orderId,
+    env,
+  };
+  if (params.wxOrderId) body.wx_order_id = params.wxOrderId;
+
+  await callMidasApi<unknown>(
+    "/xpay/notify_provide_goods",
+    body,
+    { sign: false },
+  );
 }
 
 /**
