@@ -12,30 +12,36 @@ import {
 /** 处理充值积分（事务保护） */
 async function creditOrder(userId: number, orderNo: string, transactionId: string) {
   const sql = getDb();
-  const orders = rows<{ id: number; points: number; status: string }>(
-    await sql`SELECT id, points, status FROM payment_orders WHERE order_no = ${orderNo} AND user_id = ${userId}`
-  );
-  if (orders.length === 0) return false;
+  const result = rows<{ credited: boolean }>(await sql`
+    WITH updated AS (
+      UPDATE payment_orders
+      SET status = 'paid',
+          payment_ref = ${transactionId || "confirmed"},
+          paid_at = COALESCE(paid_at, NOW()),
+          updated_at = NOW()
+      WHERE order_no = ${orderNo}
+        AND user_id = ${userId}
+        AND status = 'pending'
+      RETURNING user_id, points
+    ),
+    inserted AS (
+      INSERT INTO point_transactions (user_id, amount, type, description)
+      SELECT user_id, points, 'charge',
+             ${"充值积分（支付确认 " + transactionId + "）"}
+      FROM updated
+      RETURNING id
+    )
+    SELECT EXISTS(SELECT 1 FROM inserted) AS credited
+  `);
 
-  const order = orders[0];
-  if (order.status === "paid") return true;
+  if (result[0]?.credited) return true;
 
-  await sql`BEGIN`;
-  const updated = await sql`
-    UPDATE payment_orders SET status = 'paid', payment_ref = ${transactionId || "confirmed"}, updated_at = NOW()
-    WHERE id = ${order.id} AND status = 'pending'
-    RETURNING id
-  `;
-  if (rows(updated).length === 0) {
-    await sql`ROLLBACK`;
-    return true; // 幂等
-  }
-  await sql`
-    INSERT INTO point_transactions (user_id, amount, type, description)
-    VALUES (${userId}, ${order.points}, 'charge', ${"充值 " + order.points + " 积分（支付确认 " + transactionId + "）"})
-  `;
-  await sql`COMMIT`;
-  return true;
+  const existing = rows<{ status: string }>(await sql`
+    SELECT status
+    FROM payment_orders
+    WHERE order_no = ${orderNo} AND user_id = ${userId}
+  `);
+  return existing[0]?.status === "paid";
 }
 
 export async function POST(request: NextRequest) {

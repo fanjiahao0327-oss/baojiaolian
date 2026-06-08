@@ -90,15 +90,14 @@ export function isVirtualPaymentOrderPaid(
 async function callMidasApi<T>(
   uri: string,
   body: Record<string, string | number>,
-  options: { sign?: boolean } = {},
 ): Promise<T> {
   const accessToken = await getAccessToken();
   const bodyText = JSON.stringify(body);
-  const paySig = options.sign === false
-    ? ""
-    : generatePaySig(bodyText, Number(body.env ?? PAY_ENV), uri);
-  const query = new URLSearchParams({ access_token: accessToken });
-  if (paySig) query.set("pay_sig", paySig);
+  const paySig = generatePaySig(bodyText, Number(body.env ?? PAY_ENV), uri);
+  const query = new URLSearchParams({
+    access_token: accessToken,
+    pay_sig: paySig,
+  });
 
   const response = await fetch(`https://api.weixin.qq.com${uri}?${query}`, {
     method: "POST",
@@ -148,11 +147,13 @@ export async function notifyVirtualPaymentGoodsProvided(params: {
   };
   if (params.wxOrderId) body.wx_order_id = params.wxOrderId;
 
-  await callMidasApi<unknown>(
+  const result = await callMidasApi<{ errcode?: number; errmsg?: string }>(
     "/xpay/notify_provide_goods",
     body,
-    { sign: false },
   );
+  if (result.errcode && result.errcode !== 0) {
+    throw new Error(`确认微信虚拟支付发货失败: ${result.errmsg || result.errcode}`);
+  }
 }
 
 /**
