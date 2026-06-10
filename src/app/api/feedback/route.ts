@@ -1,4 +1,6 @@
 import { getSession } from "@/lib/auth";
+import { normalizeRatingInput } from "@/lib/assistant-alpha";
+import { recordUserRating } from "@/lib/assistant-data";
 import { getDb, rows } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -8,9 +10,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "未登录" }, { status: 401 });
   }
 
-  const { conversationId, messageIdx, rating } = await request.json();
+  const body = await request.json();
+  const { conversationId, messageIdx, rating } = body;
 
-  if (!["helpful", "unhelpful"].includes(rating)) {
+  if (rating !== undefined && !["helpful", "unhelpful"].includes(rating)) {
+    return NextResponse.json({ error: "参数错误" }, { status: 400 });
+  }
+  if (rating === undefined && body.score === undefined) {
     return NextResponse.json({ error: "参数错误" }, { status: 400 });
   }
 
@@ -24,7 +30,23 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  await sql`INSERT INTO feedbacks (user_id, conversation_id, message_idx, rating) VALUES (${session.userId}, ${conversationId || null}, ${messageIdx ?? -1}, ${rating})`;
+  if (rating) {
+    await sql`INSERT INTO feedbacks (user_id, conversation_id, message_idx, rating) VALUES (${session.userId}, ${conversationId || null}, ${messageIdx ?? -1}, ${rating})`;
+  }
+
+  if (body.score !== undefined) {
+    const normalized = normalizeRatingInput({
+      taskType: String(body.taskType || "legacy_feedback"),
+      score: Number(body.score),
+      reasonTags: Array.isArray(body.reasonTags) ? body.reasonTags : [],
+      comment: String(body.comment || ""),
+    });
+    await recordUserRating({
+      userId: session.userId,
+      conversationId: conversationId ? Number(conversationId) : null,
+      ...normalized,
+    });
+  }
 
   return NextResponse.json({ success: true });
 }
