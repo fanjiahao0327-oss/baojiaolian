@@ -172,3 +172,37 @@ export interface ConversationDetail {
   messages: Message[];
   created_at: string;
 }
+
+export type {
+  AssistantMode,
+  AssistantTaskType,
+  ClientStage,
+  MemoryScope,
+  MemoryStatus,
+  TaskPriority,
+  TaskStatus,
+  TodayTask,
+  TodaySections,
+} from "@/lib/assistant-alpha";
+
+export interface AgentProfileSnapshot {
+  basics: string;
+  experience: string;
+  strengths: string;
+  customerResources: string;
+  contentPreference: string;
+  weeklyTimeBudget: string;
+  businessGoal: string;
+  constraints: string;
+}
+
+export interface AgentBlueprint {
+  selfUnderstanding: string;
+  mainPositioning: string;
+  explorationDirections: string[];
+  targetCustomers: string[];
+  contentPillars: string[];
+  channelSuggestions: string[];
+  sevenDayActions: string[];
+  evidence: string[];
+}
