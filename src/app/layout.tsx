@@ -5,8 +5,8 @@ import AppShell from "@/components/AppShell";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 export const metadata: Metadata = {
-  title: "AI 保险教练",
-  description: "保险代理人的幕后智囊",
+  title: "保险 AI 助手",
+  description: "保险代理人的个人客户经营工作台",
 };
 
 export default function RootLayout({

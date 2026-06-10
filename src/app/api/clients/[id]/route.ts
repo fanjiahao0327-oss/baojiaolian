@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { getLatestClientStage } from "@/lib/assistant-data";
 import { getDb, rows } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/crypto";
 
@@ -126,5 +127,6 @@ export async function GET(
   }
 
   const { kyc_snapshot: _, ...rest } = client;
-  return NextResponse.json({ ...rest, kyc_snapshot: kycSnapshot, conversations });
+  const stageInfo = await getLatestClientStage(session.userId, numId);
+  return NextResponse.json({ ...rest, kyc_snapshot: kycSnapshot, conversations, stageInfo });
 }

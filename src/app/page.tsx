@@ -8,6 +8,7 @@ import ObjectionFollowupForm from "@/components/ObjectionFollowupForm";
 import CoachPanel from "@/components/CoachPanel";
 import { useAuth } from "@/components/UserProvider";
 import ConfirmModal from "@/components/ConfirmModal";
+import TodayTaskList from "@/components/TodayTaskList";
 
 function buildUserContent(formData: KYCFormData): string {
   const kv = (label: string, value: string) => `- ${label}：${value || "未填写"}`;
@@ -402,6 +403,47 @@ export default function Home() {
 
   return (
     <main className="flex flex-col h-full">
+      <section className="shrink-0 border-b border-gray-100 bg-gray-50 px-4 py-4 md:px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-4">
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">今天</h1>
+              <p className="text-xs text-gray-400 mt-1">
+                {new Date().toLocaleDateString("zh-CN", {
+                  month: "long",
+                  day: "numeric",
+                  weekday: "long",
+                })}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => router.push("/assistant?mode=client_quick_help")}
+                className="px-3 py-2 rounded-lg bg-brand-gradient text-white text-sm font-medium"
+              >
+                处理客户问题
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/assistant?mode=agent_blueprint")}
+                className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-sm"
+              >
+                建立个人蓝图
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/clients")}
+                className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-sm"
+              >
+                查看客户
+              </button>
+            </div>
+          </div>
+          <TodayTaskList />
+        </div>
+      </section>
+
       {/* 移动端标签切换 */}
       <div className="md:hidden flex border-b border-gray-200 bg-white shrink-0 safe-bottom">
         <button

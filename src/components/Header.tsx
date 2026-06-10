@@ -23,8 +23,8 @@ export default function Header() {
           </svg>
         </div>
         <div>
-          <h1 className="text-sm md:text-base font-bold text-gray-900">AI 保险教练</h1>
-          <p className="hidden sm:block text-[10px] text-gray-400">保险代理人的幕后智囊</p>
+          <h1 className="text-sm md:text-base font-bold text-gray-900">保险 AI 助手</h1>
+          <p className="hidden sm:block text-[10px] text-gray-400">个人客户经营工作台</p>
         </div>
       </button>
 
@@ -34,6 +34,20 @@ export default function Header() {
           className="px-2.5 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
         >
           客户
+        </button>
+
+        <button
+          onClick={() => router.push("/assistant")}
+          className="px-2.5 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          助手
+        </button>
+
+        <button
+          onClick={() => router.push("/mine")}
+          className="hidden sm:inline px-2.5 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          我的
         </button>
 
         <button
