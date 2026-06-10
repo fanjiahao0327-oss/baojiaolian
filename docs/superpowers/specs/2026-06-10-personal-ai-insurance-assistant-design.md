@@ -1729,11 +1729,11 @@ iOS 端面向个人用户销售数字功能和 AI 服务时，订阅原则上需
 
 本设计涉及以下外部规则，实施前需要以正式法律和合规审查为准：
 
-- 《金融产品网络营销管理办法》，2026 年 9 月 30 日起实施。
-- 《中华人民共和国个人信息保护法》。
-- 《生成式人工智能服务管理暂行办法》。
-- 《人工智能生成合成内容标识办法》及配套国家标准。
+- [《金融产品网络营销管理办法》](https://www.nfra.gov.cn/cn/view/pages/governmentDetail.html?docId=1255778&generaltype=1&itemId=861)，2026 年 9 月 30 日起实施。
+- [《中华人民共和国个人信息保护法》](https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm)。
+- [《生成式人工智能服务管理暂行办法》](https://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm)。
+- [《人工智能生成合成内容标识办法》](https://www.cac.gov.cn/2025-03/14/c_1743654684782215.htm)及配套国家标准。
 - 移动互联网应用程序备案相关要求。
-- Apple App Store Review Guidelines 和应用内购买规则。
+- [Apple App Store Review Guidelines](https://developer.apple.com/app-store/review/guidelines/) 和应用内购买规则。
 
 这些引用用于产品设计边界，不构成法律意见。
