@@ -130,3 +130,46 @@ test("assistant activation task builder creates confirmation tasks for first-use
 
   assert.equal(buildAssistantActivationTask("content_idea", null), null);
 });
+
+test("assistant client seed only creates lightweight clients for unbound path A", async () => {
+  const { buildAssistantClientSeed } = await import("../src/lib/assistant-alpha");
+
+  assert.deepEqual(
+    buildAssistantClientSeed({
+      mode: "client_quick_help",
+      activeClientId: null,
+      clientName: "  张先生  ",
+      userInput: "客户说最近工作压力很大，不想聊保险。",
+    }),
+    {
+      name: "张先生",
+      kycSnapshot: {
+        clientName: "张先生",
+        triggerScenario: "代理人自由描述",
+        clientOriginalWords: "客户说最近工作压力很大，不想聊保险。",
+        clientObjection: "客户说最近工作压力很大，不想聊保险。",
+        step1Notes: "通过路径A轻量建档，信息待后续确认。",
+      },
+    },
+  );
+
+  assert.equal(
+    buildAssistantClientSeed({
+      mode: "client_quick_help",
+      activeClientId: 8,
+      clientName: "张先生",
+      userInput: "已有客户不重复创建",
+    }),
+    null,
+  );
+
+  assert.equal(
+    buildAssistantClientSeed({
+      mode: "agent_blueprint",
+      activeClientId: null,
+      clientName: "张先生",
+      userInput: "个人蓝图不创建客户",
+    }),
+    null,
+  );
+});

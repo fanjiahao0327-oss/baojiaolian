@@ -1,6 +1,7 @@
 import { decrypt, encrypt } from "@/lib/crypto";
 import { getDb, row, rows } from "@/lib/db";
 import type { AgentBlueprint, AgentProfileSnapshot } from "@/types";
+import type { AssistantClientSeed } from "@/lib/assistant-alpha";
 import type {
   MemoryScope,
   MemoryStatus,
@@ -67,6 +68,19 @@ export async function upsertAgentProfile(
       blueprint_snapshot = EXCLUDED.blueprint_snapshot,
       updated_at = NOW()
   `;
+}
+
+export async function createLightClientFromAssistant(
+  userId: number,
+  seed: AssistantClientSeed,
+): Promise<number> {
+  const sql = getDb();
+  const result = await sql`
+    INSERT INTO clients (user_id, name, kyc_snapshot)
+    VALUES (${userId}, ${seed.name}, ${encrypt(JSON.stringify(seed.kycSnapshot))})
+    RETURNING id
+  `;
+  return Number(row<{ id: number }>(result).id);
 }
 
 export async function listMemories(userId: number) {

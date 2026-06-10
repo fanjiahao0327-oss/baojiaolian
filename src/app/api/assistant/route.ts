@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AssistantMode } from "@/lib/assistant-alpha";
 import {
+  buildAssistantClientSeed,
   buildAssistantActivationTask,
   selectConfirmedMemoriesForAssistant,
 } from "@/lib/assistant-alpha";
 import { getAIClient, noThinkingConfig } from "@/lib/ai-client";
 import {
+  createLightClientFromAssistant,
   createTask,
   getAgentProfile,
   listMemories,
@@ -46,7 +48,26 @@ export async function POST(request: NextRequest) {
   if (!userInput) {
     return NextResponse.json({ error: "请先输入要处理的内容" }, { status: 400 });
   }
-  const activeClientId = normalizeClientId(body.clientContext);
+  let activeClientId = normalizeClientId(body.clientContext);
+  let createdClient: { id: number; name: string; kycSnapshot: Record<string, unknown> } | null = null;
+
+  const clientSeed = buildAssistantClientSeed({
+    mode,
+    activeClientId,
+    clientName: body.clientName,
+    userInput,
+  });
+  if (mode === "client_quick_help" && !activeClientId && !clientSeed) {
+    return NextResponse.json({ error: "请先填写客户称呼，方便保存这次客户经营记录" }, { status: 400 });
+  }
+  if (clientSeed) {
+    activeClientId = await createLightClientFromAssistant(session.userId, clientSeed);
+    createdClient = {
+      id: activeClientId,
+      name: clientSeed.name,
+      kycSnapshot: clientSeed.kycSnapshot,
+    };
+  }
 
   const [profile, memories] = await Promise.all([
     getAgentProfile(session.userId),
@@ -60,7 +81,7 @@ export async function POST(request: NextRequest) {
     mode,
     userInput,
     agentProfile: profile?.profileSnapshot || {},
-    clientContext: body.clientContext || {},
+    clientContext: createdClient || body.clientContext || {},
     confirmedMemories,
   });
 
@@ -126,6 +147,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         mode,
         clientId: activeClientId,
+        createdClient: Boolean(createdClient),
         taskId,
         savedTask: Boolean(taskId),
       },
@@ -137,5 +159,6 @@ export async function POST(request: NextRequest) {
     mode,
     rewritten: compliance.rewritten,
     taskId,
+    client: createdClient,
   });
 }

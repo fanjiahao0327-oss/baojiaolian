@@ -65,6 +65,7 @@ export default function AssistantWorkspace() {
   const [error, setError] = useState("");
   const [clientContext, setClientContext] = useState<Record<string, unknown> | null>(null);
   const [clientLabel, setClientLabel] = useState("");
+  const [clientName, setClientName] = useState("");
   const [loading, setLoading] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
 
@@ -91,9 +92,11 @@ export default function AssistantWorkspace() {
   }, []);
 
   const selectedPath = PATHS.find((item) => item.value === mode) || PATHS[0];
+  const needsClientName = mode === "client_quick_help" && !clientContext;
+  const canSubmit = Boolean(input.trim()) && (!needsClientName || Boolean(clientName.trim())) && !loading;
 
   const submit = async () => {
-    if (!input.trim() || loading) return;
+    if (!canSubmit) return;
     setLoading(true);
     setError("");
     setContent("");
@@ -102,10 +105,19 @@ export default function AssistantWorkspace() {
       const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, userInput: input, clientContext: clientContext || undefined }),
+        body: JSON.stringify({
+          mode,
+          userInput: input,
+          clientName: clientName.trim() || undefined,
+          clientContext: clientContext || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "请求失败");
+      if (data.client?.id) {
+        setClientContext(data.client);
+        setClientLabel(data.client.name || "当前客户");
+      }
       setContent(data.content || "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "请求失败");
@@ -175,6 +187,17 @@ export default function AssistantWorkspace() {
             )}
             <p className="mt-1 text-xs leading-5 text-gray-400">{selectedPath.description}</p>
           </div>
+          {needsClientName && (
+            <label className="block mb-3">
+              <span className="text-xs font-medium text-gray-500">客户称呼</span>
+              <input
+                value={clientName}
+                onChange={(event) => setClientName(event.target.value)}
+                placeholder="例如：张先生、李姐、老同学王某"
+                className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none"
+              />
+            </label>
+          )}
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
@@ -186,7 +209,7 @@ export default function AssistantWorkspace() {
             <button
               type="button"
               onClick={submit}
-              disabled={!input.trim() || loading}
+              disabled={!canSubmit}
               className="px-4 py-2 rounded-lg bg-brand-gradient text-white text-sm font-medium disabled:opacity-40"
             >
               {loading ? "处理中..." : selectedPath.cta}

@@ -64,6 +64,17 @@ export interface AssistantActivationTaskDraft {
   priority: TaskPriority;
 }
 
+export interface AssistantClientSeed {
+  name: string;
+  kycSnapshot: {
+    clientName: string;
+    triggerScenario: string;
+    clientOriginalWords: string;
+    clientObjection: string;
+    step1Notes: string;
+  };
+}
+
 export const RATING_REASON_TAGS = [
   "natural",
   "actionable",
@@ -118,6 +129,31 @@ export function buildAssistantActivationTask(
   }
 
   return null;
+}
+
+export function buildAssistantClientSeed(input: {
+  mode: AssistantMode;
+  activeClientId?: number | null;
+  clientName?: string | null;
+  userInput: string;
+}): AssistantClientSeed | null {
+  if (input.mode !== "client_quick_help") return null;
+  if (input.activeClientId) return null;
+
+  const name = String(input.clientName || "").replace(/\s+/g, " ").trim().slice(0, 40);
+  if (!name) return null;
+
+  const rawDescription = String(input.userInput || "").trim().slice(0, 1500);
+  return {
+    name,
+    kycSnapshot: {
+      clientName: name,
+      triggerScenario: "代理人自由描述",
+      clientOriginalWords: rawDescription,
+      clientObjection: rawDescription,
+      step1Notes: "通过路径A轻量建档，信息待后续确认。",
+    },
+  };
 }
 
 export function buildTodaySections(tasks: TodayTask[]): TodaySections {
