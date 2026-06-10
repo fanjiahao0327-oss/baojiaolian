@@ -22,6 +22,15 @@ function clampInt(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(value)));
 }
 
+async function assertClientOwned(userId: number, clientId?: number | null) {
+  if (!clientId) return;
+  const sql = getDb();
+  const result = await sql`SELECT id FROM clients WHERE id = ${clientId} AND user_id = ${userId}`;
+  if (rows(result).length === 0) {
+    throw new Error("客户不存在或无权访问");
+  }
+}
+
 export async function getAgentProfile(userId: number) {
   const sql = getDb();
   const result = await sql`
@@ -108,6 +117,7 @@ export async function createMemory(input: {
   confidence?: number;
   status?: MemoryStatus;
 }) {
+  await assertClientOwned(input.userId, input.clientId);
   const sql = getDb();
   const result = await sql`
     INSERT INTO assistant_memories (
@@ -222,6 +232,7 @@ export async function createTask(input: {
   sourceId?: string;
   payload?: Record<string, unknown>;
 }) {
+  await assertClientOwned(input.userId, input.clientId);
   const sql = getDb();
   const result = await sql`
     INSERT INTO assistant_tasks (
