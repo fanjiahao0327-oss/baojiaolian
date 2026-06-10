@@ -49,6 +49,21 @@ export interface TodaySections {
   longTerm: TodayTask[];
 }
 
+export interface AssistantMemoryForContext {
+  clientId?: number | null;
+  scope: MemoryScope;
+  status: MemoryStatus;
+  title: string;
+  content: string;
+}
+
+export interface AssistantActivationTaskDraft {
+  clientId: number | null;
+  title: string;
+  taskType: AssistantTaskType;
+  priority: TaskPriority;
+}
+
 export const RATING_REASON_TAGS = [
   "natural",
   "actionable",
@@ -66,6 +81,43 @@ export function getClientStageLabel(stage: number): string {
 
 export function canUseMemoryInLongTermContext(status: string): boolean {
   return status === "confirmed";
+}
+
+export function selectConfirmedMemoriesForAssistant<T extends AssistantMemoryForContext>(
+  memories: T[],
+  activeClientId?: number | null,
+): T[] {
+  return memories.filter((memory) => {
+    if (memory.status !== "confirmed") return false;
+    if (memory.scope !== "client") return true;
+    if (!activeClientId) return false;
+    return Number(memory.clientId) === Number(activeClientId);
+  });
+}
+
+export function buildAssistantActivationTask(
+  mode: AssistantMode,
+  clientId?: number | null,
+): AssistantActivationTaskDraft | null {
+  if (mode === "client_quick_help") {
+    return {
+      clientId: clientId || null,
+      title: "确认并执行这位客户的下一步行动",
+      taskType: "ai_suggested_followup",
+      priority: "suggested",
+    };
+  }
+
+  if (mode === "agent_blueprint") {
+    return {
+      clientId: null,
+      title: "确认个人经营蓝图里的第一步行动",
+      taskType: "profile_setup",
+      priority: "must",
+    };
+  }
+
+  return null;
 }
 
 export function buildTodaySections(tasks: TodayTask[]): TodaySections {

@@ -9,6 +9,7 @@ import CoachPanel from "@/components/CoachPanel";
 import { useAuth } from "@/components/UserProvider";
 import ConfirmModal from "@/components/ConfirmModal";
 import TodayTaskList from "@/components/TodayTaskList";
+import ActivationHome from "@/components/ActivationHome";
 
 function buildUserContent(formData: KYCFormData): string {
   const kv = (label: string, value: string) => `- ${label}：${value || "未填写"}`;
@@ -114,11 +115,21 @@ function stripKycUpdate(content: string): string {
   return content.replace(/\n*\[KYC_UPDATE\]\s*\{[\s\S]*?\}\s*(?=\[SUGGESTED_QUESTIONS\]|$)/, "");
 }
 
-async function saveKycUpdate(clientId: number, updates: Record<string, string>) {
-  await fetch(`/api/clients/${clientId}`, {
-    method: "PUT",
+async function createProposedKycMemory(clientId: number, updates: Record<string, string>) {
+  await fetch("/api/assistant/memories", {
+    method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kycSnapshot: updates }),
+    body: JSON.stringify({
+      clientId,
+      scope: "client",
+      memoryType: "kyc_update",
+      title: "待确认客户档案更新",
+      content: JSON.stringify(updates, null, 2),
+      sourceType: "coach_kyc_update",
+      sourceRef: `client:${clientId}`,
+      confidence: 70,
+      status: "proposed",
+    }),
   });
 }
 
@@ -263,7 +274,7 @@ export default function Home() {
     const kycUpdate = parseKycUpdate(content);
     if (kycUpdate && clientIdRef.current) {
       try {
-        await saveKycUpdate(clientIdRef.current, kycUpdate);
+        await createProposedKycMemory(clientIdRef.current, kycUpdate);
         const fields = Object.keys(kycUpdate).map((k) => {
           const labels: Record<string, string> = {
             clientName: "名称", gender: "性别", age: "年龄", city: "所在城市",
@@ -284,7 +295,7 @@ export default function Home() {
           };
           return labels[k] || k;
         });
-        setKycUpdateMsg(`已自动更新客户档案：${fields.join("、")}`);
+        setKycUpdateMsg(`已生成待确认客户档案更新：${fields.join("、")}`);
         setTimeout(() => setKycUpdateMsg(""), 5000);
       } catch { /* 静默 */ }
     }
@@ -400,6 +411,10 @@ export default function Home() {
     setFollowUpQuestion("");
     await sendFollowUp(question);
   };
+
+  if (!initialClientId && !conversationId) {
+    return <ActivationHome />;
+  }
 
   return (
     <main className="flex flex-col h-full">

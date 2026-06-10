@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AssistantMode } from "@/lib/assistant-alpha";
+import {
+  buildAssistantActivationTask,
+  selectConfirmedMemoriesForAssistant,
+} from "@/lib/assistant-alpha";
 import { getAIClient, noThinkingConfig } from "@/lib/ai-client";
 import {
+  createTask,
   getAgentProfile,
   listMemories,
   recordProductEvent,
@@ -22,6 +27,13 @@ function normalizeMode(value: unknown): AssistantMode {
   return "client_quick_help";
 }
 
+function normalizeClientId(clientContext: unknown): number | null {
+  if (!clientContext || typeof clientContext !== "object") return null;
+  const id = Number((clientContext as { id?: unknown }).id);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  return id;
+}
+
 export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session.userId) {
@@ -34,14 +46,14 @@ export async function POST(request: NextRequest) {
   if (!userInput) {
     return NextResponse.json({ error: "请先输入要处理的内容" }, { status: 400 });
   }
+  const activeClientId = normalizeClientId(body.clientContext);
 
   const [profile, memories] = await Promise.all([
     getAgentProfile(session.userId),
     listMemories(session.userId),
   ]);
 
-  const confirmedMemories = memories
-    .filter((memory) => memory.status === "confirmed")
+  const confirmedMemories = selectConfirmedMemoriesForAssistant(memories, activeClientId)
     .map((memory) => ({ title: memory.title, content: memory.content }));
 
   const messages = buildAssistantAlphaMessages({
@@ -72,6 +84,29 @@ export async function POST(request: NextRequest) {
     return rewrite.choices[0]?.message?.content || "";
   });
 
+  const taskDraft = buildAssistantActivationTask(mode, activeClientId);
+  let taskId: number | null = null;
+  if (taskDraft) {
+    try {
+      taskId = await createTask({
+        userId: session.userId,
+        clientId: taskDraft.clientId,
+        title: taskDraft.title,
+        taskType: taskDraft.taskType,
+        priority: taskDraft.priority,
+        sourceType: "assistant_alpha",
+        sourceId: mode,
+        payload: {
+          mode,
+          userInputPreview: userInput.slice(0, 300),
+          responsePreview: compliance.content.slice(0, 500),
+        },
+      });
+    } catch {
+      taskId = null;
+    }
+  }
+
   await recordProductEvent({
     userId: session.userId,
     eventName: "assistant_alpha_run",
@@ -83,10 +118,24 @@ export async function POST(request: NextRequest) {
       rewritten: compliance.rewritten,
     },
   });
+  if (taskDraft) {
+    await recordProductEvent({
+      userId: session.userId,
+      eventName: "first_value_candidate",
+      eventPath: "/assistant",
+      metadata: {
+        mode,
+        clientId: activeClientId,
+        taskId,
+        savedTask: Boolean(taskId),
+      },
+    });
+  }
 
   return NextResponse.json({
     content: compliance.content,
     mode,
     rewritten: compliance.rewritten,
+    taskId,
   });
 }

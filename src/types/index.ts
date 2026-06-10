@@ -186,6 +186,7 @@ export type {
 } from "@/lib/assistant-alpha";
 
 export interface AgentProfileSnapshot {
+  introNarrative: string;
   basics: string;
   experience: string;
   strengths: string;

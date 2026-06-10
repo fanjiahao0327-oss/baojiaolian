@@ -84,3 +84,49 @@ test("rating normalization accepts only 1 to 5 scores and known reason tags", as
     /评分必须是 1 到 5/,
   );
 });
+
+test("assistant memory selection never leaks other clients into a client task", async () => {
+  const { selectConfirmedMemoriesForAssistant } = await import("../src/lib/assistant-alpha");
+
+  const result = selectConfirmedMemoriesForAssistant(
+    [
+      { scope: "agent", status: "confirmed", title: "表达偏好", content: "喜欢温和表达" },
+      { scope: "client", clientId: 12, status: "confirmed", title: "张先生事实", content: "有两个孩子" },
+      { scope: "client", clientId: 99, status: "confirmed", title: "李女士事实", content: "准备退休" },
+      { scope: "client", clientId: 12, status: "proposed", title: "待确认", content: "可能担心养老" },
+      { scope: "global", status: "confirmed", title: "计划偏好", content: "每周复盘一次" },
+    ],
+    12,
+  );
+
+  assert.deepEqual(
+    result.map((memory) => memory.title),
+    ["表达偏好", "张先生事实", "计划偏好"],
+  );
+});
+
+test("assistant activation task builder creates confirmation tasks for first-use paths", async () => {
+  const { buildAssistantActivationTask } = await import("../src/lib/assistant-alpha");
+
+  assert.deepEqual(
+    buildAssistantActivationTask("client_quick_help", 8),
+    {
+      clientId: 8,
+      title: "确认并执行这位客户的下一步行动",
+      taskType: "ai_suggested_followup",
+      priority: "suggested",
+    },
+  );
+
+  assert.deepEqual(
+    buildAssistantActivationTask("agent_blueprint", null),
+    {
+      clientId: null,
+      title: "确认个人经营蓝图里的第一步行动",
+      taskType: "profile_setup",
+      priority: "must",
+    },
+  );
+
+  assert.equal(buildAssistantActivationTask("content_idea", null), null);
+});

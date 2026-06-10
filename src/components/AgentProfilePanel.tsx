@@ -19,6 +19,7 @@ const PROFILE_FIELDS: Array<{
 ];
 
 const EMPTY_PROFILE: AgentProfileSnapshot = {
+  introNarrative: "",
   basics: "",
   experience: "",
   strengths: "",
@@ -69,9 +70,16 @@ export default function AgentProfilePanel() {
     setGenerating(true);
     setMessage("");
     try {
-      const userInput = PROFILE_FIELDS
+      const structuredInput = PROFILE_FIELDS
         .map((field) => `${field.label}：${profile[field.key] || "未填写"}`)
         .join("\n");
+      const userInput = [
+        "代理人自由介绍：",
+        profile.introNarrative || "未填写",
+        "",
+        "补充画像信息：",
+        structuredInput,
+      ].join("\n");
       const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -82,7 +90,7 @@ export default function AgentProfilePanel() {
       const nextBlueprint: Partial<AgentBlueprint> = {
         ...blueprint,
         selfUnderstanding: data.content || "",
-        evidence: ["基于当前代理人画像生成"],
+        evidence: ["基于代理人自由介绍和补充画像生成"],
       };
       setBlueprint(nextBlueprint);
       await save(nextBlueprint);
@@ -119,12 +127,27 @@ export default function AgentProfilePanel() {
             disabled={saving || generating}
             className="px-3 py-2 rounded-lg bg-brand-gradient text-white text-sm font-medium disabled:opacity-50"
           >
-            {generating ? "生成中" : "生成蓝图"}
+            {generating ? "生成中" : "生成经营蓝图"}
           </button>
         </div>
       </div>
 
+      <div className="p-4 border-b border-gray-100">
+        <label className="block">
+          <span className="text-sm font-semibold text-gray-800">先自由介绍你自己</span>
+          <textarea
+            value={profile.introNarrative}
+            onChange={(event) => setProfile((prev) => ({ ...prev, introNarrative: event.target.value }))}
+            placeholder="可以讲：从业多久、在哪个城市、过去做过什么、你是什么性格、客户主要从哪里来、手里有什么资源、是否愿意出镜或写作、每周能投入多少时间、当前最想解决什么问题。"
+            className="mt-2 w-full h-36 resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-6 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none"
+          />
+        </label>
+      </div>
+
       <div className="grid md:grid-cols-2 gap-4 p-4">
+        <div className="md:col-span-2">
+          <h3 className="text-sm font-semibold text-gray-800">补充画像信息</h3>
+        </div>
         {PROFILE_FIELDS.map((field) => (
           <label key={field.key} className="block">
             <span className="text-xs font-medium text-gray-500">{field.label}</span>
