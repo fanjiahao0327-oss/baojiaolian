@@ -252,6 +252,21 @@ assert(
     coachRoute.includes("selectModulesForFollowUp(safeKycData as unknown as KYCFormData, mode, effectiveQuestion)"),
   "coach route should pass mode and user input into knowledge selection",
 );
+const dbModule = read("src/lib/db.ts");
+assert(
+  dbModule.includes("agent_profiles") &&
+    dbModule.includes("assistant_memories") &&
+    dbModule.includes("client_stage_events") &&
+    dbModule.includes("assistant_tasks") &&
+    dbModule.includes("product_events") &&
+    dbModule.includes("user_ratings"),
+  "assistant alpha tables should exist as independent entities instead of overloading kyc_snapshot",
+);
+assert(
+  dbModule.includes("CHECK(scope IN ('agent','client','global'))") &&
+    dbModule.includes("CHECK(status IN ('proposed','confirmed','rejected'))"),
+  "assistant memories should have explicit scope and confirmation status constraints",
+);
 
 const webHome = read("src/app/page.tsx");
 assert(
