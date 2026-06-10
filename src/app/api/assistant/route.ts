@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { AssistantMode } from "@/lib/assistant-alpha";
+import type { AssistantMode, AssistantThreadMessage } from "@/lib/assistant-alpha";
 import {
   buildAssistantClientSeed,
   buildAssistantActivationTask,
@@ -36,6 +36,21 @@ function normalizeClientId(clientContext: unknown): number | null {
   return id;
 }
 
+function normalizeHistory(value: unknown): AssistantThreadMessage[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const role = (item as { role?: unknown }).role;
+      if (role !== "user" && role !== "assistant") return null;
+      const content = String((item as { content?: unknown }).content || "").trim();
+      if (!content) return null;
+      return { role, content: content.slice(0, 4000) };
+    })
+    .filter((item): item is AssistantThreadMessage => item !== null)
+    .slice(-8);
+}
+
 export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session.userId) {
@@ -45,6 +60,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const mode = normalizeMode(body.mode);
   const userInput = String(body.userInput || "").trim();
+  const history = normalizeHistory(body.history);
   if (!userInput) {
     return NextResponse.json({ error: "请先输入要处理的内容" }, { status: 400 });
   }
@@ -80,6 +96,7 @@ export async function POST(request: NextRequest) {
   const messages = buildAssistantAlphaMessages({
     mode,
     userInput,
+    history,
     agentProfile: profile?.profileSnapshot || {},
     clientContext: createdClient || body.clientContext || {},
     confirmedMemories,

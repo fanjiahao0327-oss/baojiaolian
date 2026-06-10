@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AssistantMode } from "@/lib/assistant-alpha";
+import {
+  appendAssistantThreadMessage,
+  type AssistantMode,
+  type AssistantThreadMessage,
+  type AssistantThreadState,
+} from "@/lib/assistant-alpha";
 
 const PATHS: Array<{
   value: AssistantMode;
@@ -58,16 +63,41 @@ function isAssistantMode(value: string): value is AssistantMode {
   return PATHS.some((mode) => mode.value === value);
 }
 
+const EMPTY_THREADS: AssistantThreadState = {
+  agent_blueprint: [],
+  client_quick_help: [],
+  daily_review: [],
+  content_idea: [],
+};
+
+const EMPTY_DRAFTS: Record<AssistantMode, string> = {
+  agent_blueprint: "",
+  client_quick_help: "",
+  daily_review: "",
+  content_idea: "",
+};
+
+const EMPTY_RATINGS: Record<AssistantMode, number | null> = {
+  agent_blueprint: null,
+  client_quick_help: null,
+  daily_review: null,
+  content_idea: null,
+};
+
 export default function AssistantWorkspace() {
-  const [mode, setMode] = useState<AssistantMode>("client_quick_help");
-  const [input, setInput] = useState("");
-  const [content, setContent] = useState("");
+  const [mode, setMode] = useState<AssistantMode>(() => {
+    if (typeof window === "undefined") return "agent_blueprint";
+    const queryMode = new URLSearchParams(window.location.search).get("mode");
+    return queryMode && isAssistantMode(queryMode) ? queryMode : "agent_blueprint";
+  });
+  const [drafts, setDrafts] = useState<Record<AssistantMode, string>>(EMPTY_DRAFTS);
+  const [threads, setThreads] = useState<AssistantThreadState>(EMPTY_THREADS);
   const [error, setError] = useState("");
   const [clientContext, setClientContext] = useState<Record<string, unknown> | null>(null);
   const [clientLabel, setClientLabel] = useState("");
   const [clientName, setClientName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [rating, setRating] = useState<number | null>(null);
+  const [loadingMode, setLoadingMode] = useState<AssistantMode | null>(null);
+  const [ratings, setRatings] = useState<Record<AssistantMode, number | null>>(EMPTY_RATINGS);
 
   useEffect(() => {
     const search = new URLSearchParams(window.location.search);
@@ -93,21 +123,30 @@ export default function AssistantWorkspace() {
 
   const selectedPath = PATHS.find((item) => item.value === mode) || PATHS[0];
   const needsClientName = mode === "client_quick_help" && !clientContext;
-  const canSubmit = Boolean(input.trim()) && (!needsClientName || Boolean(clientName.trim())) && !loading;
+  const currentDraft = drafts[mode] || "";
+  const currentThread = threads[mode] || [];
+  const currentRating = ratings[mode];
+  const isLoading = loadingMode === mode;
+  const canSubmit = Boolean(currentDraft.trim()) && (!needsClientName || Boolean(clientName.trim())) && !loadingMode;
 
   const submit = async () => {
     if (!canSubmit) return;
-    setLoading(true);
+    const activeInput = currentDraft.trim();
+    const activeHistory = currentThread;
+    const userMessage: AssistantThreadMessage = { role: "user", content: activeInput };
+    setThreads((prev) => appendAssistantThreadMessage(prev, mode, userMessage));
+    setDrafts((prev) => ({ ...prev, [mode]: "" }));
+    setLoadingMode(mode);
     setError("");
-    setContent("");
-    setRating(null);
+    setRatings((prev) => ({ ...prev, [mode]: null }));
     try {
       const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode,
-          userInput: input,
+          userInput: activeInput,
+          history: activeHistory,
           clientName: clientName.trim() || undefined,
           clientContext: clientContext || undefined,
         }),
@@ -118,16 +157,26 @@ export default function AssistantWorkspace() {
         setClientContext(data.client);
         setClientLabel(data.client.name || "当前客户");
       }
-      setContent(data.content || "");
+      setThreads((prev) =>
+        appendAssistantThreadMessage(prev, mode, {
+          role: "assistant",
+          content: data.content || "",
+        }),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "请求失败");
+      setThreads((prev) => ({
+        ...prev,
+        [mode]: (prev[mode] || []).filter((message) => message !== userMessage),
+      }));
+      setDrafts((prev) => ({ ...prev, [mode]: activeInput }));
     } finally {
-      setLoading(false);
+      setLoadingMode(null);
     }
   };
 
   const submitRating = async (score: number) => {
-    setRating(score);
+    setRatings((prev) => ({ ...prev, [mode]: score }));
     await fetch("/api/assistant/ratings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -187,6 +236,10 @@ export default function AssistantWorkspace() {
             )}
             <p className="mt-1 text-xs leading-5 text-gray-400">{selectedPath.description}</p>
           </div>
+          <div className="mb-3 rounded-xl border border-brand-100 bg-brand-50/60 p-3">
+            <p className="text-xs font-semibold text-brand-800">讲述框架</p>
+            <p className="mt-1 text-xs leading-6 text-gray-600">{selectedPath.placeholder}</p>
+          </div>
           {needsClientName && (
             <label className="block mb-3">
               <span className="text-xs font-medium text-gray-500">客户称呼</span>
@@ -199,20 +252,20 @@ export default function AssistantWorkspace() {
             </label>
           )}
           <textarea
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder={selectedPath.placeholder}
-            className="w-full h-56 resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-6 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none"
+            value={currentDraft}
+            onChange={(event) => setDrafts((prev) => ({ ...prev, [mode]: event.target.value }))}
+            placeholder={currentThread.length > 0 ? "继续补充、追问或修正你的情况。" : "在这里输入你的情况。"}
+            className="w-full h-32 resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-6 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none"
           />
           <div className="flex items-center justify-between gap-3 mt-3">
-            <p className="text-[11px] text-gray-400">{input.length} 字</p>
+            <p className="text-[11px] text-gray-400">{currentDraft.length} 字</p>
             <button
               type="button"
               onClick={submit}
               disabled={!canSubmit}
               className="px-4 py-2 rounded-lg bg-brand-gradient text-white text-sm font-medium disabled:opacity-40"
             >
-              {loading ? "处理中..." : selectedPath.cta}
+              {isLoading ? "处理中..." : currentThread.length > 0 ? "继续对话" : selectedPath.cta}
             </button>
           </div>
         </div>
@@ -223,15 +276,34 @@ export default function AssistantWorkspace() {
               {error}
             </div>
           )}
-          {!error && !content && (
+          {!error && currentThread.length === 0 && (
             <div className="h-64 flex items-center justify-center text-center text-sm text-gray-300">
-              {loading ? "正在生成" : "输入真实情况后，助手会给出可执行的下一步。"}
+              {isLoading ? "正在生成" : "输入真实情况后，助手会给出可执行的下一步。"}
             </div>
           )}
-          {content && (
-            <div className="bg-white border border-gray-100 rounded-xl p-4">
-              <div className="whitespace-pre-wrap text-sm leading-7 text-gray-800">{content}</div>
-              <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100">
+          {currentThread.length > 0 && (
+            <div className="space-y-3">
+              {currentThread.map((message, index) => (
+                <div
+                  key={`${message.role}-${index}`}
+                  className={`rounded-xl border p-4 ${
+                    message.role === "user"
+                      ? "ml-auto max-w-[88%] border-brand-100 bg-brand-50 text-gray-800"
+                      : "mr-auto max-w-[94%] border-gray-100 bg-white text-gray-800"
+                  }`}
+                >
+                  <p className="mb-1 text-[11px] font-medium text-gray-400">
+                    {message.role === "user" ? "你" : "助手"}
+                  </p>
+                  <div className="whitespace-pre-wrap text-sm leading-7">{message.content}</div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="mr-auto max-w-[94%] rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-400">
+                  助手正在继续判断...
+                </div>
+              )}
+              <div className="flex items-center gap-2 pt-1">
                 <span className="text-xs text-gray-400">评分</span>
                 {[1, 2, 3, 4, 5].map((score) => (
                   <button
@@ -239,7 +311,7 @@ export default function AssistantWorkspace() {
                     type="button"
                     onClick={() => submitRating(score)}
                     className={`w-8 h-8 rounded-lg text-xs transition-colors ${
-                      rating === score
+                      currentRating === score
                         ? "bg-brand-600 text-white"
                         : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                     }`}

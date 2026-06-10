@@ -75,6 +75,13 @@ export interface AssistantClientSeed {
   };
 }
 
+export interface AssistantThreadMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export type AssistantThreadState = Record<AssistantMode, AssistantThreadMessage[]>;
+
 export const RATING_REASON_TAGS = [
   "natural",
   "actionable",
@@ -153,6 +160,17 @@ export function buildAssistantClientSeed(input: {
       clientObjection: rawDescription,
       step1Notes: "通过路径A轻量建档，信息待后续确认。",
     },
+  };
+}
+
+export function appendAssistantThreadMessage(
+  threads: AssistantThreadState,
+  mode: AssistantMode,
+  message: AssistantThreadMessage,
+): AssistantThreadState {
+  return {
+    ...threads,
+    [mode]: [...(threads[mode] || []), message],
   };
 }
 

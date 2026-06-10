@@ -5,17 +5,17 @@ import TodayTaskList from "@/components/TodayTaskList";
 
 const ENTRY_PATHS = [
   {
-    title: "我现在有个客户需要帮助",
-    label: "客户帮助",
-    description: "直接讲客户背景、客户原话和你卡住的地方。助手会先补问关键问题，再给当前判断和下一步表达。",
-    href: "/assistant?mode=client_quick_help",
+    title: "帮我建立个人经营系统",
+    label: "推荐开始",
+    description: "先用几分钟介绍自己、资源、目标和困难。助手会整理定位假设、内容方向和未来 7 天行动。",
+    href: "/assistant?mode=agent_blueprint",
     primary: true,
   },
   {
-    title: "帮我建立个人经营系统",
-    label: "个人蓝图",
-    description: "用几分钟介绍自己、资源、目标和困难。助手会整理定位假设、内容方向和未来 7 天行动。",
-    href: "/assistant?mode=agent_blueprint",
+    title: "我现在有个客户需要帮助",
+    label: "客户帮助",
+    description: "已经有具体客户卡点时，直接讲客户背景和原话。助手会先补问关键问题，再给当前判断和下一步表达。",
+    href: "/assistant?mode=client_quick_help",
     primary: false,
   },
 ];
@@ -45,7 +45,7 @@ export default function ActivationHome() {
                 保险代理人的个人 AI 助手
               </h1>
               <p className="mt-3 text-sm md:text-base leading-7 text-gray-600">
-                先帮你处理一个真实客户问题，或先建立适合你的经营蓝图。助手会把客户经营、内容定位、复盘和提醒统一到同一个工作流里。
+                建议先让助手认识你，再开始经营客户、内容和复盘。如果眼前已经有客户卡点，也可以直接从客户问题进入。
               </p>
             </div>
             <div className="flex items-center gap-2 md:pt-1">

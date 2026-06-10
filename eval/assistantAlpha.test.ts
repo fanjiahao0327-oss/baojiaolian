@@ -173,3 +173,32 @@ test("assistant client seed only creates lightweight clients for unbound path A"
     null,
   );
 });
+
+test("assistant thread helper keeps each path conversation isolated", async () => {
+  const { appendAssistantThreadMessage } = await import("../src/lib/assistant-alpha");
+
+  const emptyThreads = {
+    agent_blueprint: [],
+    client_quick_help: [],
+    daily_review: [],
+    content_idea: [],
+  };
+
+  const withBlueprint = appendAssistantThreadMessage(emptyThreads, "agent_blueprint", {
+    role: "user",
+    content: "我想建立个人经营蓝图",
+  });
+  const withClientHelp = appendAssistantThreadMessage(withBlueprint, "client_quick_help", {
+    role: "user",
+    content: "张先生现在不想聊保险",
+  });
+
+  assert.deepEqual(withClientHelp.agent_blueprint, [
+    { role: "user", content: "我想建立个人经营蓝图" },
+  ]);
+  assert.deepEqual(withClientHelp.client_quick_help, [
+    { role: "user", content: "张先生现在不想聊保险" },
+  ]);
+  assert.deepEqual(withClientHelp.daily_review, []);
+  assert.notEqual(withClientHelp, withBlueprint);
+});

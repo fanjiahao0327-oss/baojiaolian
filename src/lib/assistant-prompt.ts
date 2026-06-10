@@ -1,4 +1,4 @@
-import type { AssistantMode } from "@/lib/assistant-alpha";
+import type { AssistantMode, AssistantThreadMessage } from "@/lib/assistant-alpha";
 
 const MODE_INSTRUCTIONS: Record<AssistantMode, string> = {
   agent_blueprint:
@@ -36,6 +36,7 @@ const MODE_INSTRUCTIONS: Record<AssistantMode, string> = {
 export function buildAssistantAlphaMessages(params: {
   mode: AssistantMode;
   userInput: string;
+  history?: AssistantThreadMessage[];
   agentProfile?: Record<string, unknown>;
   clientContext?: Record<string, unknown>;
   confirmedMemories?: Array<{ title: string; content: string }>;
@@ -44,6 +45,10 @@ export function buildAssistantAlphaMessages(params: {
     .slice(0, 12)
     .map((memory) => `- ${memory.title}：${memory.content}`)
     .join("\n");
+  const history = (params.history || [])
+    .slice(-8)
+    .map((message) => `${message.role === "user" ? "代理人" : "助手"}：${message.content}`)
+    .join("\n\n");
 
   const system = [
     "你是保险代理人的私人 AI 助手，默认风格是温和、理性、顾问式。",
@@ -67,6 +72,7 @@ export function buildAssistantAlphaMessages(params: {
         `代理人画像：${JSON.stringify(params.agentProfile || {})}`,
         `客户上下文：${JSON.stringify(params.clientContext || {})}`,
         `已确认记忆：\n${memories || "暂无"}`,
+        `当前对话历史：\n${history || "暂无"}`,
         `用户输入：\n${params.userInput}`,
       ].join("\n\n"),
     },
