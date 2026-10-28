@@ -135,6 +135,7 @@ assert(
 );
 
 const coachRoute = read("src/app/api/coach/route.ts");
+const coachPrompt = read("src/lib/coach-prompt.ts");
 const knowledgeFiles = [
   "src/lib/knowledge/index.ts",
   "src/lib/knowledge/types.ts",
@@ -216,16 +217,17 @@ assert(
   "coach route should support explicit meeting review mode",
 );
 assert(
-  coachRoute.includes("buildObjectionModeInstructions"),
-  "coach route should apply objection followup mode instructions",
+  coachRoute.includes("buildCoachMessages") &&
+    coachPrompt.includes("buildObjectionModeInstructions"),
+  "coach route should use the shared prompt builder with objection followup instructions",
 );
 assert(
-  coachRoute.includes("buildPreMeetingPrepModeInstructions"),
-  "coach route should apply pre-meeting prep mode instructions",
+  coachPrompt.includes("buildPreMeetingPrepModeInstructions"),
+  "shared coach prompt should apply pre-meeting prep mode instructions",
 );
 assert(
-  coachRoute.includes("buildMeetingReviewModeInstructions"),
-  "coach route should apply meeting review mode instructions",
+  coachPrompt.includes("buildMeetingReviewModeInstructions"),
+  "shared coach prompt should apply meeting review mode instructions",
 );
 assert(
   coachRoute.includes("normalizeObjectionFollowupData"),
@@ -248,9 +250,9 @@ assert(
   "coach route should allow objection followup conversation follow-ups without requiring the first-submit payload again",
 );
 assert(
-  coachRoute.includes("selectModules(safeKycData as unknown as KYCFormData, mode, effectiveQuestion)") &&
-    coachRoute.includes("selectModulesForFollowUp(safeKycData as unknown as KYCFormData, mode, effectiveQuestion)"),
-  "coach route should pass mode and user input into knowledge selection",
+  coachPrompt.includes("selectModules(kycData, params.mode, params.question)") &&
+    coachPrompt.includes("selectModulesForFollowUp(kycData, params.mode, params.question)"),
+  "shared coach prompt should pass mode and user input into knowledge selection",
 );
 const dbModule = read("src/lib/db.ts");
 assert(

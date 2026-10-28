@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "tsc --noEmit",
     "check:security": "node scripts/check-security-regressions.mjs",
-    "capacity": "node scripts/check-db-capacity.mjs"
+    "capacity": "node scripts/check-db-capacity.mjs",
+    "eval": "tsx eval/runEval.ts",
+    "test:eval": "tsx --test eval/*.test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -29,6 +31,7 @@
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
+    "tsx": "^4.21.0",
     "vercel": "^54.2.0"
   },
   "overrides": {
