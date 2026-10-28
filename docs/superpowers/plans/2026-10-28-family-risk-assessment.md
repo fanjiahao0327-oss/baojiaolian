@@ -1864,6 +1864,10 @@ test("safe text passes", () => {
   assert.equal(scanCheckupCompliance("建议先核对合同责任和现金价值，具体以正式条款为准。").length, 0);
 });
 
+test("report disclaimer with 非保费报价 passes", () => {
+  assert.equal(scanCheckupCompliance("预算参考，非保费报价，非产品推荐。").length, 0);
+});
+
 test("compliance guard rewrites risky text", async () => {
   const result = await ensureCheckupCompliance("保证领取，稳赚不赔。", async () => "建议以合同载明的保证利益为准，不承诺收益。");
   assert.equal(result.rewritten, true);
@@ -1892,7 +1896,7 @@ export interface CheckupComplianceRisk {
 
 const RULES: Array<{ code: CheckupComplianceCode; label: string; pattern: RegExp }> = [
   { code: "product_name", label: "产品/公司名称", pattern: /友邦|国寿|平安|太保|泰康|复星|万欣和|传世无忧|欣享人生|光辉岁月|医路相伴/ },
-  { code: "premium_quote", label: "保费/费率/现价/收益演示", pattern: /保费|费率|现价|年化|收益演示|回本|领取金额/ },
+  { code: "premium_quote", label: "保费/费率/现价/收益演示", pattern: /保费(?!报价)|费率|现价|年化|收益演示|回本|领取金额/ },
   { code: "guarantee", label: "收益或领取承诺", pattern: /稳赚|保本|保证领取|一定增值|肯定增值|不会亏/ },
   { code: "claim", label: "理赔结果承诺", pattern: /一定赔|保证理赔|理赔没问题|肯定能赔/ },
   { code: "peer_blame", label: "贬低同业", pattern: /原代理人.{0,8}没讲清楚|别家.{0,6}不好|其他公司.{0,6}骗人/ },
