@@ -6,7 +6,7 @@ Page({
     messages: [],
     currentQuestion: null,
     answers: [],
-    progress: "0/24",
+    progress: "0/26",
     topics: [],
     loading: false,
     inputValue: "",
@@ -38,6 +38,13 @@ Page({
       messages: this.data.messages.concat([{ role: "user", text: text }]),
       inputValue: "",
     });
+    if (!this.data.currentQuestion) {
+      this.ask({
+        answer: { questionId: "opening", dimension: "family", field: "openingText", value: "free_text", freeText: text, skipped: false },
+        lastMessage: text,
+      });
+      return;
+    }
     this.ask({ lastMessage: text, freeText: text });
   },
   onOption: function (e) {
@@ -61,7 +68,10 @@ Page({
     var topic = e.currentTarget.dataset.topic;
     if (!topic) return;
     this.setData({ messages: this.data.messages.concat([{ role: "user", text: topic }]) });
-    this.ask({ lastMessage: topic, freeText: topic });
+    this.ask({
+      answer: { questionId: "opening", dimension: "family", field: "openingText", value: "free_text", freeText: topic, skipped: false },
+      lastMessage: topic,
+    });
   },
   ask: function (payload) {
     var self = this;
@@ -83,13 +93,16 @@ Page({
         return;
       }
       wx.setStorageSync("checkup_triage", res.triage);
+      var nextMessages = self.data.messages.slice();
+      if (!payload.resume) {
+        if (res.ack) nextMessages.push({ role: "assistant", text: res.ack });
+        nextMessages.push({ role: "assistant", text: res.question.prompt });
+      }
       self.setData({
         answers: answers,
         currentQuestion: res.question,
         progress: res.progress,
-        messages: payload.resume
-          ? self.data.messages
-          : self.data.messages.concat([{ role: "assistant", text: res.question.prompt }]),
+        messages: nextMessages,
       });
       storage.save(storage.HISTORY_KEY, self.data.messages);
     }).catch(function () {

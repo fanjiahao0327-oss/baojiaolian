@@ -197,6 +197,19 @@ export function buildRiskItems(answers: Answer[], indices: Array<{ name: string;
     });
   }
 
+
+  if (has(answers, "retirement_income", ["social"]) && has(answers, "retirement_age", ["before50", "50_55", "55_60", "after60"])) {
+    risks.push({
+      title: "养老现金流单一：退休后主要靠社保",
+      severity: "medium",
+      phenomenon: "客户有明确的退休时间预期，但退休后主要依赖社保，没有房租、年金等被动现金流。",
+      whyItMatters: "社保只能覆盖基础生活，医疗、照护和品质养老的缺口需要额外现金流。",
+      ifIgnored: "退休后可能被迫降低生活水平、依赖子女，或动用长期储蓄。",
+      suggestedAction: "先估算退休后的每月支出，再规划社保之外的补充现金流；不急于买产品。",
+      sourceRefs: ["66问-E 养老", "5大指数-自由指数"],
+    });
+  }
+
   const severityRank = { high: 0, medium: 1, low: 2 } as const;
   return risks
     .sort((a, b) => severityRank[a.severity] - severityRank[b.severity])

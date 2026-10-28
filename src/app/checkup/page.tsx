@@ -49,7 +49,7 @@ export default function CheckupPage() {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [triage, setTriage] = useState<Record<string, unknown> | null>(null);
-  const [progress, setProgress] = useState("0/24");
+  const [progress, setProgress] = useState("0/26");
   const [topics, setTopics] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -77,7 +77,7 @@ export default function CheckupPage() {
       setCurrentQuestion(null);
       setAnswers([]);
       setTriage(null);
-      setProgress("0/24");
+      setProgress("0/26");
       setPreviewReport(null);
       setFullReport(null);
       setTopics(Array.isArray(data.topics) ? data.topics : []);
@@ -123,7 +123,11 @@ export default function CheckupPage() {
       if (data.triage) setTriage(data.triage);
       if (data.progress) setProgress(data.progress);
       if (data.done) {
-        setMessages((prev) => [...prev, { role: "user", text }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: "user", text },
+          ...(data.ack ? [{ role: "assistant" as const, text: data.ack }] : []),
+        ]);
         await preview(nextAnswers);
         return;
       }
@@ -131,6 +135,7 @@ export default function CheckupPage() {
       setMessages((prev) => [
         ...prev,
         { role: "user", text },
+        ...(data.ack ? [{ role: "assistant" as const, text: data.ack }] : []),
         { role: "assistant", text: data.question.prompt },
       ]);
     } catch (e) {
@@ -164,12 +169,24 @@ export default function CheckupPage() {
     void sendAnswer(answer, "这个先跳过");
   }
 
+  function sendOpening(text: string) {
+    const answer: Answer = {
+      questionId: "opening",
+      dimension: "family",
+      field: "openingText",
+      value: "free_text",
+      freeText: text,
+      skipped: false,
+    };
+    void sendAnswer(answer, text);
+  }
+
   function onSendText() {
     const text = input.trim();
     if (!text) return;
     setInput("");
     if (!currentQuestion) {
-      void sendAnswer(null, text);
+      sendOpening(text);
       return;
     }
     const answer: Answer = {
@@ -280,7 +297,7 @@ export default function CheckupPage() {
     setCurrentQuestion(null);
     setAnswers([]);
     setTriage(null);
-    setProgress("0/24");
+    setProgress("0/26");
     setInput("");
     setError("");
     setPreviewReport(null);
@@ -367,7 +384,7 @@ export default function CheckupPage() {
                     <button
                       key={topic}
                       type="button"
-                      onClick={() => sendAnswer(null, topic)}
+                      onClick={() => sendOpening(topic)}
                       disabled={loading}
                       className="rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 disabled:opacity-60"
                     >

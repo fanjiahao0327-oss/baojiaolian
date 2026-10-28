@@ -30,10 +30,13 @@ export function buildProfile(answers: Answer[]): CheckupReport["profile"] {
     conflict: "有兄弟姐妹，有分歧",
     skip: "兄弟姐妹情况未提供",
   });
+  const opening = answers.find((answer) => answer.questionId === "opening")?.freeText || "";
   return {
     familyStructure: `家庭结构：${household}；${children}；${siblings}`,
     lifeStage: "家庭成长期 / 责任期",
-    summary: "本次测评基于你主动提供的信息，未提供的数据按「信息不足」处理。",
+    summary: opening
+      ? `你最开始提到：「${opening.slice(0, 80)}」。本次测评基于你主动提供的信息，未提供的数据按「信息不足」处理。`
+      : "本次测评基于你主动提供的信息，未提供的数据按「信息不足」处理。",
   };
 }
 

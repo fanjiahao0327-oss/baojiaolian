@@ -8,8 +8,8 @@ export interface FollowUpState {
   mentionedDimensions?: CheckupDimensionId[];
 }
 
-export const MAX_ROUNDS = 24;
-export const MIN_ROUNDS = 12;
+export const MAX_ROUNDS = 26;
+export const MIN_ROUNDS = 14;
 
 /** 这 7 题决定 5 大指数能不能算出来；客户可以跳过，但会主动问。 */
 const CORE_FINANCIAL_IDS = [
@@ -27,8 +27,22 @@ interface TriggerRule {
   questionId: string;
 }
 
+function mentions(answers: Answer[], pattern: RegExp): boolean {
+  return answers.some((answer) => typeof answer.freeText === "string" && pattern.test(answer.freeText));
+}
+
 const TRIGGER_RULES: TriggerRule[] = [
+  // 客户自己打字说出来的线索，优先于结构化选项
+  { when: (a) => mentions(a, /(孩子|儿子|女儿).{0,10}(结婚|婚|嫁|娶|对象)/), questionId: "inheritance_children_marriage" },
+  { when: (a) => mentions(a, /(遗嘱|信托|受益人|传承|留给孩子|给孩子的钱)/), questionId: "inheritance_tools" },
+  { when: (a) => mentions(a, /(企业|公司|生意|工厂|股权|经营贷|担保)/), questionId: "business_guarantee" },
+  { when: (a) => mentions(a, /(生病|大病|住院|手术|医疗|癌症|体检)/), questionId: "health_conditions" },
+  { when: (a) => mentions(a, /(退休|养老|养老金)/), questionId: "retirement_age" },
+  { when: (a) => mentions(a, /(再婚|前妻|前夫|离婚|二婚)/), questionId: "marriage_assets" },
+  { when: (a) => mentions(a, /(留学|出国|国际学校|教育金)/), questionId: "education_stage" },
+  { when: (a) => mentions(a, /(保单|投保人|被保险人)/), questionId: "protection_policy_roles" },
   { when: (a) => valueOf(a, "family_children") === "married", questionId: "inheritance_children_marriage" },
+  { when: (a) => valueOf(a, "family_children") === "married", questionId: "inheritance_tools" },
   { when: (a) => ["self", "family"].includes(valueOf(a, "family_business") ?? ""), questionId: "business_guarantee" },
   {
     when: (a) =>
@@ -65,6 +79,27 @@ const TRIGGER_RULES: TriggerRule[] = [
   { when: (a) => valueOf(a, "retirement_age") !== null, questionId: "retirement_income" },
   { when: (a) => valueOf(a, "retirement_income") !== null, questionId: "retirement_cashflow" },
 ];
+
+
+const OPENING_REFLECTION: Question = {
+  id: "opening_reflection",
+  dimension: "family",
+  field: "openingConcern",
+  prompt: "我听到了。为了不急着给你套方案，我想先确认：这件事里，你最担心的是哪一类？",
+  options: [
+    { value: "health", label: "生病/医疗，怕花钱也怕拖累家里" },
+    { value: "inheritance", label: "孩子婚姻/传承，钱怕被分走或守不住" },
+    { value: "retirement", label: "退休/养老，怕现金流不够" },
+    { value: "business", label: "企业/债务，怕牵连家庭" },
+    { value: "unclear", label: "说不清，我再补充" },
+  ],
+  allowFreeText: true,
+  required: false,
+  weight: 2,
+  hint: "选一个最接近的就行，也可以在下面补充你的原话。",
+  example: "最担心孩子结婚后钱被分走，也怕自己老了没人管。",
+  open: true,
+};
 
 function valueOf(answers: Answer[], questionId: string): string | null {
   const answer = answers.find((item) => item.questionId === questionId);
@@ -110,6 +145,10 @@ export function shouldStop(state: FollowUpState): boolean {
 
 export function selectNextQuestion(state: FollowUpState): Question | null {
   const answered = answeredIds(state.answers);
+
+  // 0. 客户刚说完开场那一段：先复述确认，再进入结构化问题
+  const hasOpening = state.answers.some((answer) => answer.questionId === "opening");
+  if (hasOpening && !answered.has("opening_reflection")) return OPENING_REFLECTION;
 
   // 1. 家庭结构（6 题，含婚姻状态、兄弟姐妹）
   const family = getUnanswered(getQuestionsForDimension("family"), answered);

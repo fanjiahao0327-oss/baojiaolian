@@ -32,6 +32,10 @@ const PREFERRED: Record<string, string> = {
   business_guarantee: "yes",
 };
 
+function fakeAnswer(questionId: string, dimension: CheckupDimensionId, field: string, value = "x"): Answer {
+  return { questionId, dimension, field, value, skipped: false };
+}
+
 function state(answers: Answer[] = [], overrides: Partial<FollowUpState> = {}): FollowUpState {
   return { answers, triage, customerWantsReport: false, ...overrides };
 }
@@ -62,6 +66,18 @@ function completeModule(start: FollowUpState, dimension: CheckupDimensionId): { 
 test("asks family first", () => {
   const next = selectNextQuestion(state());
   assert.equal(next?.dimension, "family");
+});
+
+test("reflects the opening answer before family structure", () => {
+  const opening: Answer = {
+    questionId: "opening",
+    dimension: "family",
+    field: "openingText",
+    value: "free_text",
+    freeText: "孩子刚结婚，怕钱被分走",
+    skipped: false,
+  };
+  assert.equal(selectNextQuestion(state([opening]))?.id, "opening_reflection");
 });
 
 test("asks the whole family module before protection", () => {
@@ -171,4 +187,20 @@ test("new deep-dive questions are reachable", () => {
   for (const id of ["assets_fixed", "assets_inheritance", "inheritance_when", "business_debt"]) {
     assert.ok(getQuestionById(id), id);
   }
+});
+
+test("free-text answer triggers a follow-up", () => {
+  const familyText = getQuestionsForDimension("family").map((question) => ({
+    ...fakeAnswer(question.id, question.dimension, question.field, question.id === "family_children" ? "none" : "x"),
+    freeText: question.id === "family_members" ? "我最近在考虑退休养老的事，想早点准备。" : undefined,
+  }));
+  const protectionText = getQuestionsForDimension("protection").map((question) =>
+    fakeAnswer(
+      question.id,
+      question.dimension,
+      question.field,
+      question.id === "protection_critical" ? "30_50" : question.id === "protection_medical" ? "million" : "clear",
+    ),
+  );
+  assert.equal(selectNextQuestion(state([...familyText, ...protectionText]))?.id, "retirement_age");
 });
