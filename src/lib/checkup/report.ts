@@ -1,4 +1,5 @@
 import { calcAllIndices, type IndexInput } from "./indices";
+import { buildReportUserPrompt } from "./prompts";
 import { buildRiskItems } from "./risk-rules";
 import type { Answer, CheckupReport, TriageResult } from "./types";
 
@@ -99,4 +100,33 @@ export function reportToText(report: CheckupReport): string {
   for (const item of report.actionPlan) lines.push(`- ${item.period}：${item.action}`);
   lines.push("", "五、免责声明", report.disclaimer);
   return lines.join("\n");
+}
+
+/**
+ * 用 AI 改写报告文案；指数分数、预算和免责声明始终沿用规则生成的 draft。
+ * AI 返回非法 JSON、空内容或调用抛错时，直接降级为原 draft。
+ */
+export async function enhanceReport(
+  draft: CheckupReport,
+  callAI: (prompt: string) => Promise<string>,
+): Promise<CheckupReport> {
+  try {
+    const raw = await callAI(buildReportUserPrompt({
+      profile: draft.profile.summary,
+      indices: draft.wealthIndices,
+      risks: draft.topRisks,
+      answers: [],
+    }));
+    const cleaned = raw.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
+    const parsed = JSON.parse(cleaned) as Partial<CheckupReport>;
+    return {
+      ...draft,
+      profile: { ...draft.profile, ...(parsed.profile ?? {}) },
+      topRisks: Array.isArray(parsed.topRisks) && parsed.topRisks.length > 0 ? parsed.topRisks.slice(0, 5) : draft.topRisks,
+      actionPlan: Array.isArray(parsed.actionPlan) && parsed.actionPlan.length > 0 ? parsed.actionPlan : draft.actionPlan,
+      nextStep: typeof parsed.nextStep === "string" && parsed.nextStep.trim() ? parsed.nextStep : draft.nextStep,
+    };
+  } catch {
+    return draft;
+  }
 }
