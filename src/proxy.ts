@@ -28,6 +28,11 @@ const CSP_HEADER = [
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // C 端测评 demo 作为首页；旧 B 端工作台不再作为入口
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL("/checkup", request.url));
+  }
+
   // 请求体大小限制：仅对 API 路由检查
   if (pathname.startsWith("/api/")) {
     const contentLength = request.headers.get("content-length");
@@ -47,6 +52,7 @@ export async function proxy(request: NextRequest) {
   const isApiRoute = pathname.startsWith("/api/");
   const isPublicPath =
     pathname.startsWith("/login") ||
+    pathname.startsWith("/checkup") ||
     pathname.startsWith("/admin") ||
     pathname.startsWith("/api/admin");
 
