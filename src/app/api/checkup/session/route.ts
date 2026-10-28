@@ -6,7 +6,7 @@ import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") || "unknown";
-  const rl = rateLimit(`checkup:session:${ip}`, "coach");
+  const rl = rateLimit(`checkup:session:${ip}`, "checkup");
   if (!rl.allowed) return NextResponse.json({ error: "请求过于频繁" }, { status: 429 });
 
   const sessionId = crypto.randomUUID();
@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     sessionToken: createSessionToken(sessionId),
-    opening: "你家现在最让你不踏实的是什么？可以先随便说几句，不用想得很完整。",
-    topics: ["钱够不够花", "生病怎么办", "孩子教育", "父母养老", "家业传承"],
+    opening:
+      "先说说：你为什么现在想了解保险？最近有没有发生什么事，或者你心里一直有个担心？可以从下面的方向选一个开始，也可以直接说。",
+    topics: ["生病/医疗", "孩子教育", "退休养老", "孩子婚姻/传承", "企业债务/家企", "婚姻财产"],
   });
 }

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 type Screen = "intro" | "chat" | "report" | "booking" | "done";
 
 interface Option { value: string; label: string }
-interface Question { id: string; dimension: string; field: string; prompt: string; options: Option[] }
+interface Question { id: string; dimension: string; field: string; prompt: string; options: Option[]; hint?: string; example?: string; open?: boolean }
 interface Answer { questionId: string; dimension: string; field: string; value: string; freeText?: string; skipped: boolean }
 interface Message { role: "assistant" | "user"; text: string }
 interface WealthIndex { name: string; score: number | null; level: string; dataStatus: string; reason: string }
@@ -49,7 +49,8 @@ export default function CheckupPage() {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [triage, setTriage] = useState<Record<string, unknown> | null>(null);
-  const [progress, setProgress] = useState("0/12");
+  const [progress, setProgress] = useState("0/24");
+  const [topics, setTopics] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -76,9 +77,10 @@ export default function CheckupPage() {
       setCurrentQuestion(null);
       setAnswers([]);
       setTriage(null);
-      setProgress("0/12");
+      setProgress("0/24");
       setPreviewReport(null);
       setFullReport(null);
+      setTopics(Array.isArray(data.topics) ? data.topics : []);
       setScreen("chat");
     } catch (e) {
       setError(e instanceof Error ? e.message : "开始失败");
@@ -278,7 +280,7 @@ export default function CheckupPage() {
     setCurrentQuestion(null);
     setAnswers([]);
     setTriage(null);
-    setProgress("0/12");
+    setProgress("0/24");
     setInput("");
     setError("");
     setPreviewReport(null);
@@ -357,8 +359,33 @@ export default function CheckupPage() {
               <div ref={bottomRef} />
             </div>
 
+            {!currentQuestion && messages.length <= 1 && topics.length > 0 && (
+              <div className="space-y-2 rounded-2xl border border-gray-100 bg-white p-4">
+                <p className="text-xs text-gray-500">可以从这里选一个方向开始，也可以直接打字：</p>
+                <div className="flex flex-wrap gap-2">
+                  {topics.map((topic) => (
+                    <button
+                      key={topic}
+                      type="button"
+                      onClick={() => sendAnswer(null, topic)}
+                      disabled={loading}
+                      className="rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 disabled:opacity-60"
+                    >
+                      {topic}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {currentQuestion && (
               <div className="space-y-2 rounded-2xl border border-gray-100 bg-white p-4">
+                {currentQuestion.hint && (
+                  <div className="rounded-xl bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-700">
+                    <p>提示：{currentQuestion.hint}</p>
+                    {currentQuestion.example && <p className="mt-1 text-blue-600/80">例子：{currentQuestion.example}</p>}
+                  </div>
+                )}
                 {currentQuestion.options.map((option) => (
                   <button
                     key={option.value}

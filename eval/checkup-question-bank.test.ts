@@ -15,11 +15,10 @@ test("every dimension has at least 2 questions; family has at least 4", () => {
   assert.ok(QUESTION_BANK.filter((q) => q.dimension === "family").length >= 4);
 });
 
-// 计划 Task 3 的种子题库中，部分题目带「不清楚 / 不想说 / 没想过」类选项，
-// 共 5 个选项；这些值被后续规则识别使用，故上限放宽为 5。
-test("options are 2-5 and prompts are non-empty", () => {
+// 部分区间题带「不清楚 / 不想说 / 没想过」类选项，最多 6 个；这些值被后续规则识别使用。
+test("options are 2-6 and prompts are non-empty", () => {
   for (const q of QUESTION_BANK) {
-    assert.ok(q.options.length >= 2 && q.options.length <= 5, q.id);
+    assert.ok(q.options.length >= 2 && q.options.length <= 6, q.id);
     assert.ok(q.prompt.trim().length > 0, q.id);
   }
 });
@@ -34,6 +33,12 @@ test("no forbidden product or guarantee words", () => {
   const text = QUESTION_BANK.map((q) => `${q.prompt} ${q.options.map((o) => o.label).join(" ")}`).join(" ");
   for (const word of ["友邦", "国寿", "复星", "万欣和", "稳赚", "保本", "保证领取"]) {
     assert.ok(!text.includes(word), word);
+  }
+});
+
+test("new deep-dive questions exist", () => {
+  for (const id of ["protection_policy_roles", "assets_fixed", "assets_inheritance", "inheritance_when", "inheritance_control", "business_debt", "business_succession", "marriage_spouse_debt", "education_budget", "retirement_cashflow"]) {
+    assert.ok(getQuestionById(id), id);
   }
 });
 

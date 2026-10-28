@@ -43,6 +43,9 @@ export interface Question {
   allowFreeText: boolean;
   required: boolean;
   weight: number;
+  hint?: string;
+  example?: string;
+  open?: boolean;
 }
 
 export interface Answer {

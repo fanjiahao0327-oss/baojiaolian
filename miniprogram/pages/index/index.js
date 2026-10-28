@@ -26,6 +26,7 @@ Page({
     api.checkup.start().then(function (res) {
       clearPreviousData();
       wx.setStorageSync("checkup_session", res.sessionToken);
+      wx.setStorageSync("checkup_topics", res.topics || []);
       wx.setStorageSync("checkup_triage", null);
       wx.navigateTo({ url: "/pages/chat/chat" });
     }).catch(function () {

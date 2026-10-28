@@ -6,7 +6,8 @@ Page({
     messages: [],
     currentQuestion: null,
     answers: [],
-    progress: "0/12",
+    progress: "0/24",
+    topics: [],
     loading: false,
     inputValue: "",
     canRetry: false,
@@ -18,11 +19,15 @@ Page({
       return;
     }
     var history = storage.load(storage.HISTORY_KEY, []);
+    var topics = wx.getStorageSync("checkup_topics") || [];
     if (history.length > 0) {
-      this.setData({ messages: history, answers: storage.load("checkup_answers", []) });
+      this.setData({ messages: history, answers: storage.load("checkup_answers", []), topics: topics });
       this.ask({ resume: true });
     } else {
-      this.setData({ messages: [{ role: "assistant", text: "你家现在最让你不踏实的是什么？可以先随便说几句，不用想得很完整。" }] });
+      this.setData({
+        messages: [{ role: "assistant", text: "先说说：你为什么现在想了解保险？最近有没有发生什么事，或者你心里一直有个担心？可以从下面的方向选一个开始，也可以直接说。" }],
+        topics: topics,
+      });
     }
   },
   onInput: function (e) { this.setData({ inputValue: e.detail.value }); },
@@ -51,6 +56,12 @@ Page({
   },
   onReportNow: function () {
     this.ask({ customerWantsReport: true });
+  },
+  onTopic: function (e) {
+    var topic = e.currentTarget.dataset.topic;
+    if (!topic) return;
+    this.setData({ messages: this.data.messages.concat([{ role: "user", text: topic }]) });
+    this.ask({ lastMessage: topic, freeText: topic });
   },
   ask: function (payload) {
     var self = this;
