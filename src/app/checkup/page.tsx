@@ -544,14 +544,10 @@ export default function CheckupPage() {
                 )}
                 <div className="flex justify-between pt-1 text-xs text-gray-500">
                   <button type="button" onClick={onSkip} disabled={loading} className="underline">不想说，跳过</button>
-                  <button type="button" onClick={finishEarly} disabled={loading} className="underline">直接出报告</button>
+                  {currentQuestion.module && (
+                    <button type="button" onClick={finishEarly} disabled={loading} className="underline">直接出报告</button>
+                  )}
                 </div>
-              </div>
-            )}
-
-            {!currentQuestion && (
-              <div className="flex justify-end text-xs text-gray-500">
-                <button type="button" onClick={finishEarly} disabled={loading} className="underline">直接出报告</button>
               </div>
             )}
 
