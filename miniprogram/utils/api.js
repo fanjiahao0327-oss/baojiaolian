@@ -80,6 +80,7 @@ module.exports.checkup = {
   preview: function (data) { return request("/api/checkup/preview", { method: "POST", data: data }); },
   createOrder: function (data) { return request("/api/checkup/order", { method: "POST", data: data }); },
   orderStatus: function (orderNo) { return request("/api/checkup/order/status?orderNo=" + orderNo, { method: "GET" }); },
+  mockPay: function (orderNo) { return request("/api/checkup/pay/mock", { method: "POST", data: { orderNo: orderNo } }); },
   unlock: function (data) { return request("/api/checkup/unlock", { method: "POST", data: data }); },
   appointment: function (data) { return request("/api/checkup/appointment", { method: "POST", data: data }); },
   event: function (data) { return request("/api/checkup/event", { method: "POST", data: data }); },
