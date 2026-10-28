@@ -46,7 +46,7 @@
 src/lib/checkup/
   types.ts              # 所有类型
   dimensions.ts         # 10 个维度与提问策略
-  question-bank.ts      # 28 题种子题库
+  question-bank.ts      # 29 题种子题库
   indices.ts            # 5 大指数计算
   session.ts            # 无状态签名令牌
   triage.ts             # 风险域分诊
@@ -331,7 +331,7 @@ export interface TriageResult {
 import type { CheckupDimensionId, DimensionDefinition } from "./types";
 
 export const DIMENSIONS: DimensionDefinition[] = [
-  { id: "family", label: "家庭结构", fields: ["ageStage", "maritalStatus", "children", "parents", "careDependents", "businessInvolvement"], askPolicy: "must", weight: 3 },
+  { id: "family", label: "家庭结构", fields: ["ageStage", "maritalStatus", "children", "parents", "siblings", "careDependents", "businessInvolvement"], askPolicy: "must", weight: 3 },
   { id: "protection", label: "已有保障", fields: ["socialInsurance", "medicalInsurance", "criticalIllness", "lifeInsurance", "accidentInsurance"], askPolicy: "must", weight: 3 },
   { id: "inheritance", label: "传承安排", fields: ["childrenMarriage", "assetOwnership", "inheritanceIntent", "will", "trust", "insuranceBeneficiary"], askPolicy: "main_domain", weight: 3 },
   { id: "cashflow", label: "收支", fields: ["incomeSources", "annualIncomeRange", "annualExpenseRange", "annualSurplusRange", "passiveIncomeRange"], askPolicy: "mentioned_only", weight: 2 },
@@ -372,7 +372,7 @@ git commit -m "feat(checkup): add checkup types and dimensions"
 
 ---
 
-### Task 3: 28 题种子题库
+### Task 3: 29 题种子题库
 
 **Files:**
 - Create: `src/lib/checkup/question-bank.ts`
@@ -464,6 +464,9 @@ export const QUESTION_BANK: Question[] = [
   q("family_parents", "family", "parents", "父母那边需要你们照顾吗？", [
     ["healthy", "身体健康，不需要"], ["financial", "需要经济支持"], ["care", "需要日常照护"], ["other", "其他"],
   ], true, 2),
+  q("family_siblings", "family", "siblings", "你有兄弟姐妹吗？父母将来的安排，你们聊过吗？", [
+    ["only_child", "独生子女"], ["harmony", "有兄弟姐妹，关系正常"], ["conflict", "有兄弟姐妹，有分歧"], ["skip", "不想说"],
+  ], true, 3),
   q("family_business", "family", "businessInvolvement", "家里有人做生意或持股吗？", [
     ["none", "没有"], ["self", "有，本人经营"], ["family", "有，配偶或子女经营"], ["passive", "有，但未参与经营"],
   ], true, 2),
@@ -571,14 +574,14 @@ export function getQuestionsForDimension(dimension: CheckupDimensionId): Questio
 - [ ] **Step 3: 跑测试并提交**
 
 Run: `npx tsx --test eval/checkup-question-bank.test.ts`
-Expected: PASS（28 题；family 4 题）。
+Expected: PASS（29 题；family 5 题）。
 
 ```bash
 git add src/lib/checkup/question-bank.ts eval/checkup-question-bank.test.ts
-git commit -m "feat(checkup): add 28-question seed bank"
+git commit -m "feat(checkup): add 29-question seed bank"
 ```
 
-**Acceptance:** 28 题、10 维度各有至少 2 题、family 4 题、无产品/承诺词。
+**Acceptance:** 29 题、10 维度各有至少 2 题、family 5 题、无产品/承诺词。
 
 ---
 
@@ -1411,6 +1414,14 @@ test("flags inheritance risk for married children without tools", () => {
   assert.ok(risks.some((r) => r.title.includes("传承")));
 });
 
+test("flags sibling inheritance flow risk", () => {
+  const risks = buildRiskItems([
+    answer("family_siblings", "family", "harmony"),
+    answer("inheritance_tools", "inheritance", "none"),
+  ], []);
+  assert.ok(risks.some((r) => r.title.includes("兄弟姐妹")));
+});
+
 test("flags business guarantee risk", () => {
   const risks = buildRiskItems([
     answer("business_ownership", "business", "self"),
@@ -1482,6 +1493,18 @@ export function buildRiskItems(answers: Answer[], indices: Array<{ name: string;
       ifIgnored: "想给孩子的钱可能被分割、被债务追及，或由不希望的人参与分配。",
       suggestedAction: "先梳理家庭结构、资产归属和给钱时点；再决定用受益人、遗嘱还是信托补位，法律文件请律师核对。",
       sourceRefs: ["确权三问三闸-给谁/谁管/怎么给", "66问-C 传承/继承", "6+1-婚姻风险"],
+    });
+  }
+
+  if (has(answers, "family_siblings", ["harmony", "conflict"]) && has(answers, "inheritance_tools", ["none", "unknown"])) {
+    risks.push({
+      title: "兄弟姐妹与父母遗产流向风险",
+      severity: "medium",
+      phenomenon: "家里有兄弟姐妹，但父母那边的财产安排和继承顺序还没有书面梳理。",
+      whyItMatters: "兄弟姐妹先于父母去世时，可能发生代位继承；父母去世后，遗产会在兄弟姐妹及其子女之间分配，容易产生争议。",
+      ifIgnored: "父母的遗产可能不按你的预期流向，甚至影响你想留给自己孩子的钱；家庭关系也可能因分配问题紧张。",
+      suggestedAction: "先画清家庭结构图，确认父母财产的归属和继承顺序；需要时用遗嘱、受益人指定或信托明确安排，法律文件请律师核对。",
+      sourceRefs: ["民法典 1127/1128 继承与代位继承", "确权三问三闸-风险层", "66问-C 传承/继承"],
     });
   }
 
@@ -1630,8 +1653,11 @@ export function buildProfile(answers: Answer[]): CheckupReport["profile"] {
   const children = answerLabel(answers, "family_children", {
     school: "孩子还在上学", working: "孩子已工作未婚", married: "孩子已结婚", none: "还没有孩子",
   });
+  const siblings = answerLabel(answers, "family_siblings", {
+    only_child: "独生子女", harmony: "有兄弟姐妹，关系正常", conflict: "有兄弟姐妹，有分歧", skip: "兄弟姐妹情况未提供",
+  });
   return {
-    familyStructure: `家庭结构：${household}；${children}`,
+    familyStructure: `家庭结构：${household}；${children}；${siblings}`,
     lifeStage: "家庭成长期 / 责任期",
     summary: "本次测评基于你主动提供的信息，未提供的数据按「信息不足」处理。",
   };
