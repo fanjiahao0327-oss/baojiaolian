@@ -1,0 +1,34 @@
+.page { display: flex; flex-direction: column; height: 100vh; background: #f7f8fa; }
+.progress { padding: 16rpx 32rpx; font-size: 24rpx; color: #9ca3af; }
+.messages { flex: 1; padding: 16rpx 32rpx; }
+.bubble { max-width: 80%; padding: 20rpx 24rpx; border-radius: 18rpx; margin-bottom: 16rpx; font-size: 28rpx; line-height: 1.7; }
+.assistant { background: #fff; color: #111827; }
+.user { background: #1a56db; color: #fff; margin-left: auto; }
+.options { padding: 0 32rpx 16rpx; }
+.option { background: #fff; border: 1rpx solid #e5e7eb; border-radius: 16rpx; padding: 22rpx 24rpx; margin-bottom: 14rpx; font-size: 28rpx; }
+.actions { display: flex; justify-content: space-between; padding: 8rpx 4rpx; }
+.link { font-size: 26rpx; color: #6b7280; }
+.input-row { display: flex; gap: 16rpx; padding: 20rpx 32rpx 40rpx; background: #fff; }
+.input-row input { flex: 1; background: #f3f4f6; border-radius: 999rpx; padding: 0 24rpx; height: 72rpx; }
+
+.topics { padding: 0 32rpx 16rpx; }
+.topic-hint { display: block; font-size: 24rpx; color: #6b7280; margin-bottom: 12rpx; }
+.topic-list { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.topic { background: #eff6ff; border: 1rpx solid #bfdbfe; color: #1d4ed8; border-radius: 999rpx; padding: 12rpx 22rpx; font-size: 26rpx; }
+.hint { background: #eff6ff; border-radius: 14rpx; padding: 16rpx 20rpx; margin-bottom: 14rpx; }
+.hint text { display: block; font-size: 24rpx; line-height: 1.7; color: #1d4ed8; }
+.hint .example { color: #3b82f6; margin-top: 4rpx; }
+
+.summary { padding: 0 32rpx 16rpx; }
+.summary-title { display: block; font-size: 32rpx; font-weight: bold; color: #111827; margin-bottom: 8rpx; }
+.summary-tip { display: block; font-size: 24rpx; color: #6b7280; line-height: 1.7; margin-bottom: 16rpx; }
+.summary-section { background: #fff; border: 1rpx solid #e5e7eb; border-radius: 16rpx; padding: 18rpx 20rpx; margin-bottom: 12rpx; }
+.summary-h { display: block; font-size: 26rpx; font-weight: 600; color: #1f2937; margin-bottom: 6rpx; }
+.summary-b { display: block; font-size: 24rpx; line-height: 1.7; color: #4b5563; }
+.summary-missing { background: #fffbeb; border-radius: 14rpx; padding: 16rpx 20rpx; font-size: 24rpx; color: #b45309; line-height: 1.7; }
+.summary-actions { display: flex; gap: 16rpx; margin-top: 16rpx; }
+.summary-actions button { flex: 1; }
+
+.topic { font-size: 24rpx; color: #1d4ed8; background: #eff6ff; border-radius: 999rpx; padding: 8rpx 18rpx; }
+.open-guidance { background: #f3f4f6; border-radius: 12rpx; padding: 16rpx 20rpx; margin-bottom: 12rpx; }
+.open-guidance text { display: block; font-size: 24rpx; line-height: 1.7; color: #4b5563; }

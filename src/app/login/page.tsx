@@ -140,7 +140,7 @@ function LoginForm() {
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-600 border border-amber-200">
                 内测
               </span>
-              <span className="text-[11px] text-gray-400">固定验证码：1234</span>
+              <span className="text-[11px] text-gray-400">Web 入口仅限授权用户</span>
             </div>
 
             {(errorMsg || smsError) && (

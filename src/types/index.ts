@@ -52,6 +52,74 @@ export interface Message {
   timestamp: number;
 }
 
+export type CoachMode = "diagnosis" | "objection_followup" | "pre_meeting_prep" | "meeting_review";
+
+export type ObjectionFollowupScenario =
+  | "after_meeting"
+  | "before_wechat"
+  | "before_call"
+  | "before_next_meeting";
+
+export type ObjectionFollowupGoal =
+  | "wechat"
+  | "call"
+  | "next_meeting"
+  | "pause";
+
+export interface ObjectionFollowupData {
+  customerWords: string;
+  scenario: ObjectionFollowupScenario;
+  agentReply?: string;
+  customerBackground?: string;
+  nextGoal: ObjectionFollowupGoal;
+}
+
+export type PreMeetingPurpose =
+  | "first_meeting"
+  | "second_meeting"
+  | "policy_review"
+  | "referral"
+  | "existing_customer_addon"
+  | "other";
+
+export type PreMeetingGoal =
+  | "build_trust"
+  | "discover_needs"
+  | "book_next_meeting"
+  | "policy_review"
+  | "solution_discussion";
+
+export interface PreMeetingPrepData {
+  meetingPurpose: PreMeetingPurpose;
+  meetingBackground: string;
+  knownCustomerInfo?: string;
+  worryPoint?: string;
+  desiredOutcome?: PreMeetingGoal;
+}
+
+export type MeetingReviewResult =
+  | "interested"
+  | "hesitant"
+  | "rejected"
+  | "booked_next"
+  | "family_discussion"
+  | "info_missing";
+
+export type MeetingReviewNextGoal =
+  | "wechat"
+  | "call"
+  | "next_meeting"
+  | "send_material"
+  | "pause";
+
+export interface MeetingReviewData {
+  recap: string;
+  meetingResult?: MeetingReviewResult;
+  customerQuotes?: string;
+  agentResponse?: string;
+  nextGoal?: MeetingReviewNextGoal;
+}
+
 export type FieldType = "text" | "number" | "radio" | "select" | "checkbox-group" | "textarea";
 
 export interface FieldConfig {
@@ -103,4 +171,39 @@ export interface ConversationDetail {
   title: string;
   messages: Message[];
   created_at: string;
+}
+
+export type {
+  AssistantMode,
+  AssistantTaskType,
+  ClientStage,
+  MemoryScope,
+  MemoryStatus,
+  TaskPriority,
+  TaskStatus,
+  TodayTask,
+  TodaySections,
+} from "@/lib/assistant-alpha";
+
+export interface AgentProfileSnapshot {
+  introNarrative: string;
+  basics: string;
+  experience: string;
+  strengths: string;
+  customerResources: string;
+  contentPreference: string;
+  weeklyTimeBudget: string;
+  businessGoal: string;
+  constraints: string;
+}
+
+export interface AgentBlueprint {
+  selfUnderstanding: string;
+  mainPositioning: string;
+  explorationDirections: string[];
+  targetCustomers: string[];
+  contentPillars: string[];
+  channelSuggestions: string[];
+  sevenDayActions: string[];
+  evidence: string[];
 }

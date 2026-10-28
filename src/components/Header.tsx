@@ -23,8 +23,8 @@ export default function Header() {
           </svg>
         </div>
         <div>
-          <h1 className="text-sm md:text-base font-bold text-gray-900">AI 保险教练</h1>
-          <p className="hidden sm:block text-[10px] text-gray-400">保险代理人的幕后智囊</p>
+          <h1 className="text-sm md:text-base font-bold text-gray-900">保险 AI 助手</h1>
+          <p className="hidden sm:block text-[10px] text-gray-400">个人客户经营工作台</p>
         </div>
       </button>
 
@@ -37,13 +37,25 @@ export default function Header() {
         </button>
 
         <button
-          onClick={() => router.push("/points")}
-          className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
+          onClick={() => router.push("/assistant")}
+          className="px-2.5 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
         >
-          <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-          </svg>
-          <span className="font-semibold text-amber-700">{loading ? "..." : user?.balance ?? 0}</span>
+          助手
+        </button>
+
+        <button
+          onClick={() => router.push("/mine")}
+          className="hidden sm:inline px-2.5 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          我的
+        </button>
+
+        <button
+          onClick={() => router.push("/points")}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+        >
+          <span className="text-gray-500">额度</span>
+          <span className="font-semibold text-gray-700">{loading ? "..." : user?.balance ?? 0}</span>
         </button>
 
         <span className="hidden sm:inline text-xs text-gray-400">

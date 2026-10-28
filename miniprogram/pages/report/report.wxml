@@ -1,0 +1,65 @@
+<view class="page" wx:if="{{report}}">
+  <view class="header">
+    <text class="title">AI家庭风险测评报告</text>
+    <text class="sub">{{report.profile.summary}}</text>
+  </view>
+
+  <view class="indices">
+    <text class="section">家庭财富五维自检（自检参考，不是科学测评）</text>
+    <view wx:for="{{indices}}" wx:key="name" class="index-row">
+      <text class="index-name">{{item.name}}</text>
+      <text class="index-score {{item.level}}">{{item.scoreText}}</text>
+    </view>
+  </view>
+
+  <view class="risks">
+    <text class="section">{{full ? 'Top 5 风险' : 'Top 3 风险摘要'}}</text>
+    <view wx:for="{{report.topRisks}}" wx:key="title" class="risk">
+      <text class="risk-title">{{item.title}}</text>
+      <text wx:if="{{!full}}" class="risk-summary">{{item.phenomenon}}</text>
+      <text wx:else class="risk-body">{{item.phenomenon}} {{item.ifIgnored}} {{item.suggestedAction}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{full}}" class="budget">
+    <text class="section">家庭保障预算参考</text>
+    <text class="budget-value">{{budgetText}}</text>
+    <text wx:if="{{budgetBasis}}" class="budget-basis">{{budgetBasis}}</text>
+    <text class="budget-note">{{report.budgetRange.disclaimer}}</text>
+  </view>
+
+  <view wx:if="{{full && report.detailSections.length}}" class="details">
+    <text class="section">详细解读</text>
+    <view wx:for="{{report.detailSections}}" wx:key="title" class="detail">
+      <text class="detail-title">{{item.title}}</text>
+      <text wx:for="{{item.paragraphs}}" wx:for-item="paragraph" wx:key="*this" class="detail-p">{{paragraph}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{!full && report.decisionTeaser}}" class="decision">
+    <text class="section">如果只做一件事：PAS 决策收口</text>
+    <text class="decision-p"><text class="decision-label">P 问题：</text>{{report.decisionTeaser.problem}}</text>
+    <text class="decision-p"><text class="decision-label">A 为什么现在处理：</text>{{report.decisionTeaser.consequence}}</text>
+    <text class="decision-p"><text class="decision-label">S 完整版会给你：</text>{{report.decisionTeaser.nextStep}}；以及一张「先处理哪一件」的决策表。</text>
+  </view>
+
+  <view wx:if="{{!full}}" class="paywall">
+    <text class="paywall-title">解锁完整报告</text>
+    <text class="paywall-item">· Top 5 风险完整解析</text>
+    <text class="paywall-item">· 9 个章节的详细解读</text>
+    <text class="paywall-item">· 分模块详细解读</text>
+    <text class="paywall-item">· 家庭保障预算参考</text>
+  </view>
+
+  <button wx:if="{{!full}}" class="primary" bindtap="onPay" loading="{{paying}}" disabled="{{paying}}">1 元解锁完整报告</button>
+  <button wx:if="{{full}}" class="secondary" bindtap="onCopy">复制报告文字</button>
+  <button wx:if="{{full}}" class="primary" bindtap="onBook">预约一对一诊断</button>
+
+  <text class="disclaimer">{{report.disclaimer}}</text>
+</view>
+<view wx:else class="page report-empty-page">
+  <view class="report-empty">
+    <text class="report-empty-title">{{empty ? '报告数据已失效' : '报告加载中'}}</text>
+    <text class="report-empty-tip">{{empty ? '请返回重新完成测评' : '请稍候…'}}</text>
+  </view>
+</view>

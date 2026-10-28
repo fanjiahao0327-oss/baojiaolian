@@ -147,7 +147,17 @@ Page({
     this.startPay(pkg);
   },
 
-  // 支付入口：优先使用虚拟支付（wx.requestVirtualPayment），兜底 wx.requestPayment
+  async waitForPaid(orderNo) {
+    var last = null;
+    for (var i = 0; i < 5; i++) {
+      last = await api.post("/api/payment/verify", { orderNo: orderNo });
+      if (last && last.status === "paid") return last;
+      await new Promise(function (r) { setTimeout(r, 1500); });
+    }
+    return last || { status: "pending" };
+  },
+
+  // 支付入口：虚拟商品购买必须使用微信官方小程序虚拟支付。
   async startPay(pkg) {
     if (!pkg) {
       wx.showToast({ title: "请选择套餐", icon: "none" });
@@ -167,76 +177,48 @@ Page({
 
         // 检查 API 兼容性
         if (!wx.canIUse || !wx.canIUse("requestVirtualPayment")) {
-          // 基础库版本太低，降级说明
           self.setData({ paying: false });
           wx.showModal({
             title: "版本提示",
-            content: "当前微信版本不支持支付，请升级微信或通过网页端充值。",
+            content: "当前微信版本不支持小程序虚拟支付，请升级微信后重试。",
             showCancel: false,
           });
           return;
         }
 
-        await wx.requestVirtualPayment({
-          offerId: vp.offerId,
-          buyQuantity: 1,
-          currencyType: "CNY",
-          env: vp.env,
-          paySig: vp.paySig,
-          signData: vp.signData,
+        await new Promise(function (resolve, reject) {
+          wx.requestVirtualPayment({
+            signData: vp.signData,
+            paySig: vp.paySig,
+            signature: vp.signature,
+            mode: vp.mode,
+            success: resolve,
+            fail: reject,
+          });
         });
 
         // 支付成功，向服务端确认
         wx.showLoading({ title: "确认支付中", mask: true });
-        try {
-          await api.post("/api/payment/verify", { orderNo: res.orderNo });
-        } catch (e) {
-          console.error("[points] verify:", e);
-          try {
-            await new Promise(function (r) { setTimeout(r, 2000); });
-            await api.post("/api/payment/verify", { orderNo: res.orderNo });
-          } catch (e2) { console.error("[points] verify retry:", e2); }
-        }
+        var verifyResult = await self.waitForPaid(res.orderNo);
         wx.hideLoading();
-        wx.showToast({ title: "支付成功", icon: "success" });
         self.setData({ paying: false, selectedIdx: -1 });
         self.loadData();
+        if (verifyResult.status === "paid") {
+          wx.showToast({ title: "支付成功", icon: "success" });
+        } else {
+          wx.showModal({
+            title: "支付确认中",
+            content: "支付已提交，积分会在微信确认后到账，请稍后刷新查看。",
+            showCancel: false,
+          });
+        }
         return;
       }
 
-      // 兜底：标准微信支付 JSAPI（wx.requestPayment）
-      if (res.payParams) {
-        await wx.requestPayment({
-          timeStamp: res.payParams.timeStamp,
-          nonceStr: res.payParams.nonceStr,
-          package: res.payParams.package,
-          signType: res.payParams.signType,
-          paySign: res.payParams.paySign,
-        });
-
-        // 主动向服务器确认支付
-        wx.showLoading({ title: "确认支付中", mask: true });
-        try {
-          await api.post("/api/payment/verify", { orderNo: res.orderNo });
-        } catch (e) {
-          console.error("[points] verify:", e);
-          try {
-            await new Promise(function (r) { setTimeout(r, 2000); });
-            await api.post("/api/payment/verify", { orderNo: res.orderNo });
-          } catch (e2) { console.error("[points] verify retry:", e2); }
-        }
-        wx.hideLoading();
-        wx.showToast({ title: "支付成功", icon: "success" });
-        self.setData({ paying: false, selectedIdx: -1 });
-        self.loadData();
-        return;
-      }
-
-      // 两种支付方式都不可用，走手动提示
       self.setData({ paying: false });
       wx.showModal({
-        title: "支付提示",
-        content: res.message || "支付暂未开通，请通过网页端 baojiaolian.com.cn 进行充值，或联系作者。",
+        title: "支付暂未开通",
+        content: res.message || "小程序虚拟支付暂未开通，请稍后重试。",
         showCancel: false,
       });
     } catch (e) {

@@ -1,14 +1,15 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import BottomNav from "@/components/BottomNav";
 import Header from "@/components/Header";
 import type { ReactNode } from "react";
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isLogin = pathname === "/login";
+  const isBare = pathname === "/login" || pathname === "/checkup";
 
-  if (isLogin) {
+  if (isBare) {
     return <>{children}</>;
   }
 
@@ -18,6 +19,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <div className="flex-1 overflow-y-auto">
         {children}
       </div>
+      <BottomNav />
     </div>
   );
 }

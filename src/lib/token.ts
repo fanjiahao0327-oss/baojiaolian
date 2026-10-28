@@ -1,5 +1,16 @@
 const SECRET = process.env.SESSION_SECRET;
 
+function constantTimeEqual(left: string, right: string): boolean {
+  var mismatch = left.length ^ right.length;
+  var maxLength = Math.max(left.length, right.length);
+  for (var i = 0; i < maxLength; i++) {
+    var leftCode = i < left.length ? left.charCodeAt(i) : 0;
+    var rightCode = i < right.length ? right.charCodeAt(i) : 0;
+    mismatch |= leftCode ^ rightCode;
+  }
+  return mismatch === 0;
+}
+
 async function sign(payload: string): Promise<string> {
   const encoder = new TextEncoder();
   const keyData = encoder.encode(SECRET!);
@@ -34,7 +45,7 @@ export async function verifyToken(token: string): Promise<number | null> {
 
     const [userIdStr, expiresStr, sig] = parts;
     const payload = `${userIdStr}.${expiresStr}`;
-    if ((await sign(payload)) !== sig) return null;
+    if (!constantTimeEqual(await sign(payload), sig)) return null;
 
     const expiresAt = Number(expiresStr);
     if (Date.now() > expiresAt) return null;

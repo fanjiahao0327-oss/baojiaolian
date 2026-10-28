@@ -1,0 +1,7 @@
+.env
+.env.*
+certs/
+data/
+node_modules/
+.next/
+*.tsbuildinfo

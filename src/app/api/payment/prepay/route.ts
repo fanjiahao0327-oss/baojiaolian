@@ -4,9 +4,9 @@ import { getSession } from "@/lib/auth";
 import { getDb, rows } from "@/lib/db";
 import { getPackageByPoints } from "@/lib/pricing";
 import { prepareVirtualPaymentParams, isVirtualPayConfigured } from "@/lib/midas";
-import { createJSAPIPrepay, generatePayParams } from "@/lib/wechatpay";
 import { rateLimit } from "@/lib/rate-limit";
 import { getBalance } from "@/lib/points";
+import { unsealWechatSessionKey } from "@/lib/wechat-session-key";
 
 function genOrderNo(): string {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -21,13 +21,11 @@ export async function POST(request: NextRequest) {
   }
   const userId = session.userId;
 
-  // 微信支付未配置时返回明确提示
-  if (!process.env.WECHAT_MCHID && !isVirtualPayConfigured()) {
+  if (!isVirtualPayConfigured()) {
     return NextResponse.json({
-      payParams: null,
       virtualPayParams: null,
-      message: "支付功能暂未开通，请通过网页端 baojiaolian.com.cn 进行充值。",
-    });
+      message: "小程序虚拟支付暂未开通，请完成微信官方虚拟支付配置后再发起购买。",
+    }, { status: 503 });
   }
 
   const rl = rateLimit(`payment:${userId}`, "payment");
@@ -47,66 +45,48 @@ export async function POST(request: NextRequest) {
 
     // 获取 openid
     const sql = getDb();
-    const userRows = await sql`SELECT wechat_openid FROM users WHERE id = ${userId}`;
-    const user = rows<{ wechat_openid: string | null }>(userRows)[0];
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS wechat_session_key TEXT`;
+    const userRows = await sql`SELECT wechat_openid, wechat_session_key FROM users WHERE id = ${userId}`;
+    const user = rows<{ wechat_openid: string | null; wechat_session_key: string | null }>(userRows)[0];
     if (!user?.wechat_openid) {
       return NextResponse.json({ error: "请先绑定微信" }, { status: 400 });
     }
 
-    const orderNo = genOrderNo();
-
-    // 创建本地订单（优先虚拟支付，兜底标准 JSAPI）
-    const useVirtualPay = isVirtualPayConfigured();
-    await sql`
-      INSERT INTO payment_orders (user_id, order_no, points, amount_cents, payment_method, status)
-      VALUES (${userId}, ${orderNo}, ${pkg.points}, ${pkg.amountCents}, ${useVirtualPay ? 'virtual_pay' : 'wechat'}, 'pending')
-    `;
-
-    // 优先使用虚拟支付（wx.requestVirtualPayment）
-    if (useVirtualPay) {
-      const vp = prepareVirtualPaymentParams({
-        openid: user.wechat_openid,
-        outTradeNo: orderNo,
-        buyQuantity: 1,
-        productId: pkg.id,
-        // env 由 midas.ts 内部根据 WECHAT_VIRTUAL_PAY_ENV 决定
-      });
-
-      await sql`
-        UPDATE payment_orders SET payment_ref = ${"VP-" + orderNo}, updated_at = NOW()
-        WHERE order_no = ${orderNo}
-      `;
-
-      const balance = await getBalance(userId);
-
-      return NextResponse.json({
-        orderNo,
-        virtualPayParams: vp,
-        points: pkg.points,
-        amountYuan: (pkg.amountCents / 100).toFixed(2),
-        balance,
-      });
+    const storedSessionKey = user.wechat_session_key
+      ? unsealWechatSessionKey(user.wechat_session_key)
+      : null;
+    const sessionKey = session.sessionKey || storedSessionKey;
+    if (!sessionKey) {
+      return NextResponse.json({ error: "请重新登录微信后再购买" }, { status: 401 });
     }
 
-    // 兜底：标准微信支付 JSAPI（旧方式）
-    const { prepay_id } = await createJSAPIPrepay({
-      openid: user.wechat_openid,
-      description: `${pkg.points} 积分`,
+    const orderNo = genOrderNo();
+
+    await sql`
+      INSERT INTO payment_orders (user_id, order_no, points, amount_cents, payment_method, status)
+      VALUES (${userId}, ${orderNo}, ${pkg.points}, ${pkg.amountCents}, 'virtual_pay', 'pending')
+    `;
+
+    const vp = prepareVirtualPaymentParams({
+      sessionKey,
       outTradeNo: orderNo,
-      amountCents: pkg.amountCents,
+      buyQuantity: 1,
+      productId: pkg.id,
+      goodsPrice: pkg.amountCents,
+      attach: orderNo,
+      // env 由 midas.ts 内部根据 WECHAT_VIRTUAL_PAY_ENV 决定
     });
 
     await sql`
-      UPDATE payment_orders SET payment_ref = ${prepay_id}, updated_at = NOW()
+      UPDATE payment_orders SET payment_ref = ${"VP-" + orderNo}, updated_at = NOW()
       WHERE order_no = ${orderNo}
     `;
 
-    const payParams = generatePayParams(prepay_id);
     const balance = await getBalance(userId);
 
     return NextResponse.json({
       orderNo,
-      payParams,
+      virtualPayParams: vp,
       points: pkg.points,
       amountYuan: (pkg.amountCents / 100).toFixed(2),
       balance,

@@ -89,29 +89,6 @@ const SECTIONS = [
   },
 ];
 
-// 预排序 sections：recommended 优先，optional 在后
-var SORTED_SECTIONS = SECTIONS.map(function (section) {
-  var sorted = section.fields.slice().sort(function (a, b) {
-    var pa = a.priority || (a.required ? "recommended" : "optional");
-    var pb = b.priority || (b.required ? "recommended" : "optional");
-    if (pa === "optional" && pb !== "optional") return 1;
-    if (pa !== "optional" && pb === "optional") return -1;
-    return 0;
-  });
-  var dividerIdx = -1;
-  for (var i = 0; i < sorted.length; i++) {
-    var p = sorted[i].priority || (sorted[i].required ? "recommended" : "optional");
-    if (p === "optional") { dividerIdx = i; break; }
-  }
-  return {
-    title: section.title,
-    recommended: dividerIdx >= 0 ? sorted.slice(0, dividerIdx) : sorted,
-    optional: dividerIdx >= 0 ? sorted.slice(dividerIdx) : [],
-    hasOptional: dividerIdx >= 0,
-    allFields: section.fields, // keep original for validation
-  };
-});
-
 var EMPTY_FORM = {};
 SECTIONS.forEach(function (s) {
   s.fields.forEach(function (f) {
@@ -124,21 +101,131 @@ SECTIONS.forEach(function (s) {
 });
 
 var LOADING_STAGES = [
-  "正在分析客户情况…",
-  "AI 教练生成诊断中…",
+  "正在整理客户背景…",
+  "正在匹配顾问式方法…",
+  "正在生成跟进建议…",
+  "内容较长，继续生成中…",
 ];
 
 var QUICK_FIELDS = ["clientName", "age", "gender", "clientIndustry", "annualIncome", "childrenDetail", "protectionInsurance", "triggerScenario", "clientOriginalWords", "clientObjection"];
+var QUICK_REQUIRED_FIELDS = ["clientName", "age", "gender", "triggerScenario", "clientOriginalWords"];
+var QUICK_FIELD_SET = QUICK_FIELDS.reduce(function (acc, key) {
+  acc[key] = true;
+  return acc;
+}, {});
+var DIAGNOSIS_SUPPLEMENT_SECTIONS = SECTIONS.map(function (section) {
+  return {
+    title: section.title,
+    fields: section.fields.filter(function (field) {
+      return !QUICK_FIELD_SET[field.key];
+    }),
+  };
+}).filter(function (section) {
+  return section.fields.length > 0;
+});
+
+var OBJECTION_SCENARIO_OPTIONS = [
+  { value: "after_meeting", label: "面谈后复盘" },
+  { value: "before_wechat", label: "微信跟进前" },
+  { value: "before_call", label: "电话跟进前" },
+  { value: "before_next_meeting", label: "下次见面前" },
+];
+
+var OBJECTION_GOAL_OPTIONS = [
+  { value: "wechat", label: "发微信" },
+  { value: "call", label: "打电话" },
+  { value: "next_meeting", label: "约下次见面" },
+  { value: "pause", label: "暂缓观察" },
+];
+
+var PREP_PURPOSE_OPTIONS = [
+  { value: "first_meeting", label: "初次面谈" },
+  { value: "second_meeting", label: "二次见面" },
+  { value: "policy_review", label: "保单检视" },
+  { value: "referral", label: "转介绍客户" },
+  { value: "existing_customer_addon", label: "老客户加保" },
+  { value: "other", label: "其他" },
+];
+
+var PREP_GOAL_OPTIONS = [
+  { value: "build_trust", label: "建立信任" },
+  { value: "discover_needs", label: "了解需求" },
+  { value: "book_next_meeting", label: "约下次" },
+  { value: "policy_review", label: "保单检视" },
+  { value: "solution_discussion", label: "方案沟通" },
+];
+
+var MEETING_REVIEW_RESULT_OPTIONS = [
+  { value: "interested", label: "有兴趣" },
+  { value: "hesitant", label: "犹豫" },
+  { value: "rejected", label: "明确拒绝" },
+  { value: "booked_next", label: "约了下次" },
+  { value: "family_discussion", label: "需要家人商量" },
+  { value: "info_missing", label: "信息不足" },
+];
+
+var MEETING_REVIEW_GOAL_OPTIONS = [
+  { value: "wechat", label: "发微信" },
+  { value: "call", label: "打电话" },
+  { value: "next_meeting", label: "约下次见面" },
+  { value: "send_material", label: "补充资料" },
+  { value: "pause", label: "暂缓观察" },
+];
+
+var EMPTY_OBJECTION_FORM = {
+  customerWords: "",
+  scenario: "after_meeting",
+  agentReply: "",
+  customerBackground: "",
+  nextGoal: "wechat",
+};
+
+var EMPTY_PREP_FORM = {
+  meetingPurpose: "first_meeting",
+  meetingBackground: "",
+  knownCustomerInfo: "",
+  worryPoint: "",
+  desiredOutcome: "discover_needs",
+};
+
+var EMPTY_MEETING_REVIEW_FORM = {
+  recap: "",
+  meetingResult: "info_missing",
+  customerQuotes: "",
+  agentResponse: "",
+  nextGoal: "wechat",
+};
 
 Page({
   data: {
     tab: "form",
-    quickMode: false,
+    workMode: "objection_followup",
+    conversationMode: "diagnosis",
+    showDeepDiagnosisFields: false,
     clients: [],
     selectedClientId: null,
+    selectedClientName: "",
+    lightClientName: "",
     formData: JSON.parse(JSON.stringify(EMPTY_FORM)),
-    sortedSections: SORTED_SECTIONS,
-    currentStep: 0,
+    objectionForm: JSON.parse(JSON.stringify(EMPTY_OBJECTION_FORM)),
+    preMeetingPrepForm: JSON.parse(JSON.stringify(EMPTY_PREP_FORM)),
+    meetingReviewForm: JSON.parse(JSON.stringify(EMPTY_MEETING_REVIEW_FORM)),
+    objectionScenarioOptions: OBJECTION_SCENARIO_OPTIONS,
+    objectionScenarioLabels: OBJECTION_SCENARIO_OPTIONS.map(function (item) { return item.label; }),
+    objectionScenarioIndex: 0,
+    objectionScenarioLabel: OBJECTION_SCENARIO_OPTIONS[0].label,
+    objectionGoalOptions: OBJECTION_GOAL_OPTIONS,
+    preMeetingPurposeOptions: PREP_PURPOSE_OPTIONS,
+    preMeetingPurposeLabels: PREP_PURPOSE_OPTIONS.map(function (item) { return item.label; }),
+    preMeetingPurposeIndex: 0,
+    preMeetingPurposeLabel: PREP_PURPOSE_OPTIONS[0].label,
+    preMeetingGoalOptions: PREP_GOAL_OPTIONS,
+    meetingReviewResultOptions: MEETING_REVIEW_RESULT_OPTIONS,
+    meetingReviewResultLabels: MEETING_REVIEW_RESULT_OPTIONS.map(function (item) { return item.label; }),
+    meetingReviewResultIndex: 5,
+    meetingReviewResultLabel: MEETING_REVIEW_RESULT_OPTIONS[5].label,
+    meetingReviewGoalOptions: MEETING_REVIEW_GOAL_OPTIONS,
+    diagnosisSupplementSections: DIAGNOSIS_SUPPLEMENT_SECTIONS,
     messages: [],
     followUp: "",
     isLoading: false,
@@ -149,6 +236,7 @@ Page({
     scrollToBottom: false,
     scrollIntoView: "",
     loadingText: LOADING_STAGES[0],
+    loadingSeconds: 0,
     isLoggedIn: false,
     needBindPhone: false,
     hidePhoneBanner: false,
@@ -159,17 +247,37 @@ Page({
     recording: false,
     voiceText: "",
     voiceParsingKyc: false,
-    expandedSections: {},
+    voiceTarget: "",
     balance: -1,
   },
 
   onLoad() {
     this._loadingTimer = null;
+    this._loadingStartedAt = 0;
     this._draftTimer = null;
     this._stageIndex = 0;
+    if (wx.showShareMenu) {
+      wx.showShareMenu({
+        menus: ["shareAppMessage", "shareTimeline"],
+      });
+    }
     this.checkLoginState();
     this.calcChatHeight();
     this.restoreDraft();
+  },
+
+  onShareAppMessage() {
+    return {
+      title: "AI 保险教练｜陪你做好每一次客户沟通",
+      path: "/pages/coach/coach",
+    };
+  },
+
+  onShareTimeline() {
+    return {
+      title: "AI 保险教练｜见前准备、客户诊断、面谈复盘",
+      query: "",
+    };
   },
 
   restoreDraft() {
@@ -217,6 +325,11 @@ Page({
       var id = app.globalData.continueClientId;
       app.globalData.continueClientId = null;
       this.selectClientById(id);
+    }
+    if (app.globalData.openConversation) {
+      var target = app.globalData.openConversation;
+      app.globalData.openConversation = null;
+      this.loadConversationById(target.conversationId, target.clientId);
     }
   },
 
@@ -272,8 +385,7 @@ Page({
         self.setData({ recording: false });
         if (res.result) {
           self.setData({ voiceText: res.result });
-          // 自动调用 AI 解析
-          self._parseVoiceText(res.result);
+          self._applyVoiceText(res.result);
         }
       };
       self._voiceManager.onError = function (res) {
@@ -294,10 +406,30 @@ Page({
   },
 
   cancelVoiceInput() {
+    this.setData({ recording: false, voiceText: "", voiceTarget: "" });
     if (this._voiceManager) {
       this._voiceManager.stop();
     }
-    this.setData({ recording: false, voiceText: "" });
+  },
+
+  startMeetingReviewVoiceInput() {
+    this.setData({ voiceTarget: "meetingReviewRecap" });
+    this.startVoiceInput();
+  },
+
+  _applyVoiceText(text) {
+    var clean = String(text || "").trim();
+    if (!clean) return;
+    if (this.data.voiceTarget === "meetingReviewRecap") {
+      var current = (this.data.meetingReviewForm.recap || "").trim();
+      this.setData({
+        "meetingReviewForm.recap": current ? current + "\n" + clean : clean,
+        voiceTarget: "",
+      });
+      wx.showToast({ title: "已填入面谈复盘", icon: "success" });
+      return;
+    }
+    this._parseVoiceText(clean);
   },
 
   // AI 解析语音文本，自动提取 KYC 信息
@@ -411,19 +543,28 @@ Page({
     this.setData({ chatScrollHeight: Math.max(h, 300) });
   },
 
-  // 流式请求 AI 教练（逐字输出）
+  // 请求 AI 教练。小程序端使用完整 JSON 响应，避免分块流式在部分微信环境中丢失结束信号。
   streamCoachRequest(params) {
     var self = this;
-    var { kycData, question, history, clientId } = params;
+    var { kycData, question, history, clientId, conversationId, mode, objectionFollowup, preMeetingPrep, meetingReview } = params;
 
     return new Promise(function (resolve, reject) {
-      var buffer = "";
-      var accumulatedText = "";
+      function applyCoachStreamError(message) {
+        self._stopLoadingText();
+        var emsgs = self.data.messages;
+        if (emsgs.length > 0) {
+          var elast = emsgs[emsgs.length - 1];
+          if (elast.role === "coach" && elast.streaming) {
+            elast.content = message || "抱歉，AI 服务暂时不可用，请稍后重试。";
+            delete elast.streaming;
+          }
+        }
+        self.setData({ messages: emsgs, isLoading: false });
+      }
 
       var reqTask = wx.request({
         url: getApp().globalData.apiBase + "/api/coach",
         method: "POST",
-        enableChunked: true,
         timeout: 180000,
         header: {
           "Content-Type": "application/json",
@@ -434,157 +575,69 @@ Page({
           question: question,
           history: history || [],
           clientId: clientId || null,
-          noStream: false,
-          format: "jsonl",
+          conversationId: conversationId || null,
+          mode: mode || "diagnosis",
+          objectionFollowup: objectionFollowup || null,
+          preMeetingPrep: preMeetingPrep || null,
+          meetingReview: meetingReview || null,
+          noStream: true,
         },
         success: function (res) {
-          // 如果 onChunkReceived 没有触发（降级），用完整响应兜底
-          if (!accumulatedText && res.data) {
-            try {
-              var fallback = typeof res.data === "string" ? res.data : JSON.stringify(res.data);
-              var lines = fallback.split("\n");
-              for (var j = 0; j < lines.length; j++) {
-                var line = lines[j].trim();
-                if (!line) continue;
-                try {
-                  var fb = JSON.parse(line);
-                  if (fb.type === "text" && fb.c) accumulatedText += fb.c;
-                  else if (fb.type === "done") {
-                    var fmsgs2 = self.data.messages;
-                    if (fmsgs2.length > 0) {
-                      var flast2 = fmsgs2[fmsgs2.length - 1];
-                      if (flast2.role === "coach" && flast2.streaming) {
-                        flast2.content = accumulatedText;
-                        flast2.contentHtml = fb.html || accumulatedText;
-                        delete flast2.streaming;
-                      }
-                    }
-                    self._stopLoadingText();
-                    self.setData({ messages: fmsgs2, isLoading: false, conversationId: fb.cid, lastPointCost: fb.pointCost });
-                    resolve({ conversationId: fb.cid });
-                    return;
-                  }
-                } catch (_) {}
-              }
-            } catch (_) {}
+          var data = res.data || {};
+          if (typeof data === "string") {
+            try { data = JSON.parse(data); } catch (_) { data = { content: data }; }
           }
-          if (!accumulatedText) {
-            self._stopLoadingText();
-            var fmsgs = self.data.messages;
-            if (fmsgs.length > 0) {
-              var flast = fmsgs[fmsgs.length - 1];
-              if (flast.role === "coach" && flast.streaming) {
-                flast.content = "抱歉，服务未返回结果，请重试。";
-                delete flast.streaming;
-              }
-            }
-            self.setData({ messages: fmsgs, isLoading: false });
+
+          if (res.statusCode === 401) {
+            applyCoachStreamError("请先登录后再使用 AI 教练。");
+            reject(new Error("未登录"));
+            return;
+          }
+          if (res.statusCode === 402) {
+            applyCoachStreamError("积分不足，请先充值后再使用 AI 教练。");
+            reject(new Error("积分不足"));
+            return;
+          }
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            var errorMessage = data.error || data.message || "抱歉，AI 服务暂时不可用，请稍后重试。";
+            applyCoachStreamError(errorMessage);
+            reject(new Error(errorMessage));
+            return;
+          }
+
+          if (!data.content) {
+            applyCoachStreamError("抱歉，服务未返回结果，请重试。");
             reject(new Error("No response received"));
             return;
           }
-          // 收到了分块内容但没收到 done 消息：兜底结束流式状态
+
+          var html = data.content;
+          var plainText = String(html).replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim();
           var fmsgs = self.data.messages;
           if (fmsgs.length > 0) {
             var flast = fmsgs[fmsgs.length - 1];
             if (flast.role === "coach" && flast.streaming) {
+              flast.content = plainText || html;
+              flast.contentHtml = html;
               delete flast.streaming;
             }
           }
           self._stopLoadingText();
-          self.setData({ messages: fmsgs, isLoading: false });
-          resolve({ conversationId: null });
+          self.setData({
+            messages: fmsgs,
+            isLoading: false,
+            conversationId: data.conversationId || conversationId || null,
+            lastPointCost: data.pointCost,
+          });
+          setTimeout(function () { self.scrollChatToBottom(); }, 300);
+          resolve({ conversationId: data.conversationId || conversationId || null });
         },
         fail: function (err) {
-          self._stopLoadingText();
-          // 移除流式占位消息，替换为错误提示
-          var fmsgs = self.data.messages;
-          if (fmsgs.length > 0) {
-            var flast = fmsgs[fmsgs.length - 1];
-            if (flast.role === "coach" && flast.streaming) {
-              flast.content = "抱歉，连接中断，请重试。";
-              delete flast.streaming;
-            }
-          }
-          self.setData({ messages: fmsgs, isLoading: false });
+          applyCoachStreamError("抱歉，连接中断，请重试。");
           reject(err);
         },
       });
-
-      reqTask.onChunkReceived(function (res) {
-        try {
-          var chunk = res.data;
-          if (chunk instanceof ArrayBuffer) {
-            chunk = new TextDecoder("utf-8").decode(new Uint8Array(chunk));
-          }
-          if (typeof chunk !== "string") return;
-
-          buffer += chunk;
-          // 处理完整的 JSON 行
-          var lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (var i = 0; i < lines.length; i++) {
-            var line = lines[i].trim();
-            if (!line) continue;
-
-            try {
-              var msg = JSON.parse(line);
-
-              if (msg.type === "text" && msg.c) {
-                accumulatedText += msg.c;
-                var msgs = self.data.messages;
-                if (msgs.length > 0) {
-                  var lastMsg = msgs[msgs.length - 1];
-                  if (lastMsg.role === "coach" && lastMsg.streaming) {
-                    lastMsg.content = accumulatedText;
-                    self.setData({ messages: msgs });
-                    // 滚动到底部
-                    setTimeout(function () { self.scrollChatToBottom(); }, 50);
-                  }
-                }
-              } else if (msg.type === "done") {
-                var msgs = self.data.messages;
-                if (msgs.length > 0) {
-                  var lastMsg = msgs[msgs.length - 1];
-                  if (lastMsg.role === "coach" && lastMsg.streaming) {
-                    lastMsg.content = accumulatedText;
-                    lastMsg.contentHtml = msg.html || accumulatedText;
-                    delete lastMsg.streaming;
-                  }
-                }
-                self._stopLoadingText();
-                self.setData({
-                  messages: msgs,
-                  isLoading: false,
-                  conversationId: msg.cid,
-                  lastPointCost: msg.pointCost,
-                });
-                setTimeout(function () { self.scrollChatToBottom(); }, 300);
-                resolve({ conversationId: msg.cid });
-              } else if (msg.type === "error") {
-                self._stopLoadingText();
-                self.setData({ isLoading: false });
-                reject(new Error(msg.msg || "服务错误"));
-              }
-            } catch (_) {
-              // 不完整的 JSON 行，继续累积
-            }
-          }
-        } catch (_) {
-          // 解析异常，忽略
-        }
-      });
     });
-  },
-
-  // 折叠/展开可选字段
-  toggleExpand(e) {
-    var step = e.currentTarget.dataset.step;
-    var expanded = this.data.expandedSections;
-    var newExpanded = {};
-    for (var k in expanded) { newExpanded[k] = expanded[k]; }
-    newExpanded[step] = !newExpanded[step];
-    this.setData({ expandedSections: newExpanded });
   },
 
   // picker 选择
@@ -623,23 +676,28 @@ Page({
     this.saveDraft();
   },
 
+  _mergeClientSnapshot(snapshot, fallbackName) {
+    if (typeof snapshot === "string") {
+      try { snapshot = JSON.parse(snapshot); } catch (e) { snapshot = {}; }
+    }
+    var merged = JSON.parse(JSON.stringify(EMPTY_FORM));
+    if (snapshot) {
+      for (var k in snapshot) {
+        if (snapshot.hasOwnProperty(k)) merged[k] = snapshot[k];
+      }
+    }
+    if (!merged.clientName && fallbackName) merged.clientName = fallbackName;
+    return merged;
+  },
+
   loadClientAndHistory(id) {
     var self = this;
     api.get("/api/clients/" + id + "?_=" + Date.now()).then(function (client) {
-      var snapshot = client.kyc_snapshot;
-      if (typeof snapshot === "string") {
-        try { snapshot = JSON.parse(snapshot); } catch (e) { snapshot = {}; }
-      }
-      // 合并 snapshot 到 EMPTY_FORM，保留数组类型字段
-      var merged = JSON.parse(JSON.stringify(EMPTY_FORM));
-      if (snapshot) {
-        for (var k in snapshot) {
-          if (snapshot.hasOwnProperty(k)) merged[k] = snapshot[k];
-        }
-      }
-      // 确保 checkbox-group 字段是数组
+      var merged = self._mergeClientSnapshot(client.kyc_snapshot, client.name || self._findClientNameById(id));
       self.setData({
         selectedClientId: Number(id),
+        selectedClientName: client.name || self._findClientNameById(id),
+        lightClientName: "",
         formData: merged,
         showClientPicker: false,
       });
@@ -651,22 +709,109 @@ Page({
       return null;
     }).then(function (conv) {
       if (conv && conv.messages) {
+        var firstMessage = String((conv.messages[0] && conv.messages[0].content) || "");
+        var inferredMode = "diagnosis";
+        if (firstMessage.indexOf("# 客户卡点跟进") >= 0 || firstMessage.indexOf("客户卡点跟进") === 0) {
+          inferredMode = "objection_followup";
+        } else if (firstMessage.indexOf("# 见前准备") >= 0 || firstMessage.indexOf("见前准备") === 0) {
+          inferredMode = "pre_meeting_prep";
+        } else if (firstMessage.indexOf("# 面谈复盘") >= 0 || firstMessage.indexOf("面谈复盘") === 0) {
+          inferredMode = "meeting_review";
+        }
         self.setData({
           messages: conv.messages,
           hasSubmitted: true,
           conversationId: conv.id,
           tab: "coach",
+          conversationMode: inferredMode,
+          workMode: inferredMode,
         });
       } else {
         self.setData({
           messages: [],
           hasSubmitted: false,
           conversationId: null,
+          conversationMode: "diagnosis",
           tab: "form",
         });
       }
     }).catch(function (e) {
       console.error("[coach] loadClientAndHistory:", e);
+    });
+  },
+
+  loadClientForDiagnosisForm(id) {
+    var self = this;
+    if (!id) return;
+    wx.showLoading({ title: "加载中" });
+    api.get("/api/clients/" + id + "?_=" + Date.now()).then(function (client) {
+      var clientName = client.name || self._findClientNameById(id);
+      var merged = self._mergeClientSnapshot(client.kyc_snapshot, clientName);
+      self.setData({
+        selectedClientId: Number(id),
+        selectedClientName: clientName,
+        lightClientName: "",
+        formData: merged,
+        messages: [],
+        hasSubmitted: false,
+        conversationId: null,
+        conversationMode: "diagnosis",
+        workMode: "diagnosis",
+        showClientPicker: false,
+        tab: "form",
+        isLoading: false,
+      });
+      wx.hideLoading();
+      wx.showToast({ title: "继续填写诊断", icon: "none" });
+    }).catch(function (e) {
+      console.error("[coach] loadClientForDiagnosisForm:", e);
+      wx.hideLoading();
+      wx.showToast({ title: "客户档案加载失败", icon: "none" });
+    });
+  },
+
+  _inferConversationMode(messages) {
+    var firstMessage = String((messages && messages[0] && messages[0].content) || "");
+    if (firstMessage.indexOf("# 客户卡点跟进") >= 0 || firstMessage.indexOf("客户卡点跟进") === 0) {
+      return "objection_followup";
+    }
+    if (firstMessage.indexOf("# 见前准备") >= 0 || firstMessage.indexOf("见前准备") === 0) {
+      return "pre_meeting_prep";
+    }
+    if (firstMessage.indexOf("# 面谈复盘") >= 0 || firstMessage.indexOf("面谈复盘") === 0) {
+      return "meeting_review";
+    }
+    return "diagnosis";
+  },
+
+  loadConversationById(conversationId, clientId) {
+    var self = this;
+    if (!conversationId) return;
+    wx.showLoading({ title: "加载中" });
+    api.get("/api/conversations/" + conversationId).then(function (conv) {
+      var messages = conv && conv.messages ? conv.messages : [];
+      var inferredMode = self._inferConversationMode(messages);
+      var resolvedClientId = clientId
+        ? Number(clientId)
+        : (conv && (conv.clientId || conv.client_id) ? Number(conv.clientId || conv.client_id) : null);
+      self.setData({
+        selectedClientId: resolvedClientId,
+        selectedClientName: resolvedClientId ? self._findClientNameById(resolvedClientId) : "",
+        lightClientName: "",
+        messages: messages,
+        hasSubmitted: messages.length > 0,
+        conversationId: Number(conversationId),
+        tab: "coach",
+        conversationMode: inferredMode,
+        workMode: inferredMode,
+        isLoading: false,
+      });
+      setTimeout(function () { self.scrollChatToBottom(); }, 300);
+    }).catch(function (e) {
+      console.error("[coach] loadConversationById:", e);
+      wx.showToast({ title: "历史记录加载失败", icon: "none" });
+    }).finally(function () {
+      wx.hideLoading();
     });
   },
 
@@ -690,6 +835,55 @@ Page({
     this.setData({ showClientPicker: !this.data.showClientPicker });
   },
 
+  _findClientNameById(id) {
+    var targetId = Number(id);
+    var list = this.data.clients || [];
+    for (var i = 0; i < list.length; i++) {
+      if (Number(list[i].id) === targetId) return list[i].name || "";
+    }
+    return "";
+  },
+
+  onLightClientNameInput(e) {
+    this.setData({ lightClientName: e.detail.value || "" });
+  },
+
+  _requireLightClientName() {
+    if (this.data.selectedClientId) return true;
+    if ((this.data.lightClientName || "").trim()) return true;
+    wx.showToast({ title: "请先选择客户或填写客户称呼", icon: "none" });
+    return false;
+  },
+
+  _ensureLightClientContext(snapshot) {
+    var self = this;
+    if (self.data.selectedClientId) {
+      return Promise.resolve(Number(self.data.selectedClientId));
+    }
+
+    var name = (self.data.lightClientName || "").trim();
+    if (!name) {
+      return Promise.reject(new Error("missing light client name"));
+    }
+
+    var kycSnapshot = Object.assign({ clientName: name }, snapshot || {});
+    return api.post("/api/clients", {
+      name: name,
+      kycSnapshot: kycSnapshot,
+    }).then(function (res) {
+      var id = Number(res.id);
+      self.setData({
+        selectedClientId: id,
+        selectedClientName: name,
+        lightClientName: "",
+      });
+      self.loadClients();
+      return id;
+    }).catch(function () {
+      throw new Error("create light client failed");
+    });
+  },
+
   _formHasData() {
     var fd = this.data.formData;
     for (var i = 0; i < SECTIONS.length; i++) {
@@ -707,6 +901,8 @@ Page({
     if (!id) {
       self.setData({
         selectedClientId: null,
+        selectedClientName: "",
+        lightClientName: "",
         formData: JSON.parse(JSON.stringify(EMPTY_FORM)),
         messages: [],
         hasSubmitted: false,
@@ -723,15 +919,35 @@ Page({
   selectClient(e) {
     var self = this;
     var id = e.currentTarget.dataset.id;
+    if (
+      self.data.workMode === "objection_followup" ||
+      self.data.workMode === "pre_meeting_prep" ||
+      self.data.workMode === "meeting_review"
+    ) {
+      self.setData({
+        selectedClientId: id ? Number(id) : null,
+        selectedClientName: id ? self._findClientNameById(id) : "",
+        lightClientName: "",
+        showClientPicker: false,
+      });
+      return;
+    }
     if (self._formHasData()) {
       self.setData({ showClientPicker: false });
       wx.showModal({
         title: "切换客户",
         content: "切换客户会丢失当前填写内容，是否继续？",
         success: function (res) {
-          if (res.confirm) self._confirmSwitchClient(id);
+          if (!res.confirm) return;
+          if (id) {
+            self.loadClientForDiagnosisForm(id);
+          } else {
+            self._confirmSwitchClient(id);
+          }
         },
       });
+    } else if (id) {
+      self.loadClientForDiagnosisForm(id);
     } else {
       self._confirmSwitchClient(id);
     }
@@ -746,35 +962,297 @@ Page({
     this.saveDraft();
   },
 
-  nextStep() {
-    var currentStep = this.data.currentStep;
-    var section = SECTIONS[currentStep];
-    var formData = this.data.formData;
-    var missing = null;
-    for (var i = 0; i < section.fields.length; i++) {
-      var f = section.fields[i];
-      if (!f.required) continue;
-      var v = formData[f.key];
-      if (Array.isArray(v) ? v.length === 0 : !v) {
-        missing = f;
-        break;
-      }
-    }
-    if (missing) {
-      wx.showToast({ title: "请填写：" + missing.label, icon: "none" });
-      return;
-    }
-    if (currentStep < SECTIONS.length - 1) {
-      this.setData({ currentStep: currentStep + 1 });
-      wx.pageScrollTo({ scrollTop: 0, duration: 200 });
-    }
+  switchWorkMode(e) {
+    var mode = e.currentTarget.dataset.mode;
+    if (!mode || mode === this.data.workMode) return;
+    this.setData({ workMode: mode });
   },
 
-  prevStep() {
-    if (this.data.currentStep > 0) {
-      this.setData({ currentStep: this.data.currentStep - 1 });
-      wx.pageScrollTo({ scrollTop: 0, duration: 200 });
+  onObjectionFieldChange(e) {
+    var key = e.currentTarget.dataset.key;
+    var data = {};
+    data["objectionForm." + key] = e.detail.value || "";
+    this.setData(data);
+  },
+
+  onObjectionScenarioChange(e) {
+    var idx = Number(e.detail.value || 0);
+    var option = OBJECTION_SCENARIO_OPTIONS[idx] || OBJECTION_SCENARIO_OPTIONS[0];
+    this.setData({
+      objectionScenarioIndex: idx,
+      objectionScenarioLabel: option.label,
+      "objectionForm.scenario": option.value,
+    });
+  },
+
+  onObjectionGoalChange(e) {
+    var value = e.currentTarget.dataset.value;
+    if (!value) return;
+    this.setData({ "objectionForm.nextGoal": value });
+  },
+
+  onPreMeetingPrepFieldChange(e) {
+    var key = e.currentTarget.dataset.key;
+    var data = {};
+    data["preMeetingPrepForm." + key] = e.detail.value || "";
+    this.setData(data);
+  },
+
+  onPreMeetingPurposeChange(e) {
+    var idx = Number(e.detail.value || 0);
+    var option = PREP_PURPOSE_OPTIONS[idx] || PREP_PURPOSE_OPTIONS[0];
+    this.setData({
+      preMeetingPurposeIndex: idx,
+      preMeetingPurposeLabel: option.label,
+      "preMeetingPrepForm.meetingPurpose": option.value,
+    });
+  },
+
+  onPreMeetingGoalChange(e) {
+    var value = e.currentTarget.dataset.value;
+    if (!value) return;
+    this.setData({ "preMeetingPrepForm.desiredOutcome": value });
+  },
+
+  onMeetingReviewFieldChange(e) {
+    var key = e.currentTarget.dataset.key;
+    var data = {};
+    data["meetingReviewForm." + key] = e.detail.value || "";
+    this.setData(data);
+  },
+
+  onMeetingReviewResultChange(e) {
+    var idx = Number(e.detail.value || 0);
+    var option = MEETING_REVIEW_RESULT_OPTIONS[idx] || MEETING_REVIEW_RESULT_OPTIONS[5];
+    this.setData({
+      meetingReviewResultIndex: idx,
+      meetingReviewResultLabel: option.label,
+      "meetingReviewForm.meetingResult": option.value,
+    });
+  },
+
+  onMeetingReviewGoalChange(e) {
+    var value = e.currentTarget.dataset.value;
+    if (!value) return;
+    this.setData({ "meetingReviewForm.nextGoal": value });
+  },
+
+  submitObjectionFollowup() {
+    var self = this;
+    var raw = self.data.objectionForm;
+    var payload = {
+      customerWords: (raw.customerWords || "").trim(),
+      scenario: raw.scenario || "after_meeting",
+      agentReply: (raw.agentReply || "").trim(),
+      customerBackground: (raw.customerBackground || "").trim(),
+      nextGoal: raw.nextGoal || "wechat",
+    };
+    if (!payload.customerWords) {
+      wx.showToast({ title: "请填写客户原话", icon: "none" });
+      return;
     }
+    if (!self._requireLightClientName()) return;
+
+    self.ensureLogin().then(function () {
+      return self._ensureLightClientContext({
+        clientOriginalWords: payload.customerWords,
+        clientObjection: payload.customerWords,
+        agentResponse: payload.agentReply,
+        pastInteraction: payload.customerBackground,
+      });
+    }).then(function () {
+      self._doSubmitObjectionFollowup(payload);
+    }).catch(function (err) {
+      wx.showToast({
+        title: err && err.message === "create light client failed" ? "创建客户失败，请重试" : "登录失败，请重试",
+        icon: "none",
+      });
+    });
+  },
+
+  _doSubmitObjectionFollowup(payload) {
+    var self = this;
+    var userContent = "客户卡点跟进：" + payload.customerWords;
+    var userMsg = { role: "user", content: userContent, timestamp: Date.now() };
+    var placeholderMsg = { role: "coach", content: "", timestamp: Date.now() + 1, streaming: true };
+
+    self.setData({
+      isLoading: true,
+      hasSubmitted: true,
+      tab: "coach",
+      messages: [userMsg, placeholderMsg],
+      conversationId: null,
+      conversationMode: "objection_followup",
+      lastPointCost: null,
+    });
+    self._startLoadingText();
+
+    self.streamCoachRequest({
+      kycData: {},
+      question: userContent,
+      history: [],
+      clientId: self.data.selectedClientId,
+      conversationId: null,
+      mode: "objection_followup",
+      objectionFollowup: payload,
+    }).then(function () {
+      // 已在完整响应中处理完成
+    }).catch(function () {
+      self._stopLoadingText();
+      var msgs = self.data.messages;
+      if (msgs.length > 0) {
+        var last = msgs[msgs.length - 1];
+        if (last.role === "coach" && last.streaming) {
+          msgs[msgs.length - 1] = { role: "coach", content: "提交失败，请稍后重试。", timestamp: Date.now() };
+        }
+      }
+      self.setData({ messages: msgs, isLoading: false });
+    });
+  },
+
+  submitPreMeetingPrep() {
+    var self = this;
+    var raw = self.data.preMeetingPrepForm;
+    var payload = {
+      meetingPurpose: raw.meetingPurpose || "first_meeting",
+      meetingBackground: (raw.meetingBackground || "").trim(),
+      knownCustomerInfo: (raw.knownCustomerInfo || "").trim(),
+      worryPoint: (raw.worryPoint || "").trim(),
+      desiredOutcome: raw.desiredOutcome || "discover_needs",
+    };
+    if (!payload.meetingBackground) {
+      wx.showToast({ title: "请填写见面背景", icon: "none" });
+      return;
+    }
+    if (!self._requireLightClientName()) return;
+
+    self.ensureLogin().then(function () {
+      return self._ensureLightClientContext({
+        clientOriginalWords: payload.meetingBackground,
+        pastInteraction: payload.knownCustomerInfo,
+        step1Notes: payload.worryPoint,
+      });
+    }).then(function () {
+      self._doSubmitPreMeetingPrep(payload);
+    }).catch(function (err) {
+      wx.showToast({
+        title: err && err.message === "create light client failed" ? "创建客户失败，请重试" : "登录失败，请重试",
+        icon: "none",
+      });
+    });
+  },
+
+  _doSubmitPreMeetingPrep(payload) {
+    var self = this;
+    var purposeLabel = self.data.preMeetingPurposeLabel || "见前准备";
+    var userContent = "见前准备：" + purposeLabel + "｜" + payload.meetingBackground;
+    var userMsg = { role: "user", content: userContent, timestamp: Date.now() };
+    var placeholderMsg = { role: "coach", content: "", timestamp: Date.now() + 1, streaming: true };
+
+    self.setData({
+      isLoading: true,
+      hasSubmitted: true,
+      tab: "coach",
+      messages: [userMsg, placeholderMsg],
+      conversationId: null,
+      conversationMode: "pre_meeting_prep",
+      lastPointCost: null,
+    });
+    self._startLoadingText();
+
+    self.streamCoachRequest({
+      kycData: {},
+      question: userContent,
+      history: [],
+      clientId: self.data.selectedClientId,
+      conversationId: null,
+      mode: "pre_meeting_prep",
+      preMeetingPrep: payload,
+    }).then(function () {
+      // 已在完整响应中处理完成
+    }).catch(function () {
+      self._stopLoadingText();
+      var msgs = self.data.messages;
+      if (msgs.length > 0) {
+        var last = msgs[msgs.length - 1];
+        if (last.role === "coach" && last.streaming) {
+          msgs[msgs.length - 1] = { role: "coach", content: "提交失败，请稍后重试。", timestamp: Date.now() };
+        }
+      }
+      self.setData({ messages: msgs, isLoading: false });
+    });
+  },
+
+  submitMeetingReview() {
+    var self = this;
+    var raw = self.data.meetingReviewForm;
+    var payload = {
+      recap: (raw.recap || "").trim(),
+      meetingResult: raw.meetingResult || "info_missing",
+      customerQuotes: (raw.customerQuotes || "").trim(),
+      agentResponse: (raw.agentResponse || "").trim(),
+      nextGoal: raw.nextGoal || "wechat",
+    };
+    if (!payload.recap) {
+      wx.showToast({ title: "请填写面谈过程复盘", icon: "none" });
+      return;
+    }
+    if (!self._requireLightClientName()) return;
+
+    self.ensureLogin().then(function () {
+      return self._ensureLightClientContext({
+        pastInteraction: payload.recap,
+        clientObjection: payload.customerQuotes,
+        agentResponse: payload.agentResponse,
+        step1Notes: "面谈结果：" + (self.data.meetingReviewResultLabel || "信息不足"),
+      });
+    }).then(function () {
+      self._doSubmitMeetingReview(payload);
+    }).catch(function (err) {
+      wx.showToast({
+        title: err && err.message === "create light client failed" ? "创建客户失败，请重试" : "登录失败，请重试",
+        icon: "none",
+      });
+    });
+  },
+
+  _doSubmitMeetingReview(payload) {
+    var self = this;
+    var resultLabel = self.data.meetingReviewResultLabel || "面谈复盘";
+    var userContent = "面谈复盘：" + resultLabel + "｜" + payload.recap;
+    var userMsg = { role: "user", content: userContent, timestamp: Date.now() };
+    var placeholderMsg = { role: "coach", content: "", timestamp: Date.now() + 1, streaming: true };
+
+    self.setData({
+      isLoading: true,
+      hasSubmitted: true,
+      tab: "coach",
+      messages: [userMsg, placeholderMsg],
+      conversationId: null,
+      conversationMode: "meeting_review",
+      lastPointCost: null,
+    });
+    self._startLoadingText();
+
+    self.streamCoachRequest({
+      kycData: {},
+      question: userContent,
+      history: [],
+      clientId: self.data.selectedClientId,
+      conversationId: null,
+      mode: "meeting_review",
+      meetingReview: payload,
+    }).catch(function () {
+      self._stopLoadingText();
+      var msgs = self.data.messages;
+      if (msgs.length > 0) {
+        var last = msgs[msgs.length - 1];
+        if (last.role === "coach" && last.streaming) {
+          msgs[msgs.length - 1] = { role: "coach", content: "提交失败，请稍后重试。", timestamp: Date.now() };
+        }
+      }
+      self.setData({ messages: msgs, isLoading: false });
+    });
   },
 
   ensureLogin() {
@@ -810,38 +1288,21 @@ Page({
     var formData = self.data.formData;
     var missing = null;
 
-    if (self.data.quickMode) {
-      // 快速模式：仅校验 5 个核心字段
-      for (var i = 0; i < QUICK_FIELDS.length; i++) {
-        var key = QUICK_FIELDS[i];
-        var v = formData[key];
-        if (!v) {
-          for (var si = 0; si < SECTIONS.length; si++) {
-            for (var fi = 0; fi < SECTIONS[si].fields.length; fi++) {
-              if (SECTIONS[si].fields[fi].key === key) {
-                missing = SECTIONS[si].fields[fi];
-                break;
-              }
+    // 客户诊断：只校验核心字段，补充信息填了会提升准确度，但不阻塞提交。
+    for (var i = 0; i < QUICK_REQUIRED_FIELDS.length; i++) {
+      var key = QUICK_REQUIRED_FIELDS[i];
+      var v = formData[key];
+      if (!v) {
+        for (var si = 0; si < SECTIONS.length; si++) {
+          for (var fi = 0; fi < SECTIONS[si].fields.length; fi++) {
+            if (SECTIONS[si].fields[fi].key === key) {
+              missing = SECTIONS[si].fields[fi];
+              break;
             }
-            if (missing) break;
           }
-          break;
+          if (missing) break;
         }
-      }
-    } else {
-      // 完整模式：校验所有必填字段
-      for (var si = 0; si < SECTIONS.length; si++) {
-        var fields = SECTIONS[si].fields;
-        for (var fi = 0; fi < fields.length; fi++) {
-          var f = fields[fi];
-          if (!f.required) continue;
-          var v2 = formData[f.key];
-          if (Array.isArray(v2) ? v2.length === 0 : !v2) {
-            missing = f;
-            break;
-          }
-        }
-        if (missing) break;
+        break;
       }
     }
     if (missing) {
@@ -860,22 +1321,17 @@ Page({
   _doSubmit() {
     var self = this;
     var formData = self.data.formData;
-    var userContent = self.data.quickMode
-      ? self.buildQuickUserContent()
-      : self.buildUserContent();
+    var userContent = self.buildCustomerDiagnosisUserContent();
+    var kycData = self._pickDiagnosisKycFields(formData);
 
-    var kycData = self.data.quickMode
-      ? self._pickQuickKycFields(formData)
-      : formData;
-
-    // 快速模式未选客户时：先用名称自动创建客户，避免与完整模式的对话混到同一个客户下
-    if (self.data.quickMode && !self.data.selectedClientId) {
-      var clientName = (formData.clientName || "").trim() || "快速诊断客户";
+    // 客户诊断未选客户时：先用名称自动创建客户，避免无归属历史。
+    if (!self.data.selectedClientId) {
+      var clientName = (formData.clientName || "").trim() || "客户诊断客户";
       api.post("/api/clients", {
         name: clientName,
         kycSnapshot: kycData
       }).then(function (res) {
-        self.setData({ selectedClientId: res.id });
+        self.setData({ selectedClientId: res.id, selectedClientName: clientName });
         self._doSubmitCore(userContent, kycData);
       }).catch(function () {
         wx.showToast({ title: "创建客户失败，请重试", icon: "none" });
@@ -899,6 +1355,7 @@ Page({
       tab: "coach",
       messages: [userMsg, placeholderMsg],
       conversationId: null,
+      conversationMode: "diagnosis",
     });
     self._startLoadingText();
     self.clearDraft();
@@ -908,11 +1365,12 @@ Page({
       question: userContent,
       history: [],
       clientId: self.data.selectedClientId,
+      conversationId: null,
     }).then(function () {
-      // 已在 onChunkReceived 中处理完成
+      // 已在完整响应中处理完成
     }).catch(function () {
       self._stopLoadingText();
-      // 流式传输中断时，尝试从服务端恢复最新对话（AI 可能已在服务端完成处理）
+      // 请求中断时，尝试从服务端恢复最新对话（AI 可能已在服务端完成处理）
       api.get("/api/conversations?limit=1").then(function (list) {
         if (list && list.length > 0 && list[0].id) {
           wx.showLoading({ title: "加载中" });
@@ -921,7 +1379,7 @@ Page({
         return null;
       }).then(function (detail) {
         if (detail && detail.messages && detail.messages.length > 1) {
-          // 找到未完成的流式占位消息，替换为完整内容
+          // 找到未完成的占位消息，替换为完整内容
           var recovered = detail.messages.map(function (m) {
             if (m.role === "coach" && m.contentHtml) {
               return { role: "coach", content: m.content || m.contentHtml, contentHtml: m.contentHtml, timestamp: m.timestamp };
@@ -941,66 +1399,12 @@ Page({
     });
   },
 
-  buildUserContent() {
-    var d = this.data.formData;
-    var kv = function (label, val) { return "- " + label + "：" + (val || "未填写"); };
-    return "客户信息：\n\n" +
-      "## 客户画像与生活状态\n" +
-      kv("名称", d.clientName) + "\n" +
-      kv("性别", d.gender === "male" ? "男" : d.gender === "female" ? "女" : "") + "\n" +
-      kv("年龄", d.age) + "\n" +
-      kv("所在城市", d.city) + "\n" +
-      kv("身体情况", d.healthCondition) + "\n" +
-      kv("婚姻状况", d.maritalStatus) + "\n" +
-      kv("子女详情", d.childrenDetail) + "\n" +
-      kv("父母情况", d.parentsDetail) + "\n" +
-      kv("性格特征", d.personality) + "\n" +
-      kv("兴趣爱好", d.hobbies) + "\n" +
-      kv("补充信息", d.step1Notes) + "\n\n" +
-      "## 工作与收支\n" +
-      kv("行业", d.clientIndustry) + "\n" +
-      kv("公司", d.clientCompany) + "\n" +
-      kv("职责&职位", d.clientPosition) + "\n" +
-      kv("职业发展空间", d.careerDevelopment) + "\n" +
-      kv("家庭经济支柱", d.breadwinner) + "\n" +
-      kv("主要收入来源", d.incomeSources) + "\n" +
-      kv("家庭年收入（万元）", d.annualIncome) + "\n" +
-      kv("配偶行业", d.spouseIndustry) + "\n" +
-      kv("配偶公司", d.spouseCompany) + "\n" +
-      kv("配偶职责&职位", d.spousePosition) + "\n" +
-      kv("月度固定支出（万元）", d.monthlyExpense) + "\n" +
-      kv("未来大额支出计划", d.majorExpensePlan) + "\n" +
-      kv("补充信息", d.step2Notes) + "\n\n" +
-      "## 资产情况\n" +
-      kv("固定资产", d.fixedAssets) + "\n" +
-      kv("流动资产合计（万元）", d.liquidAssets) + "\n" +
-      kv("负债情况", d.liabilities) + "\n" +
-      kv("投资金额（万元）", d.investmentAmount) + "\n" +
-      kv("投资偏好", d.investmentStyle) + "\n" +
-      kv("风险承受能力", d.riskTolerance) + "\n" +
-      kv("支出压力感知", d.expensePressure) + "\n" +
-      kv("补充信息", d.step3Notes) + "\n\n" +
-      "## 已有保障\n" +
-      kv("保障类保险", d.protectionInsurance) + "\n" +
-      kv("储蓄类保险", d.savingsInsurance) + "\n" +
-      kv("对保险的态度", d.insuranceAttitude) + "\n" +
-      kv("其他保险", d.otherInsurance) + "\n" +
-      kv("补充信息", d.step4Notes) + "\n\n" +
-      "## 本次面谈入口\n" +
-      kv("触发场景", d.triggerScenario) + "\n" +
-      kv("客户原话或背景描述", d.clientOriginalWords) + "\n" +
-      kv("历史互动摘要", d.pastInteraction) + "\n\n" +
-      "## 当前卡点\n" +
-      kv("客户提出的异议或卡点原话", d.clientObjection) + "\n" +
-      kv("代理人当时的回应方式简述", d.agentResponse) + "\n\n" +
-      "请给出：1. 卡点诊断 2. 推演方向 3. 建议话术";
-  },
-
-  buildQuickUserContent() {
+  buildCustomerDiagnosisUserContent() {
     var d = this.data.formData;
     var kv = function (label, val) { return "- " + label + "：" + (val || "未填写"); };
     var genderLabel = d.gender === "male" ? "男" : d.gender === "female" ? "女" : "";
-    return "快速诊断模式：\n\n" +
+    var supplemental = this._buildSupplementalDiagnosisContent();
+    return "客户诊断模式：\n\n" +
       "## 客户画像\n" +
       kv("名称", d.clientName) + "\n" +
       kv("年龄", d.age) + "\n" +
@@ -1014,17 +1418,48 @@ Page({
       kv("触发场景", d.triggerScenario) + "\n" +
       kv("客户原话或背景描述", d.clientOriginalWords) + "\n" +
       kv("客户异议/卡点", d.clientObjection) + "\n\n" +
-      "请基于以上信息给出：1. 卡点诊断 2. 推演方向 3. 建议话术（话术可含待确认信息的提问方式）";
+      supplemental +
+      "请基于以上信息给出：1. 客户当前优先沟通方向 2. 还缺哪些关键信息 3. 下一步先问什么 4. 建议话术（话术可含待确认信息的提问方式）";
   },
 
-  _pickQuickKycFields(formData) {
-    var picked = {};
-    for (var i = 0; i < QUICK_FIELDS.length; i++) {
-      var k = QUICK_FIELDS[i];
-      if (formData[k] !== undefined && formData[k] !== "") {
-        picked[k] = formData[k];
+  _buildSupplementalDiagnosisContent() {
+    var self = this;
+    var d = self.data.formData;
+    var blocks = [];
+    var formatVal = function (val) {
+      if (Array.isArray(val)) return val.join("、");
+      if (val === undefined || val === null) return "";
+      return String(val).trim();
+    };
+
+    DIAGNOSIS_SUPPLEMENT_SECTIONS.forEach(function (section) {
+      var lines = [];
+      section.fields.forEach(function (field) {
+        var val = formatVal(d[field.key]);
+        if (val) lines.push("- " + field.label + "：" + val);
+      });
+      if (lines.length > 0) {
+        blocks.push("## 补充信息：" + section.title + "\n" + lines.join("\n"));
       }
-    }
+    });
+
+    return blocks.length ? blocks.join("\n\n") + "\n\n" : "";
+  },
+
+  _pickDiagnosisKycFields(formData) {
+    var picked = {};
+    SECTIONS.forEach(function (section) {
+      section.fields.forEach(function (field) {
+        var value = formData[field.key];
+        if (Array.isArray(value)) {
+          if (value.length > 0) picked[field.key] = value;
+          return;
+        }
+        if (value !== undefined && value !== null && String(value).trim() !== "") {
+          picked[field.key] = value;
+        }
+      });
+    });
     return picked;
   },
 
@@ -1060,8 +1495,10 @@ Page({
       question: question,
       history: prevMessages,
       clientId: self.data.selectedClientId,
+      conversationId: self.data.conversationId,
+      mode: self.data.conversationMode,
     }).then(function () {
-      // 已在 onChunkReceived 中处理完成
+      // 已在完整响应中处理完成
     }).catch(function () {
       self._stopLoadingText();
       var errMsg = { role: "coach", content: "抱歉，发生了错误，请稍后重试。", timestamp: Date.now() };
@@ -1070,6 +1507,8 @@ Page({
         var lastMsg = currentMessages[currentMessages.length - 1];
         if (lastMsg.role === "coach" && lastMsg.streaming) {
           currentMessages[currentMessages.length - 1] = errMsg;
+        } else if (lastMsg.role === "coach" && lastMsg.content) {
+          // 请求函数已经展示了更具体的错误文案，不再追加泛化错误。
         } else {
           currentMessages.push(errMsg);
         }
@@ -1082,12 +1521,19 @@ Page({
 
   _startLoadingText() {
     var self = this;
+    if (self._loadingTimer) {
+      clearInterval(self._loadingTimer);
+      self._loadingTimer = null;
+    }
+    self._loadingStartedAt = Date.now();
     self._stageIndex = 0;
-    self.setData({ loadingText: LOADING_STAGES[0] });
+    self.setData({ loadingText: LOADING_STAGES[0], loadingSeconds: 0 });
     self._loadingTimer = setInterval(function () {
-      self._stageIndex = (self._stageIndex + 1) % LOADING_STAGES.length;
-      self.setData({ loadingText: LOADING_STAGES[self._stageIndex] });
-    }, 2500);
+      var elapsed = Math.floor((Date.now() - self._loadingStartedAt) / 1000);
+      var stageIndex = Math.min(Math.floor(elapsed / 8), LOADING_STAGES.length - 1);
+      self._stageIndex = stageIndex;
+      self.setData({ loadingSeconds: elapsed, loadingText: LOADING_STAGES[stageIndex] });
+    }, 1000);
   },
 
   _stopLoadingText() {
@@ -1095,6 +1541,8 @@ Page({
       clearInterval(this._loadingTimer);
       this._loadingTimer = null;
     }
+    this._loadingStartedAt = 0;
+    this.setData({ loadingSeconds: 0, loadingText: LOADING_STAGES[0] });
   },
 
   onChatScroll(e) {
@@ -1154,9 +1602,8 @@ Page({
     wx.switchTab({ url: "/pages/points/points" });
   },
 
-  toggleQuickMode() {
-    var newMode = !this.data.quickMode;
-    this.setData({ quickMode: newMode, currentStep: 0 });
+  toggleDeepDiagnosisFields() {
+    this.setData({ showDeepDiagnosisFields: !this.data.showDeepDiagnosisFields });
   },
 
   switchTab(e) {

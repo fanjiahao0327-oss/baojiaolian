@@ -14,10 +14,11 @@
   <!-- 顶部 Tab + 客户选择 -->
   <view class="top-bar">
     <view class="tabs">
-      <view class="tab-item {{tab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">信息填写</view>
+      <view class="tab-item {{tab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">{{workMode === 'objection_followup' ? '卡点跟进' : (workMode === 'pre_meeting_prep' ? '见前准备' : (workMode === 'meeting_review' ? '面谈复盘' : '客户诊断'))}}</view>
       <view class="tab-item {{tab === 'coach' ? 'active' : ''}}" data-tab="coach" bindtap="switchTab">教练指导</view>
     </view>
     <view class="top-right">
+      <button class="share-entry-btn" open-type="share">分享</button>
       <!-- 未登录：显示登录入口 -->
       <button wx:if="{{!isLoggedIn}}" class="login-entry-btn" bindtap="handleWechatLogin" loading="{{logining}}" disabled="{{logining}}">
         登录
@@ -27,10 +28,6 @@
         <text class="balance-dot"></text>
         <text>{{balance}} 积分</text>
       </view>
-      <view class="client-picker-btn" bindtap="toggleClientPicker" wx:if="{{isLoggedIn}}">
-        <text>{{selectedClientId ? '已选客户' : '选择客户'}}</text>
-        <text class="arrow">▾</text>
-      </view>
     </view>
   </view>
 
@@ -38,255 +35,336 @@
   <view class="picker-overlay" wx:if="{{showClientPicker}}" bindtap="toggleClientPicker"></view>
   <view class="picker-popup {{showClientPicker ? 'show' : ''}}">
     <view class="picker-title">选择客户</view>
-    <view class="picker-option" data-id="" bindtap="selectClient">+ 新建客户</view>
+    <view class="picker-option" data-id="" bindtap="selectClient">{{workMode === 'diagnosis' ? '+ 新建客户' : '不选择已有客户'}}</view>
     <view class="picker-option" wx:for="{{clients}}" wx:key="id" data-id="{{item.id}}" bindtap="selectClient">{{item.name}}</view>
   </view>
 
   <!-- KYC 步骤式表单 -->
   <view class="form-area" wx:if="{{tab === 'form'}}">
 
-    <!-- 快速模式切换 -->
-    <view class="quick-mode-toggle" bindtap="toggleQuickMode">
-      <view class="qmt-track {{quickMode ? 'active' : ''}}">
-        <view class="qmt-thumb"></view>
+    <view class="work-mode-switch">
+      <view class="work-mode-item {{workMode === 'objection_followup' ? 'active' : ''}}" data-mode="objection_followup" bindtap="switchWorkMode">客户卡点跟进</view>
+      <view class="work-mode-item {{workMode === 'pre_meeting_prep' ? 'active' : ''}}" data-mode="pre_meeting_prep" bindtap="switchWorkMode">见前准备</view>
+      <view class="work-mode-item {{workMode === 'meeting_review' ? 'active' : ''}}" data-mode="meeting_review" bindtap="switchWorkMode">面谈复盘</view>
+      <view class="work-mode-item {{workMode === 'diagnosis' ? 'active' : ''}}" data-mode="diagnosis" bindtap="switchWorkMode">客户诊断</view>
+    </view>
+
+    <view class="client-context-card">
+      <view class="client-context-row">
+        <view class="client-context-main">
+          <text class="client-context-label">客户归属</text>
+          <text class="client-context-name" wx:if="{{selectedClientName}}">{{selectedClientName}}</text>
+          <text class="{{workMode === 'diagnosis' ? 'client-context-new' : 'client-context-empty'}}" wx:else>{{workMode === 'diagnosis' ? '新建客户' : '未选择客户'}}</text>
+        </view>
+        <view class="client-context-action" bindtap="toggleClientPicker">{{selectedClientId ? '更换客户' : (workMode === 'diagnosis' ? '选择已有客户' : '选择客户')}}</view>
       </view>
-      <text class="qmt-label">{{quickMode ? '快速模式' : '完整模式'}}</text>
-      <text class="qmt-desc">{{quickMode ? '10个核心字段，快速诊断' : '6步详细填写，深度诊断'}}</text>
+      <input
+        wx:if="{{workMode !== 'diagnosis' && !selectedClientId}}"
+        class="client-name-input"
+        value="{{lightClientName}}"
+        bindinput="onLightClientNameInput"
+        placeholder="填写客户称呼，提交时会自动建档"
+      />
+      <text class="client-context-hint" wx:if="{{workMode === 'diagnosis' && !selectedClientId}}">提交后会按下方名称自动建档，并保存到客户历史记录。</text>
+      <text class="client-context-hint" wx:elif="{{workMode === 'diagnosis'}}">已读取该客户档案，本次诊断会保存到客户历史记录。</text>
+      <text class="client-context-hint" wx:elif="{{!selectedClientId}}">未选择已有客户时，提交时会自动建档并保存到客户历史。</text>
+      <text class="client-context-hint" wx:else>本次记录会保存到该客户的历史记录里。</text>
     </view>
 
-    <!-- 语音录入入口（暂时隐藏，调试中）
-    <view class="voice-entry" wx:if="{{false}}" bindtap="startVoiceInput">
-      <text class="voice-icon">🎤</text>
-      <text class="voice-label">语音快速录入</text>
-      <text class="voice-hint">说出客户信息，AI 自动填表</text>
-    </view>
-
-    <!-- ====== 快速模式表单 ====== -->
-    <view class="section" wx:if="{{quickMode}}">
-      <view class="section-body">
+    <block wx:if="{{workMode === 'objection_followup'}}">
+      <view class="objection-card">
+        <view class="objection-title">客户卡点跟进</view>
+        <view class="objection-desc">适合面谈后、微信前或电话前，复盘客户为什么卡住，并准备下一步怎么说。</view>
 
         <view class="field">
-          <view class="label">名称<text class="required">*</text></view>
-          <input class="input" value="{{formData.clientName}}" data-key="clientName" bindinput="onFieldChange" placeholder="例如：张先生、李姐" />
+          <view class="label">客户原话<text class="required">*</text></view>
+          <textarea class="textarea" value="{{objectionForm.customerWords}}" data-key="customerWords" bindinput="onObjectionFieldChange" placeholder="例如：我再考虑一下 / 太贵了 / 我回去跟家人商量 / 别家收益更高" auto-height maxlength="800" />
         </view>
 
         <view class="field">
-          <view class="label">年龄<text class="required">*</text></view>
-          <input class="input" type="number" value="{{formData.age}}" data-key="age" bindinput="onFieldChange" placeholder="年龄决定生命周期定位" />
+          <view class="label">当时场景</view>
+          <picker mode="selector" range="{{objectionScenarioLabels}}" value="{{objectionScenarioIndex}}" bindchange="onObjectionScenarioChange">
+            <view class="picker-display">
+              <text>{{objectionScenarioLabel}}</text>
+              <text class="picker-arrow">▼</text>
+            </view>
+          </picker>
         </view>
 
         <view class="field">
-          <view class="label">性别<text class="required">*</text></view>
-          <view class="radio-group">
-            <view class="radio-item {{formData.gender === 'male' ? 'checked' : ''}}" data-key="gender" data-val="male" bindtap="onFieldChange"><text>男</text></view>
-            <view class="radio-item {{formData.gender === 'female' ? 'checked' : ''}}" data-key="gender" data-val="female" bindtap="onFieldChange"><text>女</text></view>
+          <view class="label">我的回应<text class="optional-inline">可选</text></view>
+          <textarea class="textarea" value="{{objectionForm.agentReply}}" data-key="agentReply" bindinput="onObjectionFieldChange" placeholder="例如：我当时继续讲了产品收益，客户没有接话" auto-height maxlength="800" />
+        </view>
+
+        <view class="field">
+          <view class="label">客户背景<text class="optional-inline">可选</text></view>
+          <textarea class="textarea" value="{{objectionForm.customerBackground}}" data-key="customerBackground" bindinput="onObjectionFieldChange" placeholder="例如：35岁，互联网从业，已有百万医疗，最近刚有二胎" auto-height maxlength="800" />
+        </view>
+
+        <view class="field">
+          <view class="label">下一步想做什么</view>
+          <view class="goal-grid">
+            <view
+              class="goal-item {{objectionForm.nextGoal === item.value ? 'active' : ''}}"
+              wx:for="{{objectionGoalOptions}}"
+              wx:key="value"
+              data-value="{{item.value}}"
+              bindtap="onObjectionGoalChange"
+            >
+              {{item.label}}
+            </view>
           </view>
         </view>
 
-        <view class="field">
-          <view class="label">行业</view>
-          <picker mode="selector" range="{{['互联网/IT/通信','金融/保险/证券','教育/培训','医疗/健康/医药','制造业','汽车/机械','房地产/建筑/装修','零售/电商/贸易','餐饮/旅游/酒店','政府/事业单位/公务员','能源/电力/采矿/化工','物流/运输/交通','文化/传媒/广告','体育/健身/娱乐','农业/林业/渔业','法律/咨询/审计','科研/技术服务','家政/居民服务','水利/环境/公共设施','其他']}}" data-key="clientIndustry" bindchange="onSelectChange">
-            <view class="picker-display">
-              <text class="{{formData.clientIndustry ? '' : 'picker-placeholder'}}">{{formData.clientIndustry || '请选择行业'}}</text>
-              <text class="picker-arrow">▼</text>
-            </view>
-          </picker>
-        </view>
-
-        <view class="field">
-          <view class="label">子女详情</view>
-          <input class="input" value="{{formData.childrenDetail}}" data-key="childrenDetail" bindinput="onFieldChange" placeholder="例如：儿子/8岁/公立小学 / 无" />
-        </view>
-
-        <view class="field">
-          <view class="label">家庭年收入（万元）</view>
-          <input class="input" type="number" value="{{formData.annualIncome}}" data-key="annualIncome" bindinput="onFieldChange" placeholder="例如：30（填大概数字即可）" />
-        </view>
-
-        <view class="field">
-          <view class="label">保障类保险</view>
-          <textarea class="textarea" value="{{formData.protectionInsurance}}" data-key="protectionInsurance" bindinput="onFieldChange" placeholder="例如：百万医疗/年交500元；重疾险50万/年交8000元 / 无" auto-height maxlength="300" />
-        </view>
-
-        <view class="field">
-          <view class="label">触发场景<text class="required">*</text></view>
-          <picker mode="selector" range='{{["客户主动咨询（有明确原话）", "非主动咨询（代理人通过社交激活话题）"]}}' data-key="triggerScenario" bindchange="onSelectChange">
-            <view class="picker-display">
-              <text class="{{formData.triggerScenario ? '' : 'picker-placeholder'}}">{{formData.triggerScenario || '请选择'}}</text>
-              <text class="picker-arrow">▼</text>
-            </view>
-          </picker>
-        </view>
-
-        <view class="field">
-          <view class="label">客户原话或背景描述<text class="required">*</text></view>
-          <textarea class="textarea" value="{{formData.clientOriginalWords}}" data-key="clientOriginalWords" bindinput="onFieldChange" placeholder="例如：我想买个保险，你帮我看看 / 聊到孩子教育，客户说想送孩子出国读书" auto-height maxlength="500" />
-        </view>
-
-        <view class="field">
-          <view class="label">客户异议/卡点</view>
-          <textarea class="textarea" value="{{formData.clientObjection}}" data-key="clientObjection" bindinput="onFieldChange" placeholder="例如：客户说你们产品收益不如基金 / 我要跟家人商量一下" auto-height maxlength="500" />
-        </view>
-
-      </view>
-
-      <view class="step-nav">
-        <view></view>
-        <button class="btn-primary submit-btn" bindtap="submitForm" disabled="{{isLoading || voiceParsingKyc}}" loading="{{isLoading}}">
-          {{isLoading ? '教练诊断中...' : '提交给保险教练快速诊断'}}
+        <button class="btn-primary objection-submit" bindtap="submitObjectionFollowup" disabled="{{isLoading}}" loading="{{isLoading}}">
+          {{isLoading ? 'AI 正在分析卡点...' : '生成跟进建议'}}
         </button>
       </view>
-    </view>
+    </block>
 
-    <!-- ====== 完整模式表单（原有 6 步） ====== -->
-    <block wx:if="{{!quickMode}}">
-    <!-- 步骤进度条 -->
-    <view class="step-progress">
-      <block wx:for="{{sortedSections}}" wx:key="title" wx:for-index="index">
-        <view class="step-dot {{index <= currentStep ? 'done' : ''}} {{index === currentStep ? 'current' : ''}}">
-          <text class="step-num">{{index < currentStep ? '✓' : index + 1}}</text>
+    <block wx:elif="{{workMode === 'pre_meeting_prep'}}">
+      <view class="objection-card">
+        <view class="objection-title">见前准备</view>
+        <view class="objection-desc">适合见客户前 2-5 分钟，生成一张能快速扫一眼的面谈作战卡。</view>
+
+        <view class="field">
+          <view class="label">这次见面目的</view>
+          <picker mode="selector" range="{{preMeetingPurposeLabels}}" value="{{preMeetingPurposeIndex}}" bindchange="onPreMeetingPurposeChange">
+            <view class="picker-display">
+              <text>{{preMeetingPurposeLabel}}</text>
+              <text class="picker-arrow">▼</text>
+            </view>
+          </picker>
         </view>
-        <view class="step-line {{index < currentStep ? 'done' : ''}}" wx:if="{{index < sortedSections.length - 1}}"></view>
-      </block>
-    </view>
-    <view class="step-label">{{sortedSections[currentStep].title}}（{{currentStep + 1}}/{{sortedSections.length}}）</view>
 
-    <!-- 当前步骤字段 -->
-    <view class="section">
-      <view class="section-body">
+        <view class="field">
+          <view class="label">本次见面背景或触发点<text class="required">*</text></view>
+          <textarea class="textarea" value="{{preMeetingPrepForm.meetingBackground}}" data-key="meetingBackground" bindinput="onPreMeetingPrepFieldChange" placeholder="例如：朋友介绍，客户刚生二胎 / 老客户想看看已有保单够不够 / 客户最近聊到孩子教育" auto-height maxlength="800" />
+        </view>
 
-        <!-- 推荐填写字段 -->
-        <view class="field" wx:for="{{sortedSections[currentStep].recommended}}" wx:key="key" wx:for-item="f">
-          <view class="label">
-            {{f.label}}<text wx:if="{{f.required}}" class="required">*</text>
-            <text class="tag recommended-tag">建议填写</text>
+        <view class="field">
+          <view class="label">已知客户背景<text class="optional-inline">可选</text></view>
+          <textarea class="textarea" value="{{preMeetingPrepForm.knownCustomerInfo}}" data-key="knownCustomerInfo" bindinput="onPreMeetingPrepFieldChange" placeholder="例如：35岁，互联网从业，已有百万医疗，家庭年收入约50万" auto-height maxlength="800" />
+        </view>
+
+        <view class="field">
+          <view class="label">我最担心的问题<text class="optional-inline">可选</text></view>
+          <textarea class="textarea" value="{{preMeetingPrepForm.worryPoint}}" data-key="worryPoint" bindinput="onPreMeetingPrepFieldChange" placeholder="例如：怕客户觉得我推销 / 怕聊不到保险 / 怕客户只问收益 / 怕客户说没预算" auto-height maxlength="500" />
+        </view>
+
+        <view class="field">
+          <view class="label">希望这次达成什么</view>
+          <view class="goal-grid prep-goal-grid">
+            <view
+              class="goal-item {{preMeetingPrepForm.desiredOutcome === item.value ? 'active' : ''}}"
+              wx:for="{{preMeetingGoalOptions}}"
+              wx:key="value"
+              data-value="{{item.value}}"
+              bindtap="onPreMeetingGoalChange"
+            >
+              {{item.label}}
+            </view>
+          </view>
+        </view>
+
+        <button class="btn-primary objection-submit" bindtap="submitPreMeetingPrep" disabled="{{isLoading}}" loading="{{isLoading}}">
+          {{isLoading ? 'AI 正在生成作战卡...' : '生成面谈作战卡'}}
+        </button>
+      </view>
+    </block>
+
+    <block wx:elif="{{workMode === 'meeting_review'}}">
+      <view class="objection-card meeting-review-card">
+        <view class="objection-title">面谈复盘</view>
+        <view class="objection-desc">适合面谈结束后，把刚才聊了什么、客户反应和下一步目标整理成跟进计划。</view>
+
+        <view class="voice-entry meeting-review-voice-entry" bindtap="startMeetingReviewVoiceInput">
+          <text class="voice-icon">🎤</text>
+          <text class="voice-label">语音复盘</text>
+          <text class="voice-hint">口述面谈过程，自动转文字</text>
+        </view>
+
+        <view class="field">
+          <view class="label">面谈过程复盘<text class="required">*</text></view>
+          <textarea class="textarea" value="{{meetingReviewForm.recap}}" data-key="recap" bindinput="onMeetingReviewFieldChange" placeholder="例如：今天先聊了家庭和孩子教育，客户说担心未来医疗和孩子留学，但我后面太快讲到产品，客户说回去考虑一下" auto-height maxlength="1600" />
+        </view>
+
+        <view class="field">
+          <view class="label">面谈结果</view>
+          <picker mode="selector" range="{{meetingReviewResultLabels}}" value="{{meetingReviewResultIndex}}" bindchange="onMeetingReviewResultChange">
+            <view class="picker-display">
+              <text>{{meetingReviewResultLabel}}</text>
+              <text class="picker-arrow">▼</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="field">
+          <view class="label">客户关键原话<text class="optional-inline">可选</text></view>
+          <textarea class="textarea" value="{{meetingReviewForm.customerQuotes}}" data-key="customerQuotes" bindinput="onMeetingReviewFieldChange" placeholder="例如：我觉得这个有点贵 / 我想跟家里人商量一下 / 收益能不能高一点" auto-height maxlength="800" />
+        </view>
+
+        <view class="field">
+          <view class="label">我的回应<text class="optional-inline">可选</text></view>
+          <textarea class="textarea" value="{{meetingReviewForm.agentResponse}}" data-key="agentResponse" bindinput="onMeetingReviewFieldChange" placeholder="例如：我当时继续解释了保障责任，客户后面不太接话" auto-height maxlength="800" />
+        </view>
+
+        <view class="field">
+          <view class="label">下一步目标</view>
+          <view class="goal-grid meeting-review-goal-grid">
+            <view
+              class="goal-item {{meetingReviewForm.nextGoal === item.value ? 'active' : ''}}"
+              wx:for="{{meetingReviewGoalOptions}}"
+              wx:key="value"
+              data-value="{{item.value}}"
+              bindtap="onMeetingReviewGoalChange"
+            >
+              {{item.label}}
+            </view>
+          </view>
+        </view>
+
+        <button class="btn-primary objection-submit" bindtap="submitMeetingReview" disabled="{{isLoading}}" loading="{{isLoading}}">
+          {{isLoading ? 'AI 正在复盘面谈...' : '生成复盘建议'}}
+        </button>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="diagnosis-intro">
+        <view class="diagnosis-title">客户诊断</view>
+        <view class="diagnosis-desc">先填核心信息，教练会判断客户当前优先沟通方向；资料越多，建议越准。</view>
+      </view>
+
+      <view class="section">
+        <view class="section-body">
+          <view class="field">
+            <view class="label">名称<text class="required">*</text></view>
+            <input class="input" value="{{formData.clientName}}" data-key="clientName" bindinput="onFieldChange" placeholder="例如：张先生、李姐" />
           </view>
 
-          <!-- radio -->
-          <block wx:if="{{f.type === 'radio'}}">
-            <view class="radio-group">
-              <view
-                class="radio-item {{formData[f.key] === opt ? 'checked' : ''}}"
-                wx:for="{{f.options}}"
-                wx:key="*this"
-                wx:for-item="opt"
-                data-key="{{f.key}}"
-                data-val="{{opt}}"
-                bindtap="onFieldChange"
-              >
-                <text>{{opt === 'male' ? '男' : opt === 'female' ? '女' : opt}}</text>
-              </view>
-            </view>
-          </block>
+          <view class="field">
+            <view class="label">年龄<text class="required">*</text></view>
+            <input class="input" type="number" value="{{formData.age}}" data-key="age" bindinput="onFieldChange" placeholder="年龄决定生命周期定位" />
+          </view>
 
-          <!-- select / picker -->
-          <block wx:elif="{{f.type === 'select'}}">
-            <picker mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
+          <view class="field">
+            <view class="label">性别<text class="required">*</text></view>
+            <view class="radio-group">
+              <view class="radio-item {{formData.gender === 'male' ? 'checked' : ''}}" data-key="gender" data-val="male" bindtap="onFieldChange"><text>男</text></view>
+              <view class="radio-item {{formData.gender === 'female' ? 'checked' : ''}}" data-key="gender" data-val="female" bindtap="onFieldChange"><text>女</text></view>
+            </view>
+          </view>
+
+          <view class="field">
+            <view class="label">行业</view>
+            <picker mode="selector" range="{{['互联网/IT/通信','金融/保险/证券','教育/培训','医疗/健康/医药','制造业','汽车/机械','房地产/建筑/装修','零售/电商/贸易','餐饮/旅游/酒店','政府/事业单位/公务员','能源/电力/采矿/化工','物流/运输/交通','文化/传媒/广告','体育/健身/娱乐','农业/林业/渔业','法律/咨询/审计','科研/技术服务','家政/居民服务','水利/环境/公共设施','其他']}}" data-key="clientIndustry" bindchange="onSelectChange">
               <view class="picker-display">
-                <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
+                <text class="{{formData.clientIndustry ? '' : 'picker-placeholder'}}">{{formData.clientIndustry || '请选择行业'}}</text>
                 <text class="picker-arrow">▼</text>
               </view>
             </picker>
-          </block>
+          </view>
 
-          <!-- textarea -->
-          <block wx:elif="{{f.type === 'textarea'}}">
-            <textarea class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
-          </block>
+          <view class="field">
+            <view class="label">子女详情</view>
+            <input class="input" value="{{formData.childrenDetail}}" data-key="childrenDetail" bindinput="onFieldChange" placeholder="例如：儿子/8岁/公立小学 / 无" />
+          </view>
 
-          <!-- number -->
-          <block wx:elif="{{f.type === 'number'}}">
-            <input class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
-          </block>
+          <view class="field">
+            <view class="label">家庭年收入（万元）</view>
+            <input class="input" type="number" value="{{formData.annualIncome}}" data-key="annualIncome" bindinput="onFieldChange" placeholder="例如：30（填大概数字即可）" />
+          </view>
 
-          <!-- text default -->
-          <block wx:else>
-            <input class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
-          </block>
+          <view class="field">
+            <view class="label">保障类保险</view>
+            <textarea class="textarea" value="{{formData.protectionInsurance}}" data-key="protectionInsurance" bindinput="onFieldChange" placeholder="例如：百万医疗/年交500元；重疾险50万/年交8000元 / 无" auto-height maxlength="300" />
+          </view>
+
+          <view class="field">
+            <view class="label">触发场景<text class="required">*</text></view>
+            <picker mode="selector" range='{{["客户主动咨询（有明确原话）", "非主动咨询（代理人通过社交激活话题）"]}}' data-key="triggerScenario" bindchange="onSelectChange">
+              <view class="picker-display">
+                <text class="{{formData.triggerScenario ? '' : 'picker-placeholder'}}">{{formData.triggerScenario || '请选择'}}</text>
+                <text class="picker-arrow">▼</text>
+              </view>
+            </picker>
+          </view>
+
+          <view class="field">
+            <view class="label">客户原话或背景描述<text class="required">*</text></view>
+            <textarea class="textarea" value="{{formData.clientOriginalWords}}" data-key="clientOriginalWords" bindinput="onFieldChange" placeholder="例如：我想买个保险，你帮我看看 / 聊到孩子教育，客户说想送孩子出国读书" auto-height maxlength="500" />
+          </view>
+
+          <view class="field">
+            <view class="label">客户异议/卡点</view>
+            <textarea class="textarea" value="{{formData.clientObjection}}" data-key="clientObjection" bindinput="onFieldChange" placeholder="例如：客户说你们产品收益不如基金 / 我要跟家人商量一下" auto-height maxlength="500" />
+          </view>
+
+          <view class="diagnosis-more-card">
+            <view class="diagnosis-more-header" bindtap="toggleDeepDiagnosisFields">
+              <view>
+                <view class="diagnosis-more-title">补充更多客户信息</view>
+                <view class="diagnosis-more-desc">可选，填了会让诊断更贴近真实客户</view>
+              </view>
+              <text class="diagnosis-more-arrow">{{showDeepDiagnosisFields ? '收起' : '展开'}}</text>
+            </view>
+
+            <view class="diagnosis-supplement-list" wx:if="{{showDeepDiagnosisFields}}">
+              <view class="supplement-section" wx:for="{{diagnosisSupplementSections}}" wx:key="title" wx:for-item="section">
+                <view class="supplement-title">{{section.title}}</view>
+                <view class="field" wx:for="{{section.fields}}" wx:key="key" wx:for-item="f">
+                  <view class="label">{{f.label}}<text class="tag optional-tag">可选</text></view>
+
+                  <block wx:if="{{f.type === 'radio'}}">
+                    <view class="radio-group">
+                      <view
+                        class="radio-item {{formData[f.key] === opt ? 'checked' : ''}}"
+                        wx:for="{{f.options}}"
+                        wx:key="*this"
+                        wx:for-item="opt"
+                        data-key="{{f.key}}"
+                        data-val="{{opt}}"
+                        bindtap="onFieldChange"
+                      >
+                        <text>{{opt === 'male' ? '男' : opt === 'female' ? '女' : opt}}</text>
+                      </view>
+                    </view>
+                  </block>
+
+                  <block wx:elif="{{f.type === 'select'}}">
+                    <picker mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
+                      <view class="picker-display">
+                        <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
+                        <text class="picker-arrow">▼</text>
+                      </view>
+                    </picker>
+                  </block>
+
+                  <block wx:elif="{{f.type === 'textarea'}}">
+                    <textarea class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
+                  </block>
+
+                  <block wx:elif="{{f.type === 'number'}}">
+                    <input class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+                  </block>
+
+                  <block wx:else>
+                    <input class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
+                  </block>
+                </view>
+              </view>
+            </view>
+          </view>
         </view>
 
-        <!-- 可选字段区域 -->
-        <block wx:if="{{sortedSections[currentStep].hasOptional}}">
-          <!-- 前3个步骤（index 0-2）可选字段可折叠 -->
-          <block wx:if="{{currentStep <= 2}}">
-            <button class="expand-toggle" data-step="{{currentStep}}" bindtap="toggleExpand">
-              <text>{{expandedSections[currentStep] ? '收起 ▲' : '展开更多细节 ▼'}}</text>
-            </button>
-            <view class="optional-fields {{expandedSections[currentStep] ? 'expanded' : 'collapsed'}}">
-              <view class="field" wx:for="{{sortedSections[currentStep].optional}}" wx:key="key" wx:for-item="f">
-                <view class="label">
-                  {{f.label}}
-                  <text class="tag optional-tag">可选</text>
-                </view>
-
-                <block wx:if="{{f.type === 'select'}}">
-                  <picker mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
-                    <view class="picker-display">
-                      <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
-                      <text class="picker-arrow">▼</text>
-                    </view>
-                  </picker>
-                </block>
-
-                <block wx:elif="{{f.type === 'textarea'}}">
-                  <textarea class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
-                </block>
-
-                <block wx:elif="{{f.type === 'number'}}">
-                  <input class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
-                </block>
-
-                <block wx:else>
-                  <input class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
-                </block>
-              </view>
-            </view>
-          </block>
-
-          <!-- 后3个步骤（index 3-5）直接展开可选字段 -->
-          <block wx:else>
-            <view class="optional-divider"></view>
-            <view class="field" wx:for="{{sortedSections[currentStep].optional}}" wx:key="key" wx:for-item="f">
-              <view class="label">
-                {{f.label}}
-                <text class="tag optional-tag">可选</text>
-              </view>
-
-              <block wx:if="{{f.type === 'select'}}">
-                <picker mode="selector" range="{{f.options}}" data-key="{{f.key}}" bindchange="onSelectChange">
-                  <view class="picker-display">
-                    <text class="{{formData[f.key] ? '' : 'picker-placeholder'}}">{{formData[f.key] || '请选择'}}</text>
-                    <text class="picker-arrow">▼</text>
-                  </view>
-                </picker>
-              </block>
-
-              <block wx:elif="{{f.type === 'textarea'}}">
-                <textarea class="textarea" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" auto-height maxlength="500" />
-              </block>
-
-              <block wx:elif="{{f.type === 'number'}}">
-                <input class="input" type="number" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
-              </block>
-
-              <block wx:else>
-                <input class="input" value="{{formData[f.key]}}" data-key="{{f.key}}" bindinput="onFieldChange" placeholder="{{f.placeholder || '请输入'}}" />
-              </block>
-            </view>
-          </block>
-        </block>
+        <view class="step-nav">
+          <view></view>
+          <button class="btn-primary submit-btn" bindtap="submitForm" disabled="{{isLoading || voiceParsingKyc}}" loading="{{isLoading}}">
+            {{isLoading ? '教练诊断中...' : '提交给保险教练诊断'}}
+          </button>
+        </view>
       </view>
-    </view>
-
-    <!-- 步骤导航按钮 -->
-    <view class="step-nav">
-      <button class="btn-outline" wx:if="{{currentStep > 0}}" bindtap="prevStep">← 上一步</button>
-      <view wx:else></view>
-      <button class="btn-primary" wx:if="{{currentStep < sortedSections.length - 1}}" bindtap="nextStep">下一步 →</button>
-      <button class="btn-primary submit-btn" wx:else bindtap="submitForm" disabled="{{isLoading || voiceParsingKyc}}" loading="{{isLoading}}">
-        {{isLoading ? '教练诊断中...' : '提交给保险教练诊断'}}
-      </button>
-    </view>
     </block>
   </view>
 
@@ -302,7 +380,7 @@
           <text class="ef-item">✅ 推演方向</text>
           <text class="ef-item">✅ 建议话术</text>
         </view>
-        <text class="empty-hint">切换到「信息填写」开始吧 →</text>
+        <text class="empty-hint">切换到「客户诊断」开始吧 →</text>
       </view>
 
       <view class="msg-list" wx:else>
@@ -313,6 +391,7 @@
               <text class="msg-text" wx:if="{{item.role === 'user' || (item.streaming && item.content)}}" selectable>{{item.content}}</text>
               <block wx:elif="{{item.streaming && !item.content}}">
                 <text class="loading-stage">{{loadingText}}</text>
+                <text class="loading-hint">完整生成后会一次展示，已等待 {{loadingSeconds}} 秒</text>
                 <view class="typing-dots">
                   <view class="dot"></view><view class="dot"></view><view class="dot"></view>
                 </view>
@@ -347,8 +426,8 @@
     </view>
   </view>
 
-  <!-- 语音录制浮层（暂时隐藏）
-  <view class="voice-overlay" wx:if="{{false}}">
+  <!-- 语音录制浮层 -->
+  <view class="voice-overlay" wx:if="{{recording}}">
     <view class="voice-overlay-mask" bindtap="cancelVoiceInput"></view>
     <view class="voice-overlay-content">
       <view class="voice-wave">
@@ -367,8 +446,8 @@
     </view>
   </view>
 
-  <!-- AI 解析中（暂时隐藏）
-  <view class="voice-parsing-overlay" wx:if="{{false}}">
+  <!-- AI 解析中 -->
+  <view class="voice-parsing-overlay" wx:if="{{voiceParsingKyc}}">
     <view class="voice-parsing-mask"></view>
     <view class="voice-parsing-toast">
       <text>🤖 AI 正在解析中...</text>
@@ -384,7 +463,7 @@
           <view class="guide-step-num">1</view>
           <view class="guide-step-text">
             <view class="guide-step-title">新建客户</view>
-            <view class="guide-step-desc">点击顶部「+ 新建客户」，录入面谈对象的基本信息</view>
+            <view class="guide-step-desc">在「客户归属」选择已有客户，或直接填写名称新建客户</view>
           </view>
         </view>
         <view class="guide-step">

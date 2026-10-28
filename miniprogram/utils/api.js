@@ -73,3 +73,15 @@ module.exports = {
   put: function (url, data, options) { return request(url, Object.assign({}, options, { method: "PUT", data: data })); },
   del: function (url, options) { return request(url, Object.assign({}, options, { method: "DELETE" })); },
 };
+
+module.exports.checkup = {
+  start: function () { return request("/api/checkup/session", { method: "POST" }); },
+  answer: function (data) { return request("/api/checkup/answer", { method: "POST", data: data }); },
+  preview: function (data) { return request("/api/checkup/preview", { method: "POST", data: data }); },
+  createOrder: function (data) { return request("/api/checkup/order", { method: "POST", data: data }); },
+  orderStatus: function (orderNo) { return request("/api/checkup/order/status?orderNo=" + orderNo, { method: "GET" }); },
+  mockPay: function (orderNo) { return request("/api/checkup/pay/mock", { method: "POST", data: { orderNo: orderNo } }); },
+  unlock: function (data) { return request("/api/checkup/unlock", { method: "POST", data: data }); },
+  appointment: function (data) { return request("/api/checkup/appointment", { method: "POST", data: data }); },
+  event: function (data) { return request("/api/checkup/event", { method: "POST", data: data }); },
+};

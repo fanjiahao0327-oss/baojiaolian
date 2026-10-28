@@ -7,10 +7,15 @@ import { verifyToken } from "@/lib/token";
 // API 请求体大小限制：100KB
 const MAX_BODY_SIZE = 100 * 1024;
 
-// CSP 策略
+// CSP 策略。开发环境保留 unsafe-eval 兼容调试，生产环境默认禁用。
+const scriptSources = ["'self'", "'unsafe-inline'"];
+if (process.env.NODE_ENV !== "production") {
+  scriptSources.push("'unsafe-eval'");
+}
+
 const CSP_HEADER = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  `script-src ${scriptSources.join(" ")}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self'",
@@ -20,8 +25,13 @@ const CSP_HEADER = [
   "form-action 'self'",
 ].join("; ");
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // C 端测评 demo 作为首页；旧 B 端工作台不再作为入口
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL("/checkup", request.url));
+  }
 
   // 请求体大小限制：仅对 API 路由检查
   if (pathname.startsWith("/api/")) {
@@ -42,6 +52,7 @@ export async function middleware(request: NextRequest) {
   const isApiRoute = pathname.startsWith("/api/");
   const isPublicPath =
     pathname.startsWith("/login") ||
+    pathname.startsWith("/checkup") ||
     pathname.startsWith("/admin") ||
     pathname.startsWith("/api/admin");
 

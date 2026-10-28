@@ -48,16 +48,35 @@ async function creditOrder(outTradeNo: string, transactionId: string) {
  * 将回调参数（排除 sign）按 key 排序后拼成字符串，
  * 末尾拼接 &key=<appkey>，做 HMAC-SHA256 对比。
  */
-function verifyMidasSign(params: Record<string, string>, appkey: string): boolean {
+function safeEqualHex(a: string, b: string): boolean {
+  try {
+    const left = Buffer.from(a, "hex");
+    const right = Buffer.from(b, "hex");
+    return left.length === right.length && crypto.timingSafeEqual(left, right);
+  } catch {
+    return false;
+  }
+}
+
+function getMidasAppKey(params: Record<string, string>): string {
+  const env = Number(params.env || process.env.WECHAT_VIRTUAL_PAY_ENV || "1");
+  return env === 1
+    ? (process.env.WECHAT_VIRTUAL_PAY_APPKEY_SANDBOX || "")
+    : (process.env.WECHAT_VIRTUAL_PAY_APPKEY_PRODUCTION || "");
+}
+
+function verifyMidasSign(params: Record<string, string>): boolean {
   const { sign, ...rest } = params;
   if (!sign) return false;
+  const appkey = getMidasAppKey(params);
+  if (!appkey) return false;
 
   const sortedKeys = Object.keys(rest).sort();
   const signStr =
     sortedKeys.map((k) => `${k}=${rest[k]}`).join("&") + `&key=${appkey}`;
 
   const computed = crypto.createHmac("sha256", appkey).update(signStr).digest("hex");
-  return computed === sign;
+  return safeEqualHex(computed, sign);
 }
 
 export async function POST(request: NextRequest) {
@@ -112,12 +131,7 @@ export async function POST(request: NextRequest) {
         params[k] = v;
       });
 
-      const appkey =
-        process.env.WECHAT_VIRTUAL_PAY_APPKEY_PRODUCTION ||
-        process.env.WECHAT_VIRTUAL_PAY_APPKEY_SANDBOX ||
-        "";
-
-      if (!verifyMidasSign(params, appkey)) {
+      if (!verifyMidasSign(params)) {
         console.error("[notify] midas signature verification failed");
         return NextResponse.json({ code: "FAIL", message: "验签失败" }, { status: 400 });
       }

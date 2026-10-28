@@ -1,8 +1,8 @@
 /**
- * DeepSeek V4 全局 AI 客户端
+ * DeepSeek V4.1 Flash 全局 AI 客户端
  *
- * V4 Pro 规格：1M 输入上下文 / 384K 最大输出（默认 4096）
- * 思考模式：默认开启，reasoning_effort 支持 high/max
+ * V4.1 Flash 规格：1M 输入上下文 / 384K 最大输出（默认 4096）
+ * 思考模式：默认开启，reasoning_effort 支持 low/high/max
  * 上下文缓存：自动启用（磁盘 KV Cache），公共前缀自动命中，无需额外配置
  *
  * 官方文档：https://api-docs.deepseek.com/zh-cn/
@@ -14,7 +14,7 @@ import OpenAI from "openai";
 // ============================================================
 
 export const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
-export const DEFAULT_MODEL = "deepseek-v4-pro" as const;
+export const DEFAULT_MODEL = "deepseek-flash" as const;
 
 /** 非思考模式参数 — V4 官方默认 temperature=1.0/top_p=1.0，教练场景需更稳定输出 */
 export const NON_THINKING_PARAMS = {
@@ -26,12 +26,12 @@ export const REASONING_EFFORT = { HIGH: "high", MAX: "max" } as const;
 
 /**
  * 思考模式最大输出 token 数。
- * V4 Pro 默认仅 4096，教练诊断输出可达 8-12K，设 16K 留有余量。
+ * V4.1 Flash 默认仅 4096，教练诊断输出可达 8-12K，设 16K 留有余量。
  */
 const THINKING_MAX_TOKENS = 16384;
 
 // ============================================================
-// 定价（2026-05 永久生效，已含 75% 折扣，单位：USD/百万 tokens）
+// 定价（V4 Pro 基准；V4.1 Flash 价格需按官方文档核对，单位：USD/百万 tokens）
 // ============================================================
 
 export const PRICING = {

@@ -5,8 +5,13 @@ node_modules/
 .next/
 
 # env
+.env
 .env.local
 .env*.local
+
+# eval output
+eval/results/*.json
+!eval/results/.gitkeep
 
 # certs
 certs/

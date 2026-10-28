@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 
 interface PaymentOrder {
   id?: number;
@@ -15,19 +15,61 @@ interface PaymentOrder {
   created_at: string;
 }
 
+interface CapacityTable {
+  name: string;
+  totalBytes: number;
+  tableBytes: number;
+  indexBytes: number;
+  rowCount: number;
+  estimatedRows: number;
+}
+
+interface CapacityReport {
+  databaseName: string;
+  checkedAt: string;
+  databaseBytes: number;
+  capacityBytes: number;
+  usagePercent: number;
+  status: "healthy" | "watch" | "warning" | "critical";
+  statusLabel: string;
+  warning: string;
+  tables: CapacityTable[];
+}
+
+const CAPACITY_STATUS_STYLES: Record<CapacityReport["status"], string> = {
+  healthy: "bg-green-50 text-green-600 border-green-100",
+  watch: "bg-blue-50 text-blue-600 border-blue-100",
+  warning: "bg-amber-50 text-amber-600 border-amber-100",
+  critical: "bg-red-50 text-red-600 border-red-100",
+};
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(2)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+  return `${bytes} B`;
+}
+
+function getRowsLabel(table: CapacityTable): number {
+  return table.rowCount > 0 ? table.rowCount : table.estimatedRows;
+}
+
 export default function AdminPage() {
   const [adminKey, setAdminKey] = useState("");
   const [authed, setAuthed] = useState(false);
   const [orders, setOrders] = useState<PaymentOrder[]>([]);
+  const [capacity, setCapacity] = useState<CapacityReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [capacityLoading, setCapacityLoading] = useState(false);
   const [error, setError] = useState("");
+  const [capacityError, setCapacityError] = useState("");
 
-  const headers = { "x-admin-key": adminKey };
+  const getHeaders = useCallback(() => ({ "x-admin-key": adminKey }), [adminKey]);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/orders", { headers });
+      const res = await fetch("/api/admin/orders", { headers: getHeaders() });
       if (res.ok) {
         const data = await res.json();
         setOrders(data.orders || []);
@@ -37,16 +79,38 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [adminKey]);
+  }, [getHeaders]);
+
+  const fetchCapacity = useCallback(async () => {
+    setCapacityLoading(true);
+    setCapacityError("");
+    try {
+      const res = await fetch("/api/admin/capacity", { headers: getHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "容量监控加载失败");
+      setCapacity(data.capacity || null);
+    } catch (e) {
+      setCapacityError((e as Error).message || "容量监控加载失败");
+    } finally {
+      setCapacityLoading(false);
+    }
+  }, [getHeaders]);
+
+  const refreshAll = () => {
+    void fetchOrders();
+    void fetchCapacity();
+  };
 
   const login = async () => {
     setError("");
+    setCapacityError("");
     try {
-      const res = await fetch("/api/admin/orders", { headers });
+      const res = await fetch("/api/admin/orders", { headers: getHeaders() });
       if (res.ok) {
         const data = await res.json();
         setOrders(data.orders || []);
         setAuthed(true);
+        void fetchCapacity();
       } else {
         setError("密钥错误");
       }
@@ -61,7 +125,7 @@ export default function AdminPage() {
     try {
       const res = await fetch(`/api/admin/orders/${orderNo}/confirm`, {
         method: "POST",
-        headers,
+        headers: getHeaders(),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "确认失败");
@@ -77,7 +141,7 @@ export default function AdminPage() {
     try {
       const res = await fetch(`/api/admin/orders/${orderNo}/cancel`, {
         method: "POST",
-        headers,
+        headers: getHeaders(),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "取消失败");
@@ -113,18 +177,107 @@ export default function AdminPage() {
   return (
     <main className="max-w-2xl mx-auto p-4 md:p-6">
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-lg font-bold text-gray-800">待确认订单</h1>
+        <div>
+          <h1 className="text-lg font-bold text-gray-800">管理后台</h1>
+          <p className="text-xs text-gray-400 mt-0.5">订单确认与数据库容量监控</p>
+        </div>
         <button
-          onClick={fetchOrders}
+          onClick={refreshAll}
           className="text-sm text-brand-600 hover:text-brand-700 font-medium"
         >
-          {loading ? "刷新中..." : "刷新"}
+          {loading || capacityLoading ? "刷新中..." : "刷新"}
         </button>
       </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-600">{error}</div>
       )}
+
+      <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-800">容量监控</h2>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              只展示数据库聚合指标，不展示客户资料或对话内容
+            </p>
+          </div>
+          {capacity && (
+            <span className={`px-2 py-0.5 border text-[11px] font-medium rounded-full ${CAPACITY_STATUS_STYLES[capacity.status]}`}>
+              {capacity.statusLabel}
+            </span>
+          )}
+        </div>
+
+        {capacityLoading && !capacity ? (
+          <div className="text-sm text-gray-400 py-4">容量数据加载中...</div>
+        ) : capacity ? (
+          <>
+            <div className="grid grid-cols-3 gap-2 text-xs mb-4">
+              <div className="bg-gray-50 rounded-lg px-3 py-2">
+                <span className="text-gray-400">当前容量</span>
+                <p className="font-semibold text-gray-800 mt-1">{formatBytes(capacity.databaseBytes)}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg px-3 py-2">
+                <span className="text-gray-400">容量上限</span>
+                <p className="font-semibold text-gray-800 mt-1">{formatBytes(capacity.capacityBytes)}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg px-3 py-2">
+                <span className="text-gray-400">使用率</span>
+                <p className="font-semibold text-gray-800 mt-1">{capacity.usagePercent}%</p>
+              </div>
+            </div>
+
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
+              <div
+                className={`h-full rounded-full ${
+                  capacity.status === "critical"
+                    ? "bg-red-500"
+                    : capacity.status === "warning"
+                      ? "bg-amber-500"
+                      : capacity.status === "watch"
+                        ? "bg-blue-500"
+                        : "bg-green-500"
+                }`}
+                style={{ width: `${Math.min(capacity.usagePercent, 100)}%` }}
+              />
+            </div>
+
+            <p className="text-xs text-gray-500 mb-4">{capacity.warning}</p>
+
+            <div className="space-y-2">
+              {capacity.tables.map((table) => (
+                <div key={table.name} className="flex items-center justify-between text-xs border-t border-gray-50 pt-2">
+                  <div>
+                    <p className="font-mono text-gray-700">{table.name}</p>
+                    <p className="text-gray-400">行数 {getRowsLabel(table)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-700">{formatBytes(table.totalBytes)}</p>
+                    <p className="text-gray-400">索引 {formatBytes(table.indexBytes)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[11px] text-gray-400 mt-3">
+              最近检查：{new Date(capacity.checkedAt).toLocaleString("zh-CN")}
+            </p>
+          </>
+        ) : (
+          <div className="text-sm text-gray-400 py-4">暂无容量数据</div>
+        )}
+
+        {capacityError && (
+          <div className="bg-amber-50 border border-amber-100 rounded-lg p-2 mt-3 text-xs text-amber-600">
+            {capacityError}
+          </div>
+        )}
+      </section>
+
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-gray-800">待确认订单</h2>
+        <span className="text-xs text-gray-400">{orders.length} 笔</span>
+      </div>
 
       {orders.length === 0 ? (
         <div className="text-center py-12 text-gray-400 text-sm">

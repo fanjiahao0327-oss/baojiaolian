@@ -5,6 +5,12 @@ import { getDb, row, rows } from "@/lib/db";
 import { INITIAL_POINTS } from "@/lib/points";
 import { rateLimit } from "@/lib/rate-limit";
 
+const FIXED_TEST_CODE = "1234";
+
+function isFixedCodeLoginAllowed(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
+
 export async function POST(request: NextRequest) {
   // 按 IP 限频：每分钟 5 次
   const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
@@ -39,7 +45,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.redirect(new URL("/login?error=请输入正确的手机号", request.url), 302);
     }
 
-    if (code !== "1234") {
+    if (!isFixedCodeLoginAllowed()) {
+      const message = "Web 短信登录暂未开通，请使用微信小程序登录或联系管理员";
+      if (isJson) return NextResponse.json({ error: message }, { status: 503 });
+      return NextResponse.redirect(new URL("/login?error=" + encodeURIComponent(message), request.url), 302);
+    }
+
+    if (code !== FIXED_TEST_CODE) {
       if (isJson) return NextResponse.json({ error: "验证码错误" }, { status: 400 });
       return NextResponse.redirect(new URL("/login?error=验证码错误", request.url), 302);
     }

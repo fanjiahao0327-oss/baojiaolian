@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmModal from "@/components/ConfirmModal";
+import { getClientStageLabel } from "@/lib/assistant-alpha";
 
 interface ClientSummary {
   id: number;
@@ -16,6 +17,12 @@ interface ClientDetail {
   kyc_snapshot: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  stageInfo: {
+    stage: number;
+    basis: string;
+    confidence: number;
+    createdAt: string;
+  } | null;
   conversations: { id: number; title: string; created_at: string }[];
 }
 
@@ -389,6 +396,12 @@ export default function ClientsPage() {
                         继续诊断此客户
                       </button>
                       <button
+                        onClick={() => router.push(`/assistant?mode=client_quick_help&clientId=${selected.id}`)}
+                        className="px-4 py-1.5 text-xs font-medium border border-brand-200 text-brand-600 rounded-lg hover:bg-brand-50 transition-colors"
+                      >
+                        带着客户找助手
+                      </button>
+                      <button
                         onClick={() => setShowDeleteConfirm(true)}
                         disabled={deleting}
                         className="px-3 py-1.5 text-xs font-medium text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
@@ -398,6 +411,28 @@ export default function ClientsPage() {
                     </>
                   )}
                 </div>
+              </div>
+
+              {/* 客户阶段 */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700">经营阶段</h4>
+                    <p className="text-lg font-semibold text-gray-900 mt-1">
+                      {selected.stageInfo ? getClientStageLabel(selected.stageInfo.stage) : "暂无阶段判断"}
+                    </p>
+                  </div>
+                  {selected.stageInfo && (
+                    <span className="text-xs px-2.5 py-1 rounded-full bg-brand-50 text-brand-600">
+                      {selected.stageInfo.confidence}%
+                    </span>
+                  )}
+                </div>
+                {selected.stageInfo?.basis && (
+                  <p className="text-xs text-gray-500 leading-6 mt-3">
+                    {selected.stageInfo.basis}
+                  </p>
+                )}
               </div>
 
               {/* KYC 分模块展示 */}

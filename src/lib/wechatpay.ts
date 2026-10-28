@@ -70,13 +70,14 @@ export async function createJSAPIPrepay(params: {
   description: string;
   outTradeNo: string;
   amountCents: number;
+  notifyUrl?: string;
 }): Promise<{ prepay_id: string }> {
   const data = (await request("POST", "/v3/pay/transactions/jsapi", {
     appid: WECHAT_APPID,
     mchid: WECHAT_MCHID,
     description: params.description,
     out_trade_no: params.outTradeNo,
-    notify_url: "https://baojiaolian.com.cn/api/payment/notify",
+    notify_url: params.notifyUrl || "https://baojiaolian.com.cn/api/payment/notify",
     amount: {
       total: params.amountCents,
       currency: "CNY",

@@ -1,0 +1,56 @@
+<view class="page">
+  <view class="progress">进度 {{progress}}</view>
+  <scroll-view class="messages" scroll-y>
+    <view wx:for="{{messages}}" wx:key="index" class="bubble {{item.role}}">
+      <text>{{item.text}}</text>
+    </view>
+    <view wx:if="{{loading}}" class="bubble assistant"><text>正在想下一个问题…</text></view>
+  </scroll-view>
+  <view wx:if="{{summaryReady}}" class="summary">
+    <text class="summary-title">我先跟你确认一下</text>
+    <text class="summary-tip">有不对或缺漏，可以在下面补充；确认没问题再生成报告。</text>
+    <view wx:for="{{summary.sections}}" wx:key="title" class="summary-section">
+      <text class="summary-h">{{item.title}}</text>
+      <text class="summary-b">{{item.body}}</text>
+    </view>
+    <view wx:if="{{summary.missing.length > 0}}" class="summary-missing">
+      <text>还不确定：</text>
+      <text wx:for="{{summary.missing}}" wx:key="*this">· {{item}}
+</text>
+    </view>
+    <view class="summary-actions">
+      <button size="mini" bindtap="onSummaryNote">补充进去</button>
+      <button size="mini" type="primary" bindtap="onConfirmSummary">确认生成报告</button>
+    </view>
+  </view>
+  <view wx:if="{{!currentQuestion && !summaryReady && topics.length > 0}}" class="topics">
+    <text class="topic-hint">不知道从哪说？可以按这些方向随便聊：</text>
+    <view class="topic-list">
+      <text wx:for="{{topics}}" wx:key="*this" class="topic">{{item}}</text>
+    </view>
+    <text class="topic-hint">也可以聊：为什么现在想了解、家里几口人、孩子多大、父母需不需要照顾、最近发生了什么、最担心谁。不用组织语言，想到哪说到哪。</text>
+  </view>
+  <view wx:if="{{currentQuestion}}" class="options">
+    <view wx:if="{{currentQuestion.hint}}" class="hint">
+      <text>提示：{{currentQuestion.hint}}</text>
+      <text wx:if="{{currentQuestion.example}}" class="example">例子：{{currentQuestion.example}}</text>
+    </view>
+    <view wx:if="{{currentQuestion.openOnly}}" class="open-guidance">
+      <text>这一题不用选，直接用自己的话说。</text>
+      <text wx:if="{{currentQuestion.guidance}}">{{currentQuestion.guidance}}</text>
+    </view>
+    <block wx:else>
+      <view wx:for="{{currentQuestion.options}}" wx:key="value" class="option" data-option="{{item}}" bindtap="onOption">
+        <text>{{item.label}}</text>
+      </view>
+    </block>
+    <view class="actions">
+      <text class="link" bindtap="onSkip">不想说，跳过</text>
+      <text wx:if="{{currentQuestion.module}}" class="link" bindtap="onReportNow">直接出报告</text>
+    </view>
+  </view>
+  <view class="input-row">
+    <input value="{{inputValue}}" bindinput="onInput" placeholder="{{currentQuestion.openOnly ? '直接说，想到哪说到哪；不想说可以跳过…' : '也可以直接打字说…'}}" />
+    <button size="mini" bindtap="onSendText">发送</button>
+  </view>
+</view>

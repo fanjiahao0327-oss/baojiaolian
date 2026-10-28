@@ -2,11 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { KYCFormData, Message } from "@/types";
+import type { CoachMode, KYCFormData, Message, ObjectionFollowupData } from "@/types";
 import KYCWizard from "@/components/KYCWizard";
+import ObjectionFollowupForm from "@/components/ObjectionFollowupForm";
 import CoachPanel from "@/components/CoachPanel";
 import { useAuth } from "@/components/UserProvider";
 import ConfirmModal from "@/components/ConfirmModal";
+import TodayTaskList from "@/components/TodayTaskList";
+import ActivationHome from "@/components/ActivationHome";
 
 function buildUserContent(formData: KYCFormData): string {
   const kv = (label: string, value: string) => `- ${label}：${value || "未填写"}`;
@@ -112,11 +115,21 @@ function stripKycUpdate(content: string): string {
   return content.replace(/\n*\[KYC_UPDATE\]\s*\{[\s\S]*?\}\s*(?=\[SUGGESTED_QUESTIONS\]|$)/, "");
 }
 
-async function saveKycUpdate(clientId: number, updates: Record<string, string>) {
-  await fetch(`/api/clients/${clientId}`, {
-    method: "PUT",
+async function createProposedKycMemory(clientId: number, updates: Record<string, string>) {
+  await fetch("/api/assistant/memories", {
+    method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kycSnapshot: updates }),
+    body: JSON.stringify({
+      clientId,
+      scope: "client",
+      memoryType: "kyc_update",
+      title: "待确认客户档案更新",
+      content: JSON.stringify(updates, null, 2),
+      sourceType: "coach_kyc_update",
+      sourceRef: `client:${clientId}`,
+      confidence: 70,
+      status: "proposed",
+    }),
   });
 }
 
@@ -137,6 +150,8 @@ export default function Home() {
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [kycUpdateMsg, setKycUpdateMsg] = useState("");
   const [showRechargeModal, setShowRechargeModal] = useState(false);
+  const [workMode, setWorkMode] = useState<CoachMode>("objection_followup");
+  const [conversationMode, setConversationMode] = useState<CoachMode>("diagnosis");
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -164,10 +179,17 @@ export default function Home() {
         if (!res.ok) return;
         const data = await res.json();
         if (data?.messages?.length) {
+          const firstMessage = String(data.messages[0]?.content || "");
+          const inferredMode: CoachMode =
+            firstMessage.includes("# 客户卡点跟进") || firstMessage.startsWith("客户卡点跟进")
+              ? "objection_followup"
+              : "diagnosis";
           setConversationId(data.id);
           setMessages(data.messages);
           setHasSubmitted(true);
           setMobileTab("coach");
+          setConversationMode(inferredMode);
+          setWorkMode(inferredMode);
           // 如果 URL 中没有 clientId，从对话记录中恢复
           if (!clientIdRef.current && data.clientId) {
             clientIdRef.current = data.clientId;
@@ -198,7 +220,11 @@ export default function Home() {
     if (cid || vid) window.history.replaceState({}, "", "/");
   }, []);
 
-  const doFetch = async (question: string, history: Message[] = []) => {
+  const doFetch = async (
+    question: string,
+    history: Message[] = [],
+    options: { mode?: CoachMode; objectionFollowup?: ObjectionFollowupData; clientId?: number | null } = {},
+  ) => {
     const controller = new AbortController();
     abortRef.current = controller;
     const response = await fetch("/api/coach", {
@@ -209,7 +235,10 @@ export default function Home() {
         kycData: formDataRef.current,
         question,
         history,
-        clientId: clientIdRef.current,
+        clientId: options.clientId !== undefined ? options.clientId : clientIdRef.current,
+        conversationId: history.length > 0 ? conversationId : null,
+        mode: options.mode || "diagnosis",
+        objectionFollowup: options.objectionFollowup,
       }),
     });
 
@@ -245,7 +274,7 @@ export default function Home() {
     const kycUpdate = parseKycUpdate(content);
     if (kycUpdate && clientIdRef.current) {
       try {
-        await saveKycUpdate(clientIdRef.current, kycUpdate);
+        await createProposedKycMemory(clientIdRef.current, kycUpdate);
         const fields = Object.keys(kycUpdate).map((k) => {
           const labels: Record<string, string> = {
             clientName: "名称", gender: "性别", age: "年龄", city: "所在城市",
@@ -266,7 +295,7 @@ export default function Home() {
           };
           return labels[k] || k;
         });
-        setKycUpdateMsg(`已自动更新客户档案：${fields.join("、")}`);
+        setKycUpdateMsg(`已生成待确认客户档案更新：${fields.join("、")}`);
         setTimeout(() => setKycUpdateMsg(""), 5000);
       } catch { /* 静默 */ }
     }
@@ -287,7 +316,9 @@ export default function Home() {
     clientIdRef.current = clientId;
     setIsLoading(true);
     setHasSubmitted(true);
+    setConversationMode("diagnosis");
     setMessages([]);
+    setConversationId(null);
     setCurrentStreamingContent("");
     setSuggestedQuestions([]);
     setMobileTab("coach");
@@ -315,6 +346,42 @@ export default function Home() {
     }
   };
 
+  const handleObjectionSubmit = async (data: ObjectionFollowupData, clientId: number | null) => {
+    clientIdRef.current = clientId;
+    formDataRef.current = null;
+    setIsLoading(true);
+    setHasSubmitted(true);
+    setConversationMode("objection_followup");
+    setMessages([]);
+    setConversationId(null);
+    setCurrentStreamingContent("");
+    setSuggestedQuestions([]);
+    setMobileTab("coach");
+
+    const question = `客户卡点跟进：${data.customerWords}`;
+    try {
+      const content = await doFetch(question, [], {
+        mode: "objection_followup",
+        objectionFollowup: data,
+        clientId,
+      });
+      const ts = Date.now();
+      const displayContent = await processResponse(content);
+      setMessages([
+        { role: "user", content: question, timestamp: ts },
+        { role: "coach", content: displayContent, timestamp: ts + 1 },
+      ]);
+      setSuggestedQuestions(parseSuggestedQuestions(content));
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return;
+      if ((e as Error).message === "积分不足" || (e as Error).message === "未登录") return;
+      setMessages([{ role: "coach", content: "抱歉，发生了错误，请稍后重试。", timestamp: Date.now() }]);
+    } finally {
+      setIsLoading(false);
+      setCurrentStreamingContent("");
+    }
+  };
+
   const sendFollowUp = async (question: string) => {
     setIsLoading(true);
     setCurrentStreamingContent("");
@@ -324,7 +391,7 @@ export default function Home() {
     setMessages((prev) => [...prev, userMsg]);
 
     try {
-      const content = await doFetch(question, messages);
+      const content = await doFetch(question, messages, { mode: conversationMode });
       const displayContent = await processResponse(content);
       setMessages((prev) => [...prev, { role: "coach", content: displayContent, timestamp: Date.now() }]);
       setSuggestedQuestions(parseSuggestedQuestions(content));
@@ -345,8 +412,53 @@ export default function Home() {
     await sendFollowUp(question);
   };
 
+  if (!initialClientId && !conversationId) {
+    return <ActivationHome />;
+  }
+
   return (
     <main className="flex flex-col h-full">
+      <section className="shrink-0 border-b border-gray-100 bg-gray-50 px-4 py-4 md:px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-4">
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">今天</h1>
+              <p className="text-xs text-gray-400 mt-1">
+                {new Date().toLocaleDateString("zh-CN", {
+                  month: "long",
+                  day: "numeric",
+                  weekday: "long",
+                })}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => router.push("/assistant?mode=client_quick_help")}
+                className="px-3 py-2 rounded-lg bg-brand-gradient text-white text-sm font-medium"
+              >
+                处理客户问题
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/assistant?mode=agent_blueprint")}
+                className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-sm"
+              >
+                建立个人蓝图
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/clients")}
+                className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-sm"
+              >
+                查看客户
+              </button>
+            </div>
+          </div>
+          <TodayTaskList />
+        </div>
+      </section>
+
       {/* 移动端标签切换 */}
       <div className="md:hidden flex border-b border-gray-200 bg-white shrink-0 safe-bottom">
         <button
@@ -357,7 +469,7 @@ export default function Home() {
               : "text-gray-400 hover:text-gray-600"
           }`}
         >
-          信息填写
+          {workMode === "objection_followup" ? "卡点跟进" : "信息填写"}
           {mobileTab === "form" && (
             <div className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-brand-600 rounded-full" />
           )}
@@ -383,13 +495,45 @@ export default function Home() {
       {/* 桌面端左右分栏 */}
       <div className="flex flex-1 overflow-hidden">
         {/* 左侧：KYC 向导 */}
-        <div className={`md:block md:w-1/2 ${mobileTab === "form" ? "block" : "hidden"} w-full h-full overflow-hidden`}>
-          <KYCWizard
-            onSubmit={handleSubmit}
-            isLoading={isLoading}
-            clientRefreshKey={clientRefreshKey}
-            initialClientId={initialClientId}
-          />
+        <div className={`md:flex md:w-1/2 ${mobileTab === "form" ? "flex" : "hidden"} w-full h-full overflow-hidden flex-col`}>
+          <div className="bg-white border-b border-gray-100 px-3 md:px-4 py-3 shrink-0">
+            <div className="grid grid-cols-2 gap-2 bg-gray-100 rounded-xl p-1">
+              <button
+                type="button"
+                onClick={() => setWorkMode("objection_followup")}
+                className={`py-2 text-sm font-medium rounded-lg transition-colors ${
+                  workMode === "objection_followup" ? "bg-white text-brand-600 shadow-sm" : "text-gray-500"
+                }`}
+              >
+                客户卡点跟进
+              </button>
+              <button
+                type="button"
+                onClick={() => setWorkMode("diagnosis")}
+                className={`py-2 text-sm font-medium rounded-lg transition-colors ${
+                  workMode === "diagnosis" ? "bg-white text-brand-600 shadow-sm" : "text-gray-500"
+                }`}
+              >
+                完整诊断
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            {workMode === "objection_followup" ? (
+              <ObjectionFollowupForm
+                onSubmit={handleObjectionSubmit}
+                isLoading={isLoading}
+                clientRefreshKey={clientRefreshKey}
+              />
+            ) : (
+              <KYCWizard
+                onSubmit={handleSubmit}
+                isLoading={isLoading}
+                clientRefreshKey={clientRefreshKey}
+                initialClientId={initialClientId}
+              />
+            )}
+          </div>
         </div>
 
         {/* 右侧：教练面板 */}
@@ -415,6 +559,9 @@ export default function Home() {
               onSuggestedQuestionClick={(q) => sendFollowUp(q)}
               onStopGeneration={stopGeneration}
               conversationId={conversationId}
+              modeLabel={workMode === "objection_followup" ? "客户卡点跟进" : "教练指导区"}
+              emptyTitle={workMode === "objection_followup" ? "填写客户卡点后生成跟进建议" : "请填写客户信息并提交"}
+              emptyHint={workMode === "objection_followup" ? "适合面谈后、微信前、电话前使用" : "教练将在此生成诊断和推演方案"}
             />
           </div>
         </div>

@@ -1,0 +1,10 @@
+<view class="page">
+  <text class="title">关于这个工具</text>
+  <text class="body">我是樊家浩，过去 4 年做京东运营，现在专注结合 AI 做家庭风险和传承，定位是「财富安全风险架构师」。</text>
+  <text class="body">这个工具是我做的。我理解很多客户不愿意一上来就把家里情况告诉代理人，所以在这个 AI 时代，我把它做成一个可以匿名使用的测评。</text>
+  <text class="body">你的回答不会被保存，只会存在你自己的手机上。做完报告后，如果有任何咨询，欢迎来跟我沟通。</text>
+  <text class="section">隐私说明</text>
+  <text class="body">对话内容不写入服务器数据库；只有你主动预约时，才会保存称呼、手机号和方便时间，用于联系你。</text>
+  <text class="section">免责声明</text>
+  <text class="body">本工具由 AI 辅助生成风险自查参考，不构成保险产品推荐、投保建议或法律意见。最终方案请以保险公司正式条款和专业人士意见为准。</text>
+</view>
