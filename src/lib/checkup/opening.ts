@@ -110,21 +110,24 @@ export async function buildOpeningFollowUp(
   try {
     const completion = await getAIClient().chat.completions.create({
       ...noThinkingConfig(),
-      max_tokens: 180,
+      max_tokens: 260,
       messages: [
         {
           role: "system",
           content:
-            "你是家庭风险测评的顾问。请基于客户原话，生成一个开放式追问，只输出这一句问题，不要给选项、不要下结论、不要推销。要求：一次只问一个问题；围绕客户提到的方向或明显缺口；让客户能用自己的话回答；30-70 个中文字；不要出现产品名、公司名、收益承诺。",
+            "你是家庭风险测评的顾问。请基于客户原话，生成一个开放式追问，只输出 JSON：{\"question\":\"这一句问题\"}。不要给选项、不要下结论、不要推销。要求：一次只问一个问题；围绕客户提到的方向或明显缺口；让客户能用自己的话回答；30-70 个中文字；不要出现产品名、公司名、收益承诺。",
         },
         {
           role: "user",
           content: `客户开场原话：${clean}\n客户选择先聊：${directionLabel}\n请生成一个开放追问。`,
         },
       ],
+      response_format: { type: "json_object" },
     } as never);
-    const text = completion.choices[0]?.message?.content?.trim().replace(/^["“]|["”]$/g, "");
-    if (!text || text.length < 8 || text.length > 120 || /[ABCD][.．、]/.test(text)) return fallback;
+    const content = completion.choices[0]?.message?.content || "";
+    const parsed = JSON.parse(content) as { question?: string };
+    const text = String(parsed.question || "").replace(/\s+/g, " ").trim();
+    if (!text || text.length < 8 || text.length > 220 || /[ABCD][.．、]/.test(text)) return fallback;
     return {
       ...fallback,
       prompt: text,
