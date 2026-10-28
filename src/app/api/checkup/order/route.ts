@@ -5,10 +5,11 @@ import { verifySessionToken } from "@/lib/checkup/session";
 import { createCheckupOrder, recordCheckupEvent } from "@/lib/checkup/store";
 import { createJSAPIPrepay, generatePayParams } from "@/lib/wechatpay";
 import { rateLimit } from "@/lib/rate-limit";
+import { isCheckupDemoMode } from "@/lib/checkup/demo";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const isMock = Boolean(body.mock) && process.env.NODE_ENV !== "production";
+  const isMock = Boolean(body.mock) && isCheckupDemoMode();
   const session = await getSession();
   if (!session.userId && !isMock) {
     return NextResponse.json({ error: "请先登录" }, { status: 401 });

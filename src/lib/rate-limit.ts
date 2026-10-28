@@ -33,6 +33,7 @@ interface RateLimitConfig {
 
 const DEFAULT_CONFIGS: Record<string, RateLimitConfig> = {
   coach: { maxRequests: 6, windowMs: 60_000 },       // 1分钟6次
+  checkup: { maxRequests: 30, windowMs: 60_000 },     // 家庭测评问答：1分钟30次（一轮最多12题）
   "send-code": { maxRequests: 3, windowMs: 60_000 },  // 1分钟3次
   login: { maxRequests: 5, windowMs: 60_000 },        // 1分钟5次
   points: { maxRequests: 10, windowMs: 60_000 },       // 1分钟10次

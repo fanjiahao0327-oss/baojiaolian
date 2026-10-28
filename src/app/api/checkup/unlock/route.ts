@@ -7,10 +7,11 @@ import { triageFromText } from "@/lib/checkup/triage";
 import { buildIndexInputFromAnswers } from "@/lib/checkup/index-input";
 import { scanCheckupCompliance } from "@/lib/checkup/compliance";
 import { getAIClient, noThinkingConfig } from "@/lib/ai-client";
+import { isCheckupDemoMode } from "@/lib/checkup/demo";
 
 export async function POST(request: NextRequest) {
   const session = await getSession();
-  const isDev = process.env.NODE_ENV !== "production";
+  const isDev = isCheckupDemoMode();
   if (!session.userId && !isDev) {
     return NextResponse.json({ error: "请先登录" }, { status: 401 });
   }

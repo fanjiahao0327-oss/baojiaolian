@@ -7,7 +7,7 @@ import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") || "unknown";
-  const rl = rateLimit(`checkup:answer:${ip}`, "coach");
+  const rl = rateLimit(`checkup:answer:${ip}`, "checkup");
   if (!rl.allowed) return NextResponse.json({ error: "请求过于频繁" }, { status: 429 });
 
   const body = await request.json();
