@@ -197,4 +197,48 @@ export async function initDB() {
   await s`CREATE INDEX IF NOT EXISTS idx_assistant_tasks_user_status_due ON assistant_tasks(user_id, status, due_at)`;
   await s`CREATE INDEX IF NOT EXISTS idx_client_stage_events_client_created ON client_stage_events(client_id, created_at DESC)`;
   await s`CREATE INDEX IF NOT EXISTS idx_product_events_user_created ON product_events(user_id, created_at DESC)`;
+
+  await s`
+    CREATE TABLE IF NOT EXISTS checkup_orders (
+      id SERIAL PRIMARY KEY,
+      order_no TEXT UNIQUE NOT NULL,
+      openid TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL DEFAULT 100,
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending','paid','cancelled','expired','refunded')),
+      session_id TEXT NOT NULL,
+      payment_method TEXT DEFAULT 'wechat',
+      payment_ref TEXT DEFAULT '',
+      paid_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 minutes')
+    )
+  `;
+  await s`
+    CREATE TABLE IF NOT EXISTS checkup_appointments (
+      id SERIAL PRIMARY KEY,
+      name_enc TEXT NOT NULL,
+      phone_enc TEXT NOT NULL,
+      time_window TEXT NOT NULL,
+      question TEXT DEFAULT '',
+      openid TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'new'
+        CHECK (status IN ('new','contacted','scheduled','done','invalid')),
+      admin_note TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await s`
+    CREATE TABLE IF NOT EXISTS checkup_events (
+      id SERIAL PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      event_name TEXT NOT NULL,
+      payload TEXT NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await s`CREATE INDEX IF NOT EXISTS idx_checkup_orders_session ON checkup_orders(session_id)`;
+  await s`CREATE INDEX IF NOT EXISTS idx_checkup_appointments_status ON checkup_appointments(status, created_at DESC)`;
+  await s`CREATE INDEX IF NOT EXISTS idx_checkup_events_name ON checkup_events(event_name, created_at DESC)`;
 }
