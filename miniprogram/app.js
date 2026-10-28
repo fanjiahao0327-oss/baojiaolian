@@ -1,10 +1,20 @@
 var auth = require("./utils/auth");
 
+function getApiBase() {
+  try {
+    var override = wx.getStorageSync("apiBaseOverride");
+    if (override) return override;
+  } catch (e) {
+    // ignore
+  }
+  return "https://baojiaolian.com.cn";
+}
+
 App({
   globalData: {
     userInfo: null,
     isLogin: false,
-    apiBase: "https://baojiaolian.com.cn",
+    apiBase: getApiBase(),
     needBindPhone: false,
     loginReady: false,
   },

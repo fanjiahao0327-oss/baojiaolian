@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySessionToken } from "@/lib/checkup/session";
 import { buildReport, toFreeReport } from "@/lib/checkup/report";
 import { triageFromText } from "@/lib/checkup/triage";
+import { buildIndexInputFromAnswers } from "@/lib/checkup/index-input";
 import { recordCheckupEvent } from "@/lib/checkup/store";
 
 export async function POST(request: NextRequest) {
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
       .map((a: { freeText?: string; value?: string }) => `${a.freeText ?? ""} ${a.value ?? ""}`)
       .join(" "),
   );
-  const report = toFreeReport(buildReport({ answers, triage, input: body.indexInput ?? {} }));
+  const report = toFreeReport(buildReport({ answers, triage, input: buildIndexInputFromAnswers(answers) }));
   await recordCheckupEvent(payload.sessionId, "preview_shown");
 
   return NextResponse.json({ report, sessionId: payload.sessionId });

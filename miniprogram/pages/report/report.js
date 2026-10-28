@@ -93,9 +93,10 @@ Page({
     self.setData({ paying: true });
     api.checkup.createOrder({
       sessionToken: wx.getStorageSync("checkup_session"),
+      mock: isLocalDev(),
     }).then(function (res) {
       self.setData({ orderNo: res.orderNo });
-      if (isLocalDev()) {
+      if (isLocalDev() || res.mock) {
         // 仅本地开发：跳过真实商户调起，直接通知后端把订单标记为已支付
         return api.checkup.mockPay(res.orderNo).then(function () {
           self.pollOrder(res.orderNo);
