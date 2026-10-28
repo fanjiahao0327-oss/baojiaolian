@@ -1,0 +1,59 @@
+.page {
+  padding: 40rpx 32rpx;
+  background: #f7f8fa;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+.title {
+  display: block;
+  font-size: 42rpx;
+  font-weight: 700;
+  color: #111827;
+}
+.hint {
+  display: block;
+  margin: 16rpx 0 28rpx;
+  font-size: 26rpx;
+  color: #6b7280;
+  line-height: 1.7;
+}
+.field {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  font-size: 28rpx;
+  color: #111827;
+}
+.textarea {
+  height: 180rpx;
+  line-height: 1.6;
+}
+.primary {
+  margin-top: 32rpx;
+  background: #1a56db;
+  color: #fff;
+  border-radius: 999rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+.secondary {
+  margin-top: 32rpx;
+  background: #fff;
+  color: #1a56db;
+  border: 1rpx solid #1a56db;
+  border-radius: 999rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+.primary::after,
+.secondary::after {
+  border: none;
+}
+.primary[disabled] {
+  background: #93b4f5;
+  color: #fff;
+}
