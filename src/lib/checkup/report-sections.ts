@@ -1,5 +1,7 @@
 import type { IndexInput } from "./indices";
 import { getKnowledgeSnippet } from "./knowledge";
+import { CHECKUP_MODULES, buildModuleSummary } from "./modules";
+import { emptyProfile } from "./profile";
 import type { Answer, RiskItem, WealthIndexScore } from "./types";
 
 export interface ReportSection {
@@ -435,7 +437,7 @@ function buildFamilySection(answers: Answer[], profile: unknown): ReportSection 
   const fourth = `未来 10 年：${childTimeline(children, 10)}${parentTimeline(parents, 10)}${siblingTimeline(siblings, 10)}${businessTimeline(business, 10)}${marriageTimeline(marriage, 10)}传承最怕“到时候再说”，因为继承、婚姻和债务的规则不会等你准备好。`;
 
   return {
-    title: "一、家庭结构与未来时间轴",
+    title: "家庭结构与未来时间轴",
     paragraphs: [first, second, third, fourth],
   };
 }
@@ -545,7 +547,7 @@ function buildIndicesSection(indices: WealthIndexScore[], input: IndexInput): Re
     return `${name}：${scoreLine(index)}。${INDEX_MEANING[name]}${compositions[name]}改善方向：${directionFor(name, index)}`;
   });
   return {
-    title: "二、五大指数逐项解读",
+    title: "五维自检逐项解读（自检参考，不是科学测评）",
     paragraphs,
   };
 }
@@ -652,7 +654,7 @@ function riskSupport(title: string): RiskSupport {
 function buildRiskSection(risks: RiskItem[]): ReportSection {
   if (risks.length === 0) {
     return {
-      title: "三、风险背后的机制",
+      title: "风险背后的机制",
       paragraphs: [
         "本次规则库没有触发明确的高风险条目，但这不等于没有风险，只说明你提供的信息还没有落到具体风险规则上。家庭风险往往不是“有没有”的问题，而是金额、时间、归属和决策人没有对齐。",
         "你可以先用 66 问的四组场景自查：婚姻、传承、税务、债务与执行。每一组只问三个事实：钱在谁名下、谁有权决定、如果明天发生变故谁会参与分配。把这三问答清楚，比先选工具更重要。",
@@ -677,7 +679,7 @@ function buildRiskSection(risks: RiskItem[]): ReportSection {
   }
 
   return {
-    title: "三、风险背后的机制",
+    title: "风险背后的机制",
     paragraphs,
   };
 }
@@ -815,7 +817,7 @@ function buildScenarioSection(answers: Answer[]): ReportSection {
   const scenarios = buildScenarios(answers).slice(0, 2);
   if (scenarios.length === 0) {
     return {
-      title: "四、分场景推演",
+      title: "分场景推演",
       paragraphs: [
         "本次没有提供足够的健康、传承、婚姻、家企、教育或养老信息，暂时无法判断哪个场景与你最相关。为了避免编故事，这里不替你假设具体剧情。",
         "下次可以只补三类信息：家庭成员和年龄、家庭主要资产和负债、你最担心的一件事。有了这三类信息，场景推演才能落到“现在—如果发生—结果”的具体路径上。",
@@ -832,7 +834,7 @@ function buildScenarioSection(answers: Answer[]): ReportSection {
     "排优先级：先看发生概率高、对现金流冲击大的那一个，再看它会通过婚姻、债务还是继承影响别人。先选一个最紧的，把金额、时间、决策人写清楚。",
   );
   return {
-    title: "四、分场景推演",
+    title: "分场景推演",
     paragraphs,
   };
 }
@@ -860,7 +862,7 @@ function buildInheritanceSection(answers: Answer[]): ReportSection {
     "怎么选：金额有限、结构简单、只要求确定给到孩子的，先写清受益人，再用遗嘱补漏；孩子年幼、婚姻复杂、担心理赔金被挥霍的，再考虑保险金信托；资产类型多、涉及股权房产、需要长期分配规则的，才讨论家族信托。本报告不点名任何产品或机构，也不构成法律意见，具体文件请专业人士核对。";
 
   return {
-    title: "五、传承架构：给谁、谁管、怎么给",
+    title: "传承架构：给谁、谁管、怎么给",
     paragraphs: [p1, p2, p3, p4],
   };
 }
@@ -904,24 +906,23 @@ function buildBusinessMarriageSection(answers: Answer[]): ReportSection | null {
   }
 
   return {
-    title: "六、家企隔离与婚姻财产",
+    title: "家企隔离与婚姻财产",
     paragraphs,
   };
 }
 
 /* -------------------------------------------------------------------------- */
-/* 七、90 天行动清单                                                          */
+/* 七、下一步：一次一对一诊断                                                  */
 /* -------------------------------------------------------------------------- */
 
 function buildActionSection(risks: RiskItem[]): ReportSection {
   const focus = risks.length > 0 ? `「${risks[0].title}」` : "家庭基础风险";
   return {
-    title: "七、90 天行动清单",
+    title: "下一步：一次一对一诊断",
     paragraphs: [
-      `第 1–2 周：先做保单盘点，重点看${focus}。材料：所有保险合同、投保单、最近一次缴费记录、身份证、户口本、结婚证。要问：每张保单的投保人、被保险人、受益人分别是谁？受益人写的是姓名还是“法定”？保费从哪个账户出，属于个人财产还是夫妻共同财产？`,
-      "第 3–4 周：画家庭结构图和资产清单。材料：房产证或购房合同、银行卡和理财对账单、贷款合同、对外担保合同、企业营业执照和最近一年经营报表、父母和子女的基本情况。要问：哪些资产是婚前或个人财产？哪些债务有个人担保？如果明天收入中断，第一笔钱从哪里来？图不用漂亮，但要能看出谁依赖谁。",
-      "第 2 个月：补现金流和保障缺口。材料：近 6 个月流水、社保记录、体检报告、现有保单责任页。要问：应急金够不够 6 个月固定支出？医疗、重疾、寿险的保额和免赔额是否清楚？教育金、养老金是否单独放？先补最影响现金流的一项，不急着做购买决定。",
-      "第 3 个月：把安排落到文件，并做一次复盘。材料：本报告、家庭结构图、资产清单、保单清单、问题清单。要问：给谁、谁管、怎么给有没有答案？哪些安排需要书面化，哪些需要律师或税务师确认？把下次诊断要问的问题提前写下来。",
+      `这份报告不给你排长期任务表。真正可执行的下一步，是李璞计划书第六段和陈庚客户经营链里的「锁定一个具体下一步」。先只锁一个：围绕${focus}，约一次 30 分钟一对一诊断。`,
+      "去之前只带三样：① 所有保单的投保人/被保险人/受益人清单；② 一张家庭结构图（夫妻、子女、父母、兄弟姐妹、企业持股）；③ 近 6 个月家庭现金流和资产负债概况。不用做漂亮 PPT，能看清“谁依赖谁、钱在哪里、欠多少”就够。",
+      "诊断时只确认 1–3 个会改变判断的问题：给谁、谁管、怎么给；企业债务有没有家庭担保；孩子婚姻变化时钱会不会被分走。确认完再决定要不要进入方案；如果现有安排已经够用，或者你暂时不想继续，可以结束，不为了成交放大风险。",
     ],
   };
 }
@@ -932,7 +933,7 @@ function buildActionSection(risks: RiskItem[]): ReportSection {
 
 function buildPreparationSection(): ReportSection {
   return {
-    title: "八、下次一对一诊断要带什么",
+    title: "下次一对一诊断要带什么",
     paragraphs: [
       "证件和家庭关系材料：身份证、户口本、结婚证或离婚证、子女出生证明、父母的基本情况和照护安排。如果家庭结构复杂，提前画一张家庭结构图，标出婚姻、子女、父母、兄弟姐妹和企业持股关系。",
       "保单和资产材料：所有保险合同和最近一次缴费记录、银行卡和理财对账单、房产证或购房合同、股权或合伙协议、贷款合同、对外担保合同、企业最近一年报表。重点是把“谁名下、多少钱、欠多少、谁签字”说清。",
@@ -969,9 +970,30 @@ function buildBudgetSection(input: IndexInput): ReportSection {
   const third = `${REPORT_DISCLAIMER} 报告中的分数、预算和场景推演都基于你本次填写的信息；信息变化后，结论需要重新核对。`;
 
   return {
-    title: "九、预算区间与免责声明",
+    title: "预算区间与免责声明",
     paragraphs: [first, second, third],
   };
+}
+
+function buildMentionedModulesSection(answers: Answer[]): ReportSection | null {
+  const profile = emptyProfile();
+  const mentioned = Object.values(CHECKUP_MODULES).filter(
+    (module) =>
+      module.id !== "family" &&
+      module.id !== "financial" &&
+      module.questions.some((meta) => answers.some((answer) => answer.questionId === meta.questionId)),
+  );
+  if (mentioned.length === 0) return null;
+  const paragraphs: string[] = [];
+  for (let index = 0; index < mentioned.length; index += 2) {
+    paragraphs.push(
+      mentioned
+        .slice(index, index + 2)
+        .map((module) => `${module.title}：${buildModuleSummary(module.id, profile, answers)}`)
+        .join(" "),
+    );
+  }
+  return { title: "你提到的模块", paragraphs };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -982,11 +1004,15 @@ export function buildReportSections(params: BuildReportSectionsParams): ReportSe
   const { answers, indices, risks, input, profile } = params;
   const sections: ReportSection[] = [
     buildFamilySection(answers, profile),
+  ];
+  const modules = buildMentionedModulesSection(answers);
+  if (modules) sections.push(modules);
+  sections.push(
     buildIndicesSection(indices, input),
     buildRiskSection(risks),
     buildScenarioSection(answers),
     buildInheritanceSection(answers),
-  ];
+  );
   const businessMarriage = buildBusinessMarriageSection(answers);
   if (businessMarriage) sections.push(businessMarriage);
   sections.push(buildActionSection(risks), buildPreparationSection(), buildBudgetSection(input));
@@ -1134,7 +1160,7 @@ function buildDecisionSection(
 
   // S：给一个能马上做的决定，而不是一堆产品
   const s1 = `S（Solution）：${decisionFocus(risk)}。${risk?.suggestedAction ?? "先把家庭结构、资产清单和现有保单受益人核对一遍，再决定先做哪一件。"}`;
-  const s2 = `你现在不需要马上买任何产品。你只需要先做一个决定：接下来 30 天，先处理哪一件事？A. 先补保障缺口；B. 先理传承/受益人；C. 先做家企隔离；D. 先补应急金。按这份报告，我建议先选「${decisionFocus(risk)}」。下一步不是“再看看”，而是带着这份报告做一次 30 分钟一对一诊断：把今天的 P 和 A 摊开，把 S 拆成 30/60/90 天能执行的动作；具体产品、费率和合同条款线下核对，本报告不做推荐。`;
+  const s2 = `你现在不需要马上买任何产品。你只需要先做一个决定：接下来先处理哪一件事？A. 先补保障缺口；B. 先理传承/受益人；C. 先做家企隔离；D. 先补应急金。按这份报告，我建议先选「${decisionFocus(risk)}」。下一步不是“再看看”，而是带着这份报告做一次 30 分钟一对一诊断：把今天的 P 和 A 摊开，把 S 拆成下一次诊断前能先做的 1–2 个动作；具体产品、费率和合同条款线下核对，本报告不做推荐。`;
   sections.push(s1, s2);
 
   return {

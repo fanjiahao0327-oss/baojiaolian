@@ -5,7 +5,7 @@
   </view>
 
   <view class="indices">
-    <text class="section">家庭财富五维指数</text>
+    <text class="section">家庭财富五维自检（自检参考，不是科学测评）</text>
     <view wx:for="{{indices}}" wx:key="name" class="index-row">
       <text class="index-name">{{item.name}}</text>
       <text class="index-score {{item.level}}">{{item.scoreText}}</text>
@@ -18,14 +18,6 @@
       <text class="risk-title">{{item.title}}</text>
       <text wx:if="{{!full}}" class="risk-summary">{{item.phenomenon}}</text>
       <text wx:else class="risk-body">{{item.phenomenon}} {{item.ifIgnored}} {{item.suggestedAction}}</text>
-    </view>
-  </view>
-
-  <view wx:if="{{full}}" class="actions">
-    <text class="section">90 天行动清单</text>
-    <view wx:for="{{report.actionPlan}}" wx:key="action" class="action">
-      <text class="action-period">{{item.period}}</text>
-      <text class="action-text">{{item.action}}</text>
     </view>
   </view>
 
@@ -48,14 +40,14 @@
     <text class="section">如果只做一件事：PAS 决策收口</text>
     <text class="decision-p"><text class="decision-label">P 问题：</text>{{report.decisionTeaser.problem}}</text>
     <text class="decision-p"><text class="decision-label">A 为什么现在处理：</text>{{report.decisionTeaser.consequence}}</text>
-    <text class="decision-p"><text class="decision-label">S 完整版会给你：</text>{{report.decisionTeaser.nextStep}}；以及 90 天行动清单和一张「先处理哪一件」的决策表。</text>
+    <text class="decision-p"><text class="decision-label">S 完整版会给你：</text>{{report.decisionTeaser.nextStep}}；以及一张「先处理哪一件」的决策表。</text>
   </view>
 
   <view wx:if="{{!full}}" class="paywall">
     <text class="paywall-title">解锁完整报告</text>
     <text class="paywall-item">· Top 5 风险完整解析</text>
     <text class="paywall-item">· 9 个章节的详细解读</text>
-    <text class="paywall-item">· 90 天行动清单</text>
+    <text class="paywall-item">· 分模块详细解读</text>
     <text class="paywall-item">· 家庭保障预算参考</text>
   </view>
 

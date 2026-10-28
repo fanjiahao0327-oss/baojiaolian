@@ -65,11 +65,7 @@ export function buildReport(params: {
     profile: buildProfile(params.answers),
     wealthIndices: indices,
     topRisks: risks,
-    actionPlan: [
-      { period: "30 天内", action: "补 3–6 个月家庭应急金，核对现有保单的保障责任", owner: "你与家人" },
-      { period: "60 天内", action: "梳理家庭结构图与资产清单，确认给谁、谁管、怎么给", owner: "你" },
-      { period: "90 天内", action: "带着报告做一次一对一诊断，核对合同与真实体况", owner: "你与顾问" },
-    ],
+    actionPlan: [],
     budgetRange: buildBudgetRange(params.input),
     nextStep: "报告只是自查参考。想落地，建议预约一次一对一诊断，补充家庭结构、资产和现有保单信息。",
     disclaimer: DISCLAIMER,
@@ -101,7 +97,7 @@ export function toFreeReport(report: CheckupReport): CheckupReport {
 }
 
 export function reportToText(report: CheckupReport): string {
-  const lines: string[] = ["AI家庭风险测评报告", "", "一、家庭画像", report.profile.familyStructure, report.profile.summary, "", "二、家庭财富平衡 5 大指数"];
+  const lines: string[] = ["AI家庭风险测评报告", "", "一、家庭画像", report.profile.familyStructure, report.profile.summary, "", "二、家庭财富五维自检（自检参考，不是科学测评）"];
   for (const index of report.wealthIndices) {
     lines.push(`- ${index.name}：${index.score === null ? "信息不足" : `${index.score} 分`}`);
   }
@@ -109,8 +105,7 @@ export function reportToText(report: CheckupReport): string {
   for (const risk of report.topRisks) {
     lines.push(`- ${risk.title}：${risk.ifIgnored || risk.whyItMatters || ""}`);
   }
-  lines.push("", "四、90 天行动清单");
-  for (const item of report.actionPlan) lines.push(`- ${item.period}：${item.action}`);
+  lines.push("", "四、下一步", report.nextStep);
   lines.push("", "五、免责声明", report.disclaimer);
   return lines.join("\n");
 }
@@ -136,7 +131,7 @@ export async function enhanceReport(
       ...draft,
       profile: { ...draft.profile, ...(parsed.profile ?? {}) },
       topRisks: Array.isArray(parsed.topRisks) && parsed.topRisks.length > 0 ? parsed.topRisks.slice(0, 5) : draft.topRisks,
-      actionPlan: Array.isArray(parsed.actionPlan) && parsed.actionPlan.length > 0 ? parsed.actionPlan : draft.actionPlan,
+      actionPlan: [],
       nextStep: typeof parsed.nextStep === "string" && parsed.nextStep.trim() ? parsed.nextStep : draft.nextStep,
     };
   } catch {

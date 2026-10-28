@@ -46,6 +46,10 @@ export interface Question {
   hint?: string;
   example?: string;
   open?: boolean;
+  source?: string;
+  purpose?: string;
+  module?: string;
+  hiddenRisk?: boolean;
 }
 
 export interface Answer {

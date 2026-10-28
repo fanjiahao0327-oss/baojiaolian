@@ -75,8 +75,9 @@ test("free report hides the budget and keeps the disclaimer", () => {
   assert.equal(free.disclaimer.includes("不构成保险产品推荐"), true);
 });
 
-test("full report ships a 90-day action plan", () => {
+test("full report ships one next step, not a 90-day action list", () => {
   const report = buildReport(base);
-  assert.ok(report.actionPlan.length >= 3);
-  assert.ok(report.actionPlan.some((item) => item.period.includes("90")));
+  assert.equal(report.actionPlan.length, 0);
+  assert.ok(report.nextStep.length > 0);
+  assert.ok(report.detailSections?.some((section) => section.title.includes("下一步")));
 });

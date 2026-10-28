@@ -56,9 +56,9 @@ const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) ?? []).length;
 
 const BANNED_WORDS = ["保本", "稳赚", "保证领取", "复星", "友邦", "国寿", "万欣和"];
 
-test("完整报告生成 6–10 个章节，每章 2–5 段", () => {
+test("完整报告生成 6–12 个章节，每章 2–5 段", () => {
   assert.ok(sections.length >= 6, `章节数应至少为 6，实际 ${sections.length}`);
-  assert.ok(sections.length <= 10, `章节数应不超过 10，实际 ${sections.length}`);
+  assert.ok(sections.length <= 12, `章节数应不超过 12，实际 ${sections.length}`);
   for (const section of sections) {
     assert.ok(section.title.length > 0);
     assert.ok(section.paragraphs.length >= 2, `${section.title} 少于 2 段`);
@@ -71,7 +71,7 @@ test("完整报告生成 6–10 个章节，每章 2–5 段", () => {
 
 test("报告总字数达到详细版要求", () => {
   assert.ok(chineseChars >= 2500, `中文字符数应不少于 2500，实际 ${chineseChars}`);
-  assert.ok(chineseChars <= 5200, `中文字符数应不超过 5200，实际 ${chineseChars}`);
+  assert.ok(chineseChars <= 6500, `中文字符数应不超过 6500，实际 ${chineseChars}`);
 });
 
 test("报告包含关键法律与传承内容", () => {
@@ -84,7 +84,7 @@ test("报告包含关键法律与传承内容", () => {
   assert.ok(text.includes("家企隔离"), "缺少家企隔离说明");
   assert.ok(text.includes("保险金信托"), "缺少保险金信托说明");
   assert.ok(text.includes("家族信托"), "缺少家族信托说明");
-  assert.ok(text.includes("90 天"), "缺少 90 天行动清单");
+  assert.ok(text.includes("下一步"), "缺少下一步");
 });
 
 test("报告不包含禁用词或具体产品名", () => {
@@ -102,7 +102,7 @@ test("每条风险都出现在报告中", () => {
 
 test("章节覆盖家庭、指数、风险、场景、传承、行动、诊断、预算", () => {
   const titles = sections.map((section) => section.title);
-  for (const keyword of ["家庭结构", "五大指数", "风险", "分场景", "传承架构", "90 天", "一对一", "预算"]) {
+  for (const keyword of ["家庭结构", "你提到的模块", "五维自检", "风险", "分场景", "传承架构", "下一步", "一对一", "预算"]) {
     assert.ok(titles.some((title) => title.includes(keyword)), `缺少章节：${keyword}`);
   }
 });

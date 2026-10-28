@@ -8,9 +8,14 @@ import {
   buildIntakeSummary,
   emptyProfile,
   profileFromAnswers,
-  selectProfileNextQuestion,
   type IntakeProfile,
 } from "@/lib/checkup/profile";
+import {
+  buildModuleOutline,
+  buildModulePlan,
+  buildModuleSummary,
+  nextModuleQuestion,
+} from "@/lib/checkup/modules";
 import type { Answer } from "@/lib/checkup/types";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -94,20 +99,56 @@ export async function POST(request: NextRequest) {
 
   const summary = () => {
     const data = buildIntakeSummary(profile, answers);
-    return NextResponse.json({ summaryReady: true, summary: data, profile, progress });
+    const plan = buildModulePlan(profile);
+    const moduleSections = plan
+      .filter((module) => answers.some((answer) => module.questions.some((meta) => meta.questionId === answer.questionId)))
+      .map((module) => ({
+        title: `${module.title}小结`,
+        body: buildModuleSummary(module.id, profile, answers),
+      }));
+    data.sections = [...moduleSections, ...data.sections];
+    return NextResponse.json({
+      summaryReady: true,
+      summary: data,
+      profile,
+      progress,
+      moduleOutline: buildModuleOutline(profile),
+    });
   };
 
   if (body.customerWantsReport) return summary();
   if (answers.length >= MAX_ROUNDS) return summary();
 
-  const next = selectProfileNextQuestion(profile, answers);
-  if (!next) return summary();
+  const result = nextModuleQuestion(profile, answers);
+  if (!result) return summary();
+
+  const plan = buildModulePlan(profile);
+  const previousModule = result.moduleIndex > 1 ? plan[result.moduleIndex - 2] : null;
+  const previousHasAnswers =
+    previousModule &&
+    previousModule.questions.some((meta) => answers.some((answer) => answer.questionId === meta.questionId));
+  const moduleSummary =
+    result.moduleFirst && previousModule && previousHasAnswers
+      ? buildModuleSummary(previousModule.id, profile, answers)
+      : "";
 
   return NextResponse.json({
     done: false,
     summaryReady: false,
     ack,
-    question: next,
+    question: result.question,
+    module: {
+      id: result.module.id,
+      title: result.module.title,
+      intro: result.module.intro,
+      source: result.module.source,
+      index: result.moduleIndex,
+      total: result.moduleTotal,
+      questionIndex: result.questionIndex,
+      questionTotal: result.questionTotal,
+    },
+    moduleSummary,
+    moduleOutline: buildModuleOutline(profile),
     triage,
     profile,
     progress,

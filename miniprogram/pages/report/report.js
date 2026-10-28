@@ -206,12 +206,6 @@ Page({
       if (risk.suggestedAction) details.push("建议：" + risk.suggestedAction);
       if (details.length > 0) lines.push("  " + details.join(" "));
     });
-    if (this.data.full && report.actionPlan && report.actionPlan.length > 0) {
-      lines.push("", "90 天行动清单");
-      report.actionPlan.forEach(function (item) {
-        lines.push("· " + item.period + "：" + item.action);
-      });
-    }
     if (this.data.full && this.data.budgetText) {
       lines.push("", "家庭保障预算参考：" + this.data.budgetText);
       if (this.data.budgetBasis) lines.push(this.data.budgetBasis);

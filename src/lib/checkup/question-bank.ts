@@ -284,6 +284,44 @@ export const QUESTION_BANK: Question[] = [
     hint: "配偶的债务在某些情况下可能影响家庭资产，先了解大概情况。",
     example: "老婆没有做生意，应该没有负债，但我不太确定。",
   }),
+
+  // 医疗/养老的模块化问题（来源：中高端医疗六步、养老四笔钱）
+  q("medical_priority", "protection", "medicalPriority", "医疗这块，你最在意的是哪一段？", [
+    ["cost", "治疗费用"], ["hospital", "医院/医生选择"], ["drug", "药械/治疗方案"], ["income", "收入中断"], ["experience", "就医效率/体验"],
+  ], false, 2, {
+    hint: "来源：中高端医疗险需求分析六步（T021）第一步——先找主观动机，而不是先讲产品。",
+    example: "我最怕治疗费不够，也怕找不到好医生。",
+    source: "中高端医疗险需求分析六步（T021）",
+    purpose: "判断医疗需求的主动机：费用、医院、药械、收入还是体验",
+    hiddenRisk: true,
+  }),
+  q("medical_hospital", "protection", "hospitalLevel", "平时看病主要去普通部、特需/国际部还是私立？复杂疾病会考虑外地或海外吗？", [
+    ["public", "普通部"], ["vip", "特需/国际部"], ["private", "私立/昂贵医院"], ["depends", "看病情"], ["unknown", "没想过"],
+  ], false, 2, {
+    hint: "来源：中高端医疗六步第二步——还原当前就医路径。",
+    example: "平时去普通部，真有大病会考虑去北京或上海。",
+    source: "中高端医疗险需求分析六步（T021）",
+    purpose: "还原就医路径，判断真正想保留的医院/地域选择",
+    hiddenRisk: true,
+  }),
+  q("retirement_care", "retirement", "carePlan", "如果失能或需要照护，谁来做决定、钱从哪出？", [
+    ["family", "家人决定，用存款"], ["insurance", "提前用保险/年金准备"], ["trust", "信托/专业机构"], ["undecided", "没想过"],
+  ], false, 2, {
+    hint: "来源：养老四笔钱第三笔——看病尊严、失能康复和照护。",
+    example: "真到那一步，可能靠老伴和孩子，钱先用存款。",
+    source: "北京家庭养老四笔钱专场（R159/R160）第三笔",
+    purpose: "挖高龄失能照护的隐性风险：谁决定、钱从哪出",
+    hiddenRisk: true,
+  }),
+  q("retirement_four_money", "retirement", "fourMoney", "养老四笔钱里，你觉得哪一笔最薄？", [
+    ["living", "生存的钱"], ["quality", "品质的钱"], ["care", "看病/照护的钱"], ["inheritance", "给孩子的钱"], ["unknown", "没算过"],
+  ], false, 2, {
+    hint: "来源：养老四笔钱框架——生存、品质、保障、传承，顺序不能反。",
+    example: "生存的钱有社保，品质的钱没准备，看病的钱最薄。",
+    source: "北京家庭养老四笔钱专场（R159/R160）",
+    purpose: "定位养老四笔钱里最薄的一笔，作为优先级",
+    hiddenRisk: true,
+  }),
 ];
 
 export function getQuestionById(id: string): Question | undefined {

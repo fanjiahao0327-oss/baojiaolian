@@ -6,11 +6,13 @@ import type { IntakeProfile } from "@/lib/checkup/profile";
 type Screen = "intro" | "chat" | "summary" | "report" | "booking" | "done";
 
 interface Option { value: string; label: string }
-interface Question { id: string; dimension: string; field: string; prompt: string; options: Option[]; hint?: string; example?: string; open?: boolean }
+interface Question { id: string; dimension: string; field: string; prompt: string; options: Option[]; hint?: string; example?: string; open?: boolean; source?: string; purpose?: string; module?: string; hiddenRisk?: boolean }
 interface Answer { questionId: string; dimension: string; field: string; value: string; freeText?: string; skipped: boolean }
 interface Message { role: "assistant" | "user"; text: string }
 interface SummarySection { title: string; body: string }
 interface SummaryData { sections: SummarySection[]; missing: string[] }
+interface ModuleInfo { id: string; title: string; intro: string; source: string; index: number; total: number; questionIndex: number; questionTotal: number }
+interface ModuleOutlineItem { id: string; title: string }
 interface WealthIndex { name: string; score: number | null; level: string; dataStatus: string; reason: string }
 interface RiskItem { title: string; severity: string; phenomenon: string; whyItMatters: string; ifIgnored: string; suggestedAction: string }
 interface ActionItem { period: string; action: string; owner: string }
@@ -41,10 +43,6 @@ function reportText(report: Report): string {
   report.wealthIndices.forEach((item) => lines.push(`- ${item.name}：${item.score === null ? "信息不足" : `${item.score} 分`}`));
   lines.push("", "Top 风险");
   report.topRisks.forEach((item) => lines.push(`- ${item.title}：${item.ifIgnored || item.whyItMatters}`));
-  if (report.actionPlan.length) {
-    lines.push("", "90 天行动清单");
-    report.actionPlan.forEach((item) => lines.push(`- ${item.period}：${item.action}`));
-  }
   if (report.decisionTeaser) {
     lines.push("", "决策收口", `P：${report.decisionTeaser.problem}`, `A：${report.decisionTeaser.consequence}`, `S：${report.decisionTeaser.nextStep}`);
   }
@@ -71,6 +69,8 @@ export default function CheckupPage() {
   const [profile, setProfile] = useState<IntakeProfile | null>(null);
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [summaryInput, setSummaryInput] = useState("");
+  const [moduleInfo, setModuleInfo] = useState<ModuleInfo | null>(null);
+  const [moduleOutline, setModuleOutline] = useState<ModuleOutlineItem[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -103,6 +103,8 @@ export default function CheckupPage() {
       setProfile(null);
       setSummary(null);
       setSummaryInput("");
+      setModuleInfo(null);
+      setModuleOutline([]);
       setTopics(Array.isArray(data.topics) ? data.topics : []);
       setScreen("chat");
     } catch (e) {
@@ -145,6 +147,8 @@ export default function CheckupPage() {
       if (!res.ok) throw new Error(data.error || "请求失败");
       setAnswers(nextAnswers);
       if (data.profile) setProfile(data.profile);
+      if (data.moduleOutline) setModuleOutline(data.moduleOutline);
+      if (data.module) setModuleInfo(data.module);
       if (data.summaryReady) {
         setSummary(data.summary);
         setCurrentQuestion(null);
@@ -166,6 +170,7 @@ export default function CheckupPage() {
       setMessages((prev) => [
         ...prev,
         { role: "user", text },
+        ...(data.moduleSummary ? [{ role: "assistant" as const, text: data.moduleSummary }] : []),
         ...(data.ack ? [{ role: "assistant" as const, text: data.ack }] : []),
         { role: "assistant", text: data.question.prompt },
       ]);
@@ -281,6 +286,8 @@ export default function CheckupPage() {
       if (!res.ok) throw new Error(data.error || "补充失败");
       setAnswers(nextAnswers);
       if (data.profile) setProfile(data.profile);
+      if (data.moduleOutline) setModuleOutline(data.moduleOutline);
+      if (data.module) setModuleInfo(data.module);
       if (data.summaryReady) {
         setSummary(data.summary);
         setSummaryInput("");
@@ -397,6 +404,8 @@ export default function CheckupPage() {
     setProfile(null);
     setSummary(null);
     setSummaryInput("");
+    setModuleInfo(null);
+    setModuleOutline([]);
     setOrderNo("");
     setBooking({ name: "", phone: "", timeWindow: "", question: "" });
     setBookingDone(false);
@@ -454,6 +463,29 @@ export default function CheckupPage() {
               <span>进度 {progress}</span>
               <button type="button" onClick={restart} className="underline">重新开始</button>
             </div>
+            {moduleOutline.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 text-[11px]">
+                {moduleOutline.map((item) => (
+                  <span
+                    key={item.id}
+                    className={`rounded-full px-2.5 py-1 ${
+                      moduleInfo?.id === item.id ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {item.title}
+                  </span>
+                ))}
+              </div>
+            )}
+            {moduleInfo && (
+              <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                <p className="text-xs font-medium text-blue-800">
+                  第 {moduleInfo.index}/{moduleInfo.total} 部分 · {moduleInfo.title}
+                  <span className="ml-2 font-normal text-blue-600">（{moduleInfo.questionIndex}/{moduleInfo.questionTotal}）</span>
+                </p>
+                <p className="mt-1 text-[11px] leading-5 text-blue-700">{moduleInfo.intro}</p>
+              </div>
+            )}
             <div className="max-h-[55vh] space-y-3 overflow-y-auto rounded-2xl border border-gray-100 bg-white p-4">
               {messages.map((message, index) => (
                 <div
@@ -496,6 +528,8 @@ export default function CheckupPage() {
                   <div className="rounded-xl bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-700">
                     <p>提示：{currentQuestion.hint}</p>
                     {currentQuestion.example && <p className="mt-1 text-blue-600/80">例子：{currentQuestion.example}</p>}
+                    {currentQuestion.purpose && <p className="mt-1 text-blue-600/80">为什么问：{currentQuestion.purpose}</p>}
+                    {currentQuestion.source && <p className="mt-1 text-blue-500/70">依据：{currentQuestion.source}</p>}
                   </div>
                 )}
                 {currentQuestion.options.map((option) => (
@@ -613,7 +647,7 @@ export default function CheckupPage() {
             </div>
 
             <div className="rounded-2xl border border-gray-100 bg-white p-5">
-              <h3 className="mb-3 text-sm font-semibold text-gray-800">家庭财富平衡 5 大指数</h3>
+              <h3 className="mb-3 text-sm font-semibold text-gray-800">家庭财富五维自检（自检参考，不是科学测评）</h3>
               <div className="grid gap-2 sm:grid-cols-2">
                 {report.wealthIndices.map((item) => (
                   <div key={item.name} className={`rounded-xl p-3 ${INDEX_COLORS[item.level] || INDEX_COLORS.unknown}`}>
@@ -642,27 +676,15 @@ export default function CheckupPage() {
             </div>
 
             {fullReport && (
-              <>
-                <div className="rounded-2xl border border-gray-100 bg-white p-5">
-                  <h3 className="mb-3 text-sm font-semibold text-gray-800">90 天行动清单</h3>
-                  <div className="space-y-2">
-                    {fullReport.actionPlan.map((item) => (
-                      <div key={item.action} className="rounded-xl bg-gray-50 p-3 text-xs leading-6 text-gray-600">
-                        <span className="font-medium text-gray-800">{item.period}</span>：{item.action}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-gray-100 bg-white p-5">
-                  <h3 className="text-sm font-semibold text-gray-800">家庭风险预算区间</h3>
-                  <p className="mt-2 text-sm text-gray-700">
-                    {fullReport.budgetRange.min === null
-                      ? "信息不足"
-                      : `${fullReport.budgetRange.min.toLocaleString()} – ${fullReport.budgetRange.max?.toLocaleString()} 元 / 年`}
-                  </p>
-                  <p className="mt-1 text-[11px] text-gray-400">{fullReport.budgetRange.basis} · {fullReport.budgetRange.disclaimer}</p>
-                </div>
-              </>
+              <div className="rounded-2xl border border-gray-100 bg-white p-5">
+                <h3 className="text-sm font-semibold text-gray-800">家庭风险预算区间</h3>
+                <p className="mt-2 text-sm text-gray-700">
+                  {fullReport.budgetRange.min === null
+                    ? "信息不足"
+                    : `${fullReport.budgetRange.min.toLocaleString()} – ${fullReport.budgetRange.max?.toLocaleString()} 元 / 年`}
+                </p>
+                <p className="mt-1 text-[11px] text-gray-400">{fullReport.budgetRange.basis} · {fullReport.budgetRange.disclaimer}</p>
+              </div>
             )}
 
             {!fullReport && report.decisionTeaser && (
@@ -670,7 +692,7 @@ export default function CheckupPage() {
                 <h3 className="text-sm font-semibold text-blue-800">如果只做一件事：PAS 决策收口</h3>
                 <p className="mt-3 text-xs leading-6 text-blue-800"><span className="font-semibold">P 问题：</span>{report.decisionTeaser.problem}</p>
                 <p className="mt-2 text-xs leading-6 text-blue-800"><span className="font-semibold">A 为什么现在处理：</span>{report.decisionTeaser.consequence}</p>
-                <p className="mt-2 text-xs leading-6 text-blue-800"><span className="font-semibold">S 完整版会给你：</span>{report.decisionTeaser.nextStep}；以及 90 天行动清单和一张「先处理哪一件」的决策表。</p>
+                <p className="mt-2 text-xs leading-6 text-blue-800"><span className="font-semibold">S 完整版会给你：</span>{report.decisionTeaser.nextStep}；以及一张「先处理哪一件」的决策表。</p>
               </div>
             )}
 
@@ -678,7 +700,7 @@ export default function CheckupPage() {
               <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
                 <p className="text-xs font-medium text-blue-700">完整版会展开 9 个章节：</p>
                 <p className="mt-1 text-[11px] leading-6 text-blue-600">
-                  家庭时间轴 · 5 大指数逐项解读 · 风险背后的法律/财务机制 · 分场景推演 · 传承架构对比 · 家企隔离/婚姻财产 · 90 天行动清单 · 下次诊断准备 · 预算与免责声明
+                  家庭时间轴 · 五维自检逐项解读 · 风险背后的法律/财务机制 · 分模块推演 · 传承架构对比 · 家企隔离/婚姻财产 · 下次诊断准备 · 预算与免责声明
                 </p>
               </div>
             )}
