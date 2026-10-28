@@ -1,0 +1,10 @@
+.page { padding: 48rpx 32rpx; background: #f7f8fa; min-height: 100vh; }
+.hero { margin-bottom: 32rpx; }
+.title { display: block; font-size: 52rpx; font-weight: 700; color: #111827; }
+.subtitle { display: block; margin-top: 16rpx; font-size: 30rpx; color: #6b7280; }
+.intro { background: #fff; border-radius: 20rpx; padding: 28rpx; font-size: 28rpx; line-height: 1.8; color: #374151; }
+.intro text { display: block; margin-bottom: 12rpx; }
+.card { margin-top: 24rpx; background: #fff; border-radius: 20rpx; padding: 28rpx; }
+.card-title { display: block; font-weight: 600; margin-bottom: 12rpx; }
+.primary { margin-top: 48rpx; background: #1a56db; color: #fff; border-radius: 999rpx; }
+.privacy { margin-top: 24rpx; text-align: center; font-size: 26rpx; color: #9ca3af; }

@@ -1,0 +1,16 @@
+<view class="page">
+  <view class="hero">
+    <text class="title">AI家庭风险测评</text>
+    <text class="subtitle">10 分钟，看清你家最该先处理的风险</text>
+  </view>
+  <view class="intro">
+    <text>我是樊家浩，过去 4 年做京东运营，现在专注结合 AI 做家庭风险和传承，定位是「财富安全风险架构师」。</text>
+    <text>很多客户不愿意一上来就把家里情况告诉代理人，所以我把它做成一个可以匿名使用的测评。你的回答不会被保存，只会存在你自己的手机上。</text>
+  </view>
+  <view class="card">
+    <text class="card-title">测什么</text>
+    <text>家庭结构、已有保障、收支与资产、婚姻与传承安排。不推销、不承诺，只给风险判断。</text>
+  </view>
+  <button class="primary" bindtap="onStart" loading="{{starting}}">开始测评</button>
+  <view class="privacy" bindtap="onAbout">隐私说明 · 免责声明</view>
+</view>
