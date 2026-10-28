@@ -16,6 +16,7 @@ import {
   buildModuleSummary,
   nextModuleQuestion,
 } from "@/lib/checkup/modules";
+import { buildDirectionQuestion, buildOpeningFollowUp } from "@/lib/checkup/opening";
 import type { Answer } from "@/lib/checkup/types";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -118,6 +119,36 @@ export async function POST(request: NextRequest) {
 
   if (body.customerWantsReport) return summary();
   if (answers.length >= MAX_ROUNDS) return summary();
+
+  const directionAnswer = answers.find((answer) => answer.questionId === "direction");
+  const followupAnswer = answers.find((answer) => answer.questionId === "opening_followup");
+  if (openingAnswer && !directionAnswer) {
+    return NextResponse.json({
+      done: false,
+      stage: "direction",
+      ack,
+      question: buildDirectionQuestion(profile),
+      profile,
+      progress,
+      moduleOutline: [],
+    });
+  }
+  if (directionAnswer && !followupAnswer) {
+    const followup = await buildOpeningFollowUp(
+      profile,
+      directionAnswer.value,
+      profile.openingText || openingAnswer?.freeText || lastMessage,
+    );
+    return NextResponse.json({
+      done: false,
+      stage: "opening_followup",
+      ack: "",
+      question: followup,
+      profile,
+      progress,
+      moduleOutline: buildModuleOutline(profile),
+    });
+  }
 
   const result = nextModuleQuestion(profile, answers);
   if (!result) return summary();

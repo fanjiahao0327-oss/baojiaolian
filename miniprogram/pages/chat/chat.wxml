@@ -24,26 +24,33 @@
     </view>
   </view>
   <view wx:if="{{!currentQuestion && !summaryReady && topics.length > 0}}" class="topics">
-    <text class="topic-hint">可以从这里选一个方向开始，也可以直接打字：</text>
+    <text class="topic-hint">不知道从哪说？可以按这些方向随便聊：</text>
     <view class="topic-list">
-      <view wx:for="{{topics}}" wx:key="*this" class="topic" data-topic="{{item}}" bindtap="onTopic">{{item}}</view>
+      <text wx:for="{{topics}}" wx:key="*this" class="topic">{{item}}</text>
     </view>
+    <text class="topic-hint">也可以聊：为什么现在想了解、家里几口人、孩子多大、父母需不需要照顾、最近发生了什么、最担心谁。不用组织语言，想到哪说到哪。</text>
   </view>
   <view wx:if="{{currentQuestion}}" class="options">
     <view wx:if="{{currentQuestion.hint}}" class="hint">
       <text>提示：{{currentQuestion.hint}}</text>
       <text wx:if="{{currentQuestion.example}}" class="example">例子：{{currentQuestion.example}}</text>
     </view>
-    <view wx:for="{{currentQuestion.options}}" wx:key="value" class="option" data-option="{{item}}" bindtap="onOption">
-      <text>{{item.label}}</text>
+    <view wx:if="{{currentQuestion.openOnly}}" class="open-guidance">
+      <text>这一题不用选，直接用自己的话说。</text>
+      <text wx:if="{{currentQuestion.guidance}}">{{currentQuestion.guidance}}</text>
     </view>
+    <block wx:else>
+      <view wx:for="{{currentQuestion.options}}" wx:key="value" class="option" data-option="{{item}}" bindtap="onOption">
+        <text>{{item.label}}</text>
+      </view>
+    </block>
     <view class="actions">
       <text class="link" bindtap="onSkip">不想说，跳过</text>
       <text class="link" bindtap="onReportNow">直接出报告</text>
     </view>
   </view>
   <view class="input-row">
-    <input value="{{inputValue}}" bindinput="onInput" placeholder="也可以直接打字说…" />
+    <input value="{{inputValue}}" bindinput="onInput" placeholder="{{currentQuestion.openOnly ? '直接说，想到哪说到哪；不想说可以跳过…' : '也可以直接打字说…'}}" />
     <button size="mini" bindtap="onSendText">发送</button>
   </view>
 </view>

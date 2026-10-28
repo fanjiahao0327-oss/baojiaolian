@@ -28,7 +28,7 @@ Page({
       this.ask({ resume: true });
     } else {
       this.setData({
-        messages: [{ role: "assistant", text: "先说说：你为什么现在想了解保险？最近有没有发生什么事，或者你心里一直有个担心？可以从下面的方向选一个开始，也可以直接说。" }],
+        messages: [{ role: "assistant", text: "先说说：你为什么现在想了解保险？最近有没有发生什么事，或者你心里一直有个担心？不用组织语言，想到哪说到哪，说个大概就行。" }],
         topics: topics,
       });
     }

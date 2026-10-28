@@ -50,6 +50,8 @@ export interface Question {
   purpose?: string;
   module?: string;
   hiddenRisk?: boolean;
+  openOnly?: boolean;
+  guidance?: string;
 }
 
 export interface Answer {

@@ -176,6 +176,18 @@ export function applyAnswerToProfile(profile: IntakeProfile, answer: Answer): In
       fields: derived.fields,
     });
   }
+  if (answer.questionId === "direction") {
+    next.fields.__direction = answer.value;
+    return next;
+  }
+  if (answer.questionId === "opening_followup") {
+    const derived = deriveProfileFromText(answer.freeText || "");
+    return mergeProfile(next, {
+      occupation: derived.occupation,
+      concerns: derived.concerns,
+      fields: derived.fields,
+    });
+  }
   if (!answer.skipped) {
     const question = getQuestionById(answer.questionId);
     if (question) {

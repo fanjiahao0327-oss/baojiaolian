@@ -6,7 +6,7 @@ import type { IntakeProfile } from "@/lib/checkup/profile";
 type Screen = "intro" | "chat" | "summary" | "report" | "booking" | "done";
 
 interface Option { value: string; label: string }
-interface Question { id: string; dimension: string; field: string; prompt: string; options: Option[]; hint?: string; example?: string; open?: boolean; source?: string; purpose?: string; module?: string; hiddenRisk?: boolean }
+interface Question { id: string; dimension: string; field: string; prompt: string; options: Option[]; hint?: string; example?: string; open?: boolean; openOnly?: boolean; guidance?: string; source?: string; purpose?: string; module?: string; hiddenRisk?: boolean }
 interface Answer { questionId: string; dimension: string; field: string; value: string; freeText?: string; skipped: boolean }
 interface Message { role: "assistant" | "user"; text: string }
 interface SummarySection { title: string; body: string }
@@ -503,22 +503,14 @@ export default function CheckupPage() {
               <div ref={bottomRef} />
             </div>
 
-            {!currentQuestion && messages.length <= 1 && topics.length > 0 && (
-              <div className="space-y-2 rounded-2xl border border-gray-100 bg-white p-4">
-                <p className="text-xs text-gray-500">可以从这里选一个方向开始，也可以直接打字：</p>
-                <div className="flex flex-wrap gap-2">
-                  {topics.map((topic) => (
-                    <button
-                      key={topic}
-                      type="button"
-                      onClick={() => sendOpening(topic)}
-                      disabled={loading}
-                      className="rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 disabled:opacity-60"
-                    >
-                      {topic}
-                    </button>
-                  ))}
-                </div>
+            {!currentQuestion && messages.length <= 1 && (
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-xs leading-6 text-blue-800">
+                <p className="font-medium">不知道从哪说？可以按这些方向随便聊：</p>
+                {topics.length > 0 && <p className="mt-1">{topics.join(" / ")}</p>}
+                <p className="mt-2 text-blue-700">
+                  也可以聊：为什么现在想了解、家里几口人、孩子多大、父母需不需要照顾、最近发生了什么、你最担心谁。
+                  不用组织语言，想到哪说到哪；不想说可以跳过。
+                </p>
               </div>
             )}
 
@@ -532,17 +524,24 @@ export default function CheckupPage() {
                     {currentQuestion.source && <p className="mt-1 text-blue-500/70">依据：{currentQuestion.source}</p>}
                   </div>
                 )}
-                {currentQuestion.options.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => onOption(option)}
-                    disabled={loading}
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-left text-sm text-gray-700 hover:border-blue-300 hover:bg-blue-50 disabled:opacity-60"
-                  >
-                    {option.label}
-                  </button>
-                ))}
+                {currentQuestion.openOnly ? (
+                  <div className="rounded-xl bg-gray-50 px-4 py-3 text-xs leading-6 text-gray-600">
+                    <p>这一题不用选，直接用自己的话说。</p>
+                    {currentQuestion.guidance && <p className="mt-1">{currentQuestion.guidance}</p>}
+                  </div>
+                ) : (
+                  currentQuestion.options.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => onOption(option)}
+                      disabled={loading}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-left text-sm text-gray-700 hover:border-blue-300 hover:bg-blue-50 disabled:opacity-60"
+                    >
+                      {option.label}
+                    </button>
+                  ))
+                )}
                 <div className="flex justify-between pt-1 text-xs text-gray-500">
                   <button type="button" onClick={onSkip} disabled={loading} className="underline">不想说，跳过</button>
                   <button type="button" onClick={finishEarly} disabled={loading} className="underline">直接出报告</button>
@@ -557,18 +556,24 @@ export default function CheckupPage() {
             )}
 
             <div className="flex gap-2">
-              <input
+              <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") onSendText(); }}
-                placeholder={currentQuestion ? "也可以直接打字补充…" : "先说几句，不用很完整…"}
-                className="flex-1 rounded-full border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-400"
+                rows={2}
+                placeholder={
+                  currentQuestion
+                    ? currentQuestion.openOnly
+                      ? "直接说，想到哪说到哪；不想说可以跳过…"
+                      : "也可以直接打字补充…"
+                    : "想到哪说到哪，不用组织语言；说个大概就行…"
+                }
+                className="flex-1 resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-400"
               />
               <button
                 type="button"
                 onClick={onSendText}
                 disabled={loading || !input.trim()}
-                className="rounded-full bg-blue-600 px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
+                className="self-end rounded-full bg-blue-600 px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
               >
                 发送
               </button>

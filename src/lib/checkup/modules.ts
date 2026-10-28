@@ -17,6 +17,7 @@ export interface ModuleQuestionMeta {
   source: string;
   purpose: string;
   hiddenRisk?: boolean;
+  openOnly?: boolean;
 }
 
 export interface CheckupModule {
@@ -34,8 +35,8 @@ export const CHECKUP_MODULES: Record<ModuleId, CheckupModule> = {
     intro: "先把你对医疗的真实担心、就医路径和已有保障弄清楚，不急着讲产品。",
     source: "中高端医疗险需求分析六步（T021）；健康险 KYC-KYP-KMS（T029）",
     questions: [
-      { questionId: "medical_priority", source: "中高端医疗六步·第一步", purpose: "找到医疗需求的主观动机", hiddenRisk: true },
-      { questionId: "medical_hospital", source: "中高端医疗六步·第二步", purpose: "还原当前就医路径和想保留的医院/地域选择", hiddenRisk: true },
+      { questionId: "medical_priority", source: "中高端医疗六步·第一步", purpose: "找到医疗需求的主观动机", hiddenRisk: true, openOnly: true },
+      { questionId: "medical_hospital", source: "中高端医疗六步·第二步", purpose: "还原当前就医路径和想保留的医院/地域选择", hiddenRisk: true, openOnly: true },
       { questionId: "protection_medical", source: "一丁 KYC·已有保障；中高端医疗六步·第三步", purpose: "盘点已有医疗安排" },
       { questionId: "protection_critical", source: "健康险 KYC·已有保障", purpose: "判断重疾保障缺口" },
       { questionId: "health_conditions", source: "健康险 KYC·把脉", purpose: "了解与当前问题直接相关的体况线索" },
@@ -50,7 +51,7 @@ export const CHECKUP_MODULES: Record<ModuleId, CheckupModule> = {
     questions: [
       { questionId: "retirement_age", source: "养老四笔钱·第一笔", purpose: "明确停止工作和领养老金的时间" },
       { questionId: "retirement_four_money", source: "养老四笔钱框架", purpose: "定位最薄的一笔钱", hiddenRisk: true },
-      { questionId: "retirement_care", source: "养老四笔钱·第三笔", purpose: "挖失能照护的隐性风险", hiddenRisk: true },
+      { questionId: "retirement_care", source: "养老四笔钱·第三笔", purpose: "挖失能照护的隐性风险", hiddenRisk: true, openOnly: true },
       { questionId: "retirement_income", source: "养老四笔钱·第一笔", purpose: "判断退休后的主要来源" },
       { questionId: "cashflow_passive", source: "养老现金池与现金流", purpose: "判断被动收入对退休支出的覆盖" },
     ],
@@ -64,8 +65,8 @@ export const CHECKUP_MODULES: Record<ModuleId, CheckupModule> = {
       { questionId: "inheritance_intent", source: "确权三问·给谁", purpose: "判断传承意愿是否已经落地" },
       { questionId: "inheritance_children_marriage", source: "15 题体检·婚姻与传承；66 问·婚姻", purpose: "判断孩子婚姻对给钱安排的影响" },
       { questionId: "inheritance_tools", source: "确权三问·怎么给", purpose: "盘点现有遗嘱/信托/受益人安排" },
-      { questionId: "inheritance_when", source: "确权三问·给钱时点", purpose: "明确一次性/结婚/35 岁/分批", hiddenRisk: true },
-      { questionId: "inheritance_control", source: "确权三问·谁管", purpose: "明确给出去之后谁说了算", hiddenRisk: true },
+      { questionId: "inheritance_when", source: "确权三问·给钱时点", purpose: "明确一次性/结婚/35 岁/分批", hiddenRisk: true, openOnly: true },
+      { questionId: "inheritance_control", source: "确权三问·谁管", purpose: "明确给出去之后谁说了算", hiddenRisk: true, openOnly: true },
       { questionId: "inheritance_worry", source: "66 问·传承；15 题体检·资产交底", purpose: "识别客户最担心的传承后果" },
     ],
   },
@@ -88,7 +89,7 @@ export const CHECKUP_MODULES: Record<ModuleId, CheckupModule> = {
     questions: [
       { questionId: "business_guarantee", source: "15 题体检·家业隔离；王勇深度 KYC·企业", purpose: "识别个人/家庭资产担保", hiddenRisk: true },
       { questionId: "business_debt", source: "王勇深度 KYC·企业情况", purpose: "判断企业负债是否可能穿透家庭" },
-      { questionId: "business_succession", source: "15 题体检·接班与二代", purpose: "识别接班/出售/职业经理人安排" },
+      { questionId: "business_succession", source: "15 题体检·接班与二代", purpose: "识别接班/出售/职业经理人安排", openOnly: true },
     ],
   },
   education: {
@@ -98,7 +99,7 @@ export const CHECKUP_MODULES: Record<ModuleId, CheckupModule> = {
     source: "苏颖四步成交·储蓄险/教育金（P077–P113）；子女养育-教育金边界",
     questions: [
       { questionId: "education_stage", source: "苏颖教育金场景·时间轴", purpose: "确定教育用钱的时间点" },
-      { questionId: "education_plan", source: "苏颖教育金场景·目标", purpose: "判断国内/留学和大额教育计划" },
+      { questionId: "education_plan", source: "苏颖教育金场景·目标", purpose: "判断国内/留学和大额教育计划", openOnly: true },
       { questionId: "education_budget", source: "子女养育-教育金边界", purpose: "判断教育金准备缺口", hiddenRisk: true },
     ],
   },
@@ -168,6 +169,10 @@ export function selectModuleIds(profile: IntakeProfile): ModuleId[] {
   }
 
   const modules = MODULE_ORDER.filter((id) => id === "family" || id === "financial" || selected.has(id));
+  const direction = profile.fields.__direction;
+  if (direction && modules.includes(direction as ModuleId) && !["both", "family", "care"].includes(direction)) {
+    return [direction as ModuleId, ...modules.filter((id) => id !== direction)];
+  }
   return modules;
 }
 
@@ -225,6 +230,7 @@ export function nextModuleQuestion(profile: IntakeProfile, answers: Answer[]): M
         source: meta.source,
         purpose: meta.purpose,
         hiddenRisk: meta.hiddenRisk,
+        openOnly: meta.openOnly,
       };
       return {
         question,
@@ -250,6 +256,7 @@ export function moduleForQuestion(questionId: string): ModuleId | null {
 function valueOf(answers: Answer[], id: string): string | null {
   const answer = answers.find((item) => item.questionId === id);
   if (!answer || answer.skipped) return null;
+  if (answer.value === "free_text" && answer.freeText) return answer.freeText;
   return answer.value;
 }
 
