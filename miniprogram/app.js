@@ -9,8 +9,26 @@ App({
     loginReady: false,
   },
 
+  async silentLogin() {
+    try {
+      var token = auth.getToken();
+      if (token) return token;
+      var codeRes = await wx.login();
+      var res = await this.request("/api/auth/wechat-login", { method: "POST", data: { code: codeRes.code } });
+      if (res.statusCode >= 200 && res.statusCode < 300 && res.data.token) {
+        auth.setToken(res.data.token);
+        this.globalData.userInfo = res.data.user;
+        this.globalData.isLogin = true;
+        return res.data.token;
+      }
+    } catch (e) {
+      console.warn("[silentLogin] failed", e && e.message);
+    }
+    return "";
+  },
+
   onLaunch() {
-    this.autoLogin();
+    this.silentLogin().then(() => this.autoLogin());
   },
 
   async autoLogin() {
