@@ -1,4 +1,5 @@
 import { calcAllIndices, type IndexInput } from "./indices";
+import { buildReportSections } from "./report-sections";
 import { buildReportUserPrompt } from "./prompts";
 import { buildRiskItems } from "./risk-rules";
 import type { Answer, CheckupReport, TriageResult } from "./types";
@@ -72,6 +73,13 @@ export function buildReport(params: {
     budgetRange: buildBudgetRange(params.input),
     nextStep: "报告只是自查参考。想落地，建议预约一次一对一诊断，补充家庭结构、资产和现有保单信息。",
     disclaimer: DISCLAIMER,
+    detailSections: buildReportSections({
+      answers: params.answers,
+      indices,
+      risks,
+      input: params.input,
+      profile: buildProfile(params.answers),
+    }),
   };
 }
 
@@ -87,6 +95,7 @@ export function toFreeReport(report: CheckupReport): CheckupReport {
     })),
     actionPlan: [],
     budgetRange: { min: null, max: null, basis: "完整版解锁后查看", disclaimer: "预算参考，非保费报价，非产品推荐" },
+    detailSections: [],
   };
 }
 

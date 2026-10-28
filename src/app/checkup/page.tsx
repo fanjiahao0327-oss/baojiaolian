@@ -1,17 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { IntakeProfile } from "@/lib/checkup/profile";
 
-type Screen = "intro" | "chat" | "report" | "booking" | "done";
+type Screen = "intro" | "chat" | "summary" | "report" | "booking" | "done";
 
 interface Option { value: string; label: string }
 interface Question { id: string; dimension: string; field: string; prompt: string; options: Option[]; hint?: string; example?: string; open?: boolean }
 interface Answer { questionId: string; dimension: string; field: string; value: string; freeText?: string; skipped: boolean }
 interface Message { role: "assistant" | "user"; text: string }
+interface SummarySection { title: string; body: string }
+interface SummaryData { sections: SummarySection[]; missing: string[] }
 interface WealthIndex { name: string; score: number | null; level: string; dataStatus: string; reason: string }
 interface RiskItem { title: string; severity: string; phenomenon: string; whyItMatters: string; ifIgnored: string; suggestedAction: string }
 interface ActionItem { period: string; action: string; owner: string }
 interface BudgetRange { min: number | null; max: number | null; basis: string; disclaimer: string }
+interface ReportDetailSection { title: string; paragraphs: string[] }
 interface Report {
   profile: { familyStructure: string; lifeStage: string; summary: string };
   wealthIndices: WealthIndex[];
@@ -20,6 +24,7 @@ interface Report {
   budgetRange: BudgetRange;
   nextStep: string;
   disclaimer: string;
+  detailSections?: ReportDetailSection[];
 }
 
 const INDEX_COLORS: Record<string, string> = {
@@ -38,6 +43,13 @@ function reportText(report: Report): string {
     lines.push("", "90 天行动清单");
     report.actionPlan.forEach((item) => lines.push(`- ${item.period}：${item.action}`));
   }
+  if (report.detailSections?.length) {
+    lines.push("", "详细解读");
+    report.detailSections.forEach((section) => {
+      lines.push("", section.title);
+      section.paragraphs.forEach((paragraph) => lines.push(paragraph));
+    });
+  }
   lines.push("", report.disclaimer);
   return lines.join("\n");
 }
@@ -51,6 +63,9 @@ export default function CheckupPage() {
   const [triage, setTriage] = useState<Record<string, unknown> | null>(null);
   const [progress, setProgress] = useState("0/26");
   const [topics, setTopics] = useState<string[]>([]);
+  const [profile, setProfile] = useState<IntakeProfile | null>(null);
+  const [summary, setSummary] = useState<SummaryData | null>(null);
+  const [summaryInput, setSummaryInput] = useState("");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -80,6 +95,9 @@ export default function CheckupPage() {
       setProgress("0/26");
       setPreviewReport(null);
       setFullReport(null);
+      setProfile(null);
+      setSummary(null);
+      setSummaryInput("");
       setTopics(Array.isArray(data.topics) ? data.topics : []);
       setScreen("chat");
     } catch (e) {
@@ -93,7 +111,7 @@ export default function CheckupPage() {
     const res = await fetch("/api/checkup/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionToken, answers: nextAnswers }),
+      body: JSON.stringify({ sessionToken, answers: nextAnswers, profile }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "生成报告失败");
@@ -115,11 +133,19 @@ export default function CheckupPage() {
           answers: nextAnswers,
           lastMessage: text,
           triage: triage || undefined,
+          profile,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "请求失败");
       setAnswers(nextAnswers);
+      if (data.profile) setProfile(data.profile);
+      if (data.summaryReady) {
+        setSummary(data.summary);
+        setCurrentQuestion(null);
+        setScreen("summary");
+        return;
+      }
       if (data.triage) setTriage(data.triage);
       if (data.progress) setProgress(data.progress);
       if (data.done) {
@@ -205,11 +231,72 @@ export default function CheckupPage() {
     setLoading(true);
     setError("");
     try {
-      await fetch("/api/checkup/answer", {
+      const res = await fetch("/api/checkup/answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionToken, answers, customerWantsReport: true }),
+        body: JSON.stringify({ sessionToken, answers, profile, customerWantsReport: true }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "生成报告失败");
+      if (data.profile) setProfile(data.profile);
+      if (data.summaryReady) {
+        setSummary(data.summary);
+        setScreen("summary");
+        return;
+      }
+      if (data.done) await preview(answers);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "生成报告失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function sendSummaryNote() {
+    const text = summaryInput.trim();
+    if (!text || loading) return;
+    setLoading(true);
+    setError("");
+    const note: Answer = {
+      questionId: "summary_note",
+      dimension: "family",
+      field: "summaryNote",
+      value: "free_text",
+      freeText: text,
+      skipped: false,
+    };
+    const nextAnswers = [...answers, note];
+    try {
+      const res = await fetch("/api/checkup/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionToken, answers: nextAnswers, lastMessage: text, profile }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "补充失败");
+      setAnswers(nextAnswers);
+      if (data.profile) setProfile(data.profile);
+      if (data.summaryReady) {
+        setSummary(data.summary);
+        setSummaryInput("");
+        return;
+      }
+      if (data.question) {
+        setCurrentQuestion(data.question);
+        setScreen("chat");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "补充失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function confirmSummary() {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    try {
       await preview(answers);
     } catch (e) {
       setError(e instanceof Error ? e.message : "生成报告失败");
@@ -241,7 +328,7 @@ export default function CheckupPage() {
       const unlockRes = await fetch("/api/checkup/unlock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionToken, orderNo: orderData.orderNo, answers }),
+        body: JSON.stringify({ sessionToken, orderNo: orderData.orderNo, answers, profile }),
       });
       const unlockData = await unlockRes.json();
       if (!unlockRes.ok) throw new Error(unlockData.error || "解锁失败");
@@ -302,6 +389,9 @@ export default function CheckupPage() {
     setError("");
     setPreviewReport(null);
     setFullReport(null);
+    setProfile(null);
+    setSummary(null);
+    setSummaryInput("");
     setOrderNo("");
     setBooking({ name: "", phone: "", timeWindow: "", question: "" });
     setBookingDone(false);
@@ -447,6 +537,68 @@ export default function CheckupPage() {
           </section>
         )}
 
+        {screen === "summary" && summary && (
+          <section className="space-y-4">
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <h2 className="text-xl font-bold text-gray-900">我先跟你确认一下</h2>
+              <p className="mt-2 text-xs leading-6 text-gray-500">
+                下面是我目前理解的你的情况。如果有不对、缺漏，直接在下面补充；确认没问题，我再生成完整报告。
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-white p-5">
+              <div className="space-y-4">
+                {summary.sections.map((section) => (
+                  <div key={section.title}>
+                    <h3 className="text-sm font-semibold text-gray-800">{section.title}</h3>
+                    <p className="mt-1 text-xs leading-6 text-gray-600">{section.body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {summary.missing.length > 0 && (
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <p className="text-xs font-medium text-amber-700">这几项我还不确定，你可以补一句：</p>
+                <ul className="mt-2 space-y-1 text-xs leading-6 text-amber-700">
+                  {summary.missing.map((item) => <li key={item}>· {item}</li>)}
+                </ul>
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-gray-100 bg-white p-5">
+              <textarea
+                value={summaryInput}
+                onChange={(e) => setSummaryInput(e.target.value)}
+                placeholder="有补充或纠正，直接说，比如：房子其实是两套、孩子还没结婚、保单受益人是我妈……"
+                rows={3}
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-400"
+              />
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={sendSummaryNote}
+                  disabled={loading || !summaryInput.trim()}
+                  className="rounded-full border border-blue-200 px-5 py-3 text-sm font-medium text-blue-600 disabled:opacity-50"
+                >
+                  补充进去
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmSummary}
+                  disabled={loading}
+                  className="rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {loading ? "生成中…" : "确认，生成报告"}
+                </button>
+              </div>
+              <button type="button" onClick={() => setScreen("chat")} className="mt-3 w-full text-xs text-gray-400 underline">
+                返回继续聊
+              </button>
+            </div>
+          </section>
+        )}
+
         {screen === "report" && report && (
           <section className="space-y-4">
             <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -509,6 +661,15 @@ export default function CheckupPage() {
             )}
 
             {!fullReport && (
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                <p className="text-xs font-medium text-blue-700">完整版会展开 9 个章节：</p>
+                <p className="mt-1 text-[11px] leading-6 text-blue-600">
+                  家庭时间轴 · 5 大指数逐项解读 · 风险背后的法律/财务机制 · 分场景推演 · 传承架构对比 · 家企隔离/婚姻财产 · 90 天行动清单 · 下次诊断准备 · 预算与免责声明
+                </p>
+              </div>
+            )}
+
+            {!fullReport && (
               <button
                 type="button"
                 onClick={payAndUnlock}
@@ -517,6 +678,21 @@ export default function CheckupPage() {
               >
                 {loading ? "处理中…" : "1 元解锁完整报告（本地演示，不扣款）"}
               </button>
+            )}
+
+            {fullReport?.detailSections && fullReport.detailSections.length > 0 && (
+              <div className="space-y-4">
+                {fullReport.detailSections.map((section) => (
+                  <div key={section.title} className="rounded-2xl border border-gray-100 bg-white p-5">
+                    <h3 className="text-sm font-semibold text-gray-800">{section.title}</h3>
+                    <div className="mt-2 space-y-2">
+                      {section.paragraphs.map((paragraph, index) => (
+                        <p key={index} className="text-xs leading-7 text-gray-600">{paragraph}</p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
 
             {fullReport && (

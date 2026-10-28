@@ -5,6 +5,7 @@ import { getCheckupOrder, canUnlock, recordCheckupEvent } from "@/lib/checkup/st
 import { buildReport, enhanceReport, reportToText } from "@/lib/checkup/report";
 import { triageFromText } from "@/lib/checkup/triage";
 import { buildIndexInputFromAnswers } from "@/lib/checkup/index-input";
+import { mergeProfileAnswers, type IntakeProfile } from "@/lib/checkup/profile";
 import { scanCheckupCompliance } from "@/lib/checkup/compliance";
 import { getAIClient, noThinkingConfig } from "@/lib/ai-client";
 import { isCheckupDemoMode } from "@/lib/checkup/demo";
@@ -24,9 +25,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "订单未支付或已失效" }, { status: 402 });
   }
 
-  const answers = Array.isArray(body.answers) ? body.answers : [];
-  const triage = triageFromText(answers.map((a: { freeText?: string; value?: string }) => `${a.freeText ?? ""} ${a.value ?? ""}`).join(" "));
-  const draft = buildReport({ answers, triage, input: buildIndexInputFromAnswers(answers) });
+  const answers = Array.isArray(body.answers) ? (body.answers as Parameters<typeof mergeProfileAnswers>[1]) : [];
+  const profile = body.profile && typeof body.profile === "object" ? (body.profile as IntakeProfile) : null;
+  const allAnswers = mergeProfileAnswers(profile, answers);
+  const triage = triageFromText(allAnswers.map((a) => `${a.freeText ?? ""} ${a.value ?? ""}`).join(" "));
+  const draft = buildReport({ answers: allAnswers, triage, input: buildIndexInputFromAnswers(allAnswers) });
   const enhanced = await enhanceReport(draft, async (prompt) => {
     const completion = await getAIClient().chat.completions.create({
       ...noThinkingConfig(),

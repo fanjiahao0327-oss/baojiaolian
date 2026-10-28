@@ -91,6 +91,11 @@ export interface BudgetRange {
   disclaimer: string;
 }
 
+export interface CheckupReportDetailSection {
+  title: string;
+  paragraphs: string[];
+}
+
 export interface CheckupReport {
   profile: {
     familyStructure: string;
@@ -103,6 +108,7 @@ export interface CheckupReport {
   budgetRange: BudgetRange;
   nextStep: string;
   disclaimer: string;
+  detailSections?: CheckupReportDetailSection[];
 }
 
 export interface SessionPayload {

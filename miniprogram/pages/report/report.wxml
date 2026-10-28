@@ -36,9 +36,18 @@
     <text class="budget-note">{{report.budgetRange.disclaimer}}</text>
   </view>
 
+  <view wx:if="{{full && report.detailSections.length}}" class="details">
+    <text class="section">详细解读</text>
+    <view wx:for="{{report.detailSections}}" wx:key="title" class="detail">
+      <text class="detail-title">{{item.title}}</text>
+      <text wx:for="{{item.paragraphs}}" wx:for-item="paragraph" wx:key="*this" class="detail-p">{{paragraph}}</text>
+    </view>
+  </view>
+
   <view wx:if="{{!full}}" class="paywall">
     <text class="paywall-title">解锁完整报告</text>
     <text class="paywall-item">· Top 5 风险完整解析</text>
+    <text class="paywall-item">· 9 个章节的详细解读</text>
     <text class="paywall-item">· 90 天行动清单</text>
     <text class="paywall-item">· 家庭保障预算参考</text>
   </view>

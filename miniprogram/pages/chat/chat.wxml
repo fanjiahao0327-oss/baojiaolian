@@ -6,7 +6,24 @@
     </view>
     <view wx:if="{{loading}}" class="bubble assistant"><text>正在想下一个问题…</text></view>
   </scroll-view>
-  <view wx:if="{{!currentQuestion && topics.length > 0}}" class="topics">
+  <view wx:if="{{summaryReady}}" class="summary">
+    <text class="summary-title">我先跟你确认一下</text>
+    <text class="summary-tip">有不对或缺漏，可以在下面补充；确认没问题再生成报告。</text>
+    <view wx:for="{{summary.sections}}" wx:key="title" class="summary-section">
+      <text class="summary-h">{{item.title}}</text>
+      <text class="summary-b">{{item.body}}</text>
+    </view>
+    <view wx:if="{{summary.missing.length > 0}}" class="summary-missing">
+      <text>还不确定：</text>
+      <text wx:for="{{summary.missing}}" wx:key="*this">· {{item}}
+</text>
+    </view>
+    <view class="summary-actions">
+      <button size="mini" bindtap="onSummaryNote">补充进去</button>
+      <button size="mini" type="primary" bindtap="onConfirmSummary">确认生成报告</button>
+    </view>
+  </view>
+  <view wx:if="{{!currentQuestion && !summaryReady && topics.length > 0}}" class="topics">
     <text class="topic-hint">可以从这里选一个方向开始，也可以直接打字：</text>
     <view class="topic-list">
       <view wx:for="{{topics}}" wx:key="*this" class="topic" data-topic="{{item}}" bindtap="onTopic">{{item}}</view>

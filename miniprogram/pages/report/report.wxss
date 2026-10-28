@@ -216,3 +216,8 @@
   font-size: 24rpx;
   color: #9ca3af;
 }
+
+.details { margin-top: 24rpx; }
+.detail { background: #fff; border-radius: 16rpx; padding: 22rpx 24rpx; margin-bottom: 16rpx; }
+.detail-title { display: block; font-size: 28rpx; font-weight: 600; color: #111827; margin-bottom: 10rpx; }
+.detail-p { display: block; font-size: 24rpx; line-height: 1.8; color: #4b5563; margin-bottom: 10rpx; }

@@ -8,6 +8,8 @@ Page({
     answers: [],
     progress: "0/26",
     topics: [],
+    summary: null,
+    summaryReady: false,
     loading: false,
     inputValue: "",
     canRetry: false,
@@ -20,8 +22,9 @@ Page({
     }
     var history = storage.load(storage.HISTORY_KEY, []);
     var topics = wx.getStorageSync("checkup_topics") || [];
+    var summary = wx.getStorageSync("checkup_summary") || null;
     if (history.length > 0) {
-      this.setData({ messages: history, answers: storage.load("checkup_answers", []), topics: topics });
+      this.setData({ messages: history, answers: storage.load("checkup_answers", []), topics: topics, summary: summary, summaryReady: Boolean(summary) });
       this.ask({ resume: true });
     } else {
       this.setData({
@@ -64,6 +67,18 @@ Page({
   onReportNow: function () {
     this.ask({ customerWantsReport: true });
   },
+  onConfirmSummary: function () {
+    this.goPreview(this.data.answers);
+  },
+  onSummaryNote: function () {
+    var text = (this.data.inputValue || "").trim();
+    if (!text) return;
+    this.setData({ inputValue: "" });
+    this.ask({
+      answer: { questionId: "summary_note", dimension: "family", field: "summaryNote", value: "free_text", freeText: text, skipped: false },
+      lastMessage: text,
+    });
+  },
   onTopic: function (e) {
     var topic = e.currentTarget.dataset.topic;
     if (!topic) return;
@@ -85,9 +100,16 @@ Page({
       lastMessage: payload.lastMessage || "",
       customerWantsReport: Boolean(payload.customerWantsReport),
       triage: wx.getStorageSync("checkup_triage") || null,
+      profile: wx.getStorageSync("checkup_profile") || null,
     }).then(function (res) {
       storage.save("checkup_answers", answers);
       storage.save(storage.HISTORY_KEY, self.data.messages);
+      if (res.profile) wx.setStorageSync("checkup_profile", res.profile);
+      if (res.summaryReady) {
+        wx.setStorageSync("checkup_summary", res.summary);
+        self.setData({ summary: res.summary, summaryReady: true, currentQuestion: null, progress: res.progress });
+        return;
+      }
       if (res.done) {
         self.goPreview(answers);
         return;
@@ -118,6 +140,7 @@ Page({
       sessionToken: wx.getStorageSync("checkup_session"),
       answers: answers,
       indexInput: self.buildIndexInput(answers),
+      profile: wx.getStorageSync("checkup_profile") || null,
     }).then(function (res) {
       storage.save(storage.PREVIEW_KEY, res.report);
       wx.navigateTo({ url: "/pages/report/report" });
