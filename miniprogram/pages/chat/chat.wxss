@@ -1,0 +1,12 @@
+.page { display: flex; flex-direction: column; height: 100vh; background: #f7f8fa; }
+.progress { padding: 16rpx 32rpx; font-size: 24rpx; color: #9ca3af; }
+.messages { flex: 1; padding: 16rpx 32rpx; }
+.bubble { max-width: 80%; padding: 20rpx 24rpx; border-radius: 18rpx; margin-bottom: 16rpx; font-size: 28rpx; line-height: 1.7; }
+.assistant { background: #fff; color: #111827; }
+.user { background: #1a56db; color: #fff; margin-left: auto; }
+.options { padding: 0 32rpx 16rpx; }
+.option { background: #fff; border: 1rpx solid #e5e7eb; border-radius: 16rpx; padding: 22rpx 24rpx; margin-bottom: 14rpx; font-size: 28rpx; }
+.actions { display: flex; justify-content: space-between; padding: 8rpx 4rpx; }
+.link { font-size: 26rpx; color: #6b7280; }
+.input-row { display: flex; gap: 16rpx; padding: 20rpx 32rpx 40rpx; background: #fff; }
+.input-row input { flex: 1; background: #f3f4f6; border-radius: 999rpx; padding: 0 24rpx; height: 72rpx; }

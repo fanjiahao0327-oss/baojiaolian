@@ -1,0 +1,22 @@
+<view class="page">
+  <view class="progress">进度 {{progress}}</view>
+  <scroll-view class="messages" scroll-y>
+    <view wx:for="{{messages}}" wx:key="index" class="bubble {{item.role}}">
+      <text>{{item.text}}</text>
+    </view>
+    <view wx:if="{{loading}}" class="bubble assistant"><text>正在想下一个问题…</text></view>
+  </scroll-view>
+  <view wx:if="{{currentQuestion}}" class="options">
+    <view wx:for="{{currentQuestion.options}}" wx:key="value" class="option" data-option="{{item}}" bindtap="onOption">
+      <text>{{item.label}}</text>
+    </view>
+    <view class="actions">
+      <text class="link" bindtap="onSkip">不想说，跳过</text>
+      <text class="link" bindtap="onReportNow">直接出报告</text>
+    </view>
+  </view>
+  <view class="input-row">
+    <input value="{{inputValue}}" bindinput="onInput" placeholder="也可以直接打字说…" />
+    <button size="mini" bindtap="onSendText">发送</button>
+  </view>
+</view>
