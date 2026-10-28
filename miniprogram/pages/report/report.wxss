@@ -221,3 +221,7 @@
 .detail { background: #fff; border-radius: 16rpx; padding: 22rpx 24rpx; margin-bottom: 16rpx; }
 .detail-title { display: block; font-size: 28rpx; font-weight: 600; color: #111827; margin-bottom: 10rpx; }
 .detail-p { display: block; font-size: 24rpx; line-height: 1.8; color: #4b5563; margin-bottom: 10rpx; }
+
+.decision { background: #eff6ff; border: 1rpx solid #bfdbfe; border-radius: 16rpx; padding: 22rpx 24rpx; margin-top: 24rpx; }
+.decision-p { display: block; font-size: 24rpx; line-height: 1.8; color: #1e40af; margin-top: 10rpx; }
+.decision-label { font-weight: 600; }

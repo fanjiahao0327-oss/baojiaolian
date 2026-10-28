@@ -1,5 +1,5 @@
 import { calcAllIndices, type IndexInput } from "./indices";
-import { buildReportSections } from "./report-sections";
+import { buildDecisionTeaser, buildReportSections } from "./report-sections";
 import { buildReportUserPrompt } from "./prompts";
 import { buildRiskItems } from "./risk-rules";
 import type { Answer, CheckupReport, TriageResult } from "./types";
@@ -80,6 +80,7 @@ export function buildReport(params: {
       input: params.input,
       profile: buildProfile(params.answers),
     }),
+    decisionTeaser: buildDecisionTeaser(params.answers, risks, indices),
   };
 }
 

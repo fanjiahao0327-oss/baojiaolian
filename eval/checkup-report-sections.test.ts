@@ -56,9 +56,9 @@ const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) ?? []).length;
 
 const BANNED_WORDS = ["保本", "稳赚", "保证领取", "复星", "友邦", "国寿", "万欣和"];
 
-test("完整报告生成 6–9 个章节，每章 2–5 段", () => {
+test("完整报告生成 6–10 个章节，每章 2–5 段", () => {
   assert.ok(sections.length >= 6, `章节数应至少为 6，实际 ${sections.length}`);
-  assert.ok(sections.length <= 9, `章节数应不超过 9，实际 ${sections.length}`);
+  assert.ok(sections.length <= 10, `章节数应不超过 10，实际 ${sections.length}`);
   for (const section of sections) {
     assert.ok(section.title.length > 0);
     assert.ok(section.paragraphs.length >= 2, `${section.title} 少于 2 段`);
@@ -71,7 +71,7 @@ test("完整报告生成 6–9 个章节，每章 2–5 段", () => {
 
 test("报告总字数达到详细版要求", () => {
   assert.ok(chineseChars >= 2500, `中文字符数应不少于 2500，实际 ${chineseChars}`);
-  assert.ok(chineseChars <= 4000, `中文字符数应不超过 4000，实际 ${chineseChars}`);
+  assert.ok(chineseChars <= 5200, `中文字符数应不超过 5200，实际 ${chineseChars}`);
 });
 
 test("报告包含关键法律与传承内容", () => {
@@ -168,9 +168,41 @@ test("只有家企或婚姻一条线时，条件章节仍保持 2–5 段", () =
   }
 });
 
+test("PAS 决策收口包含 P/A/S，并落到一个决定", () => {
+  const decision = sections.find((section) => section.title.includes("决策收口"));
+  assert.ok(decision, "缺少 PAS 决策收口章节");
+  const decisionText = decision!.paragraphs.join("");
+  assert.ok(decisionText.includes("P（Problem）"), "缺少 P 问题");
+  assert.ok(decisionText.includes("A（Education"), "缺少 A 后果教育");
+  assert.ok(decisionText.includes("S（Solution）"), "缺少 S 方案");
+  assert.ok(decisionText.includes("先做一个决定") || decisionText.includes("先处理哪一件事"), "缺少决策动作");
+  assert.ok(!BANNED_WORDS.some((word) => decisionText.includes(word)));
+});
+
+test("PAS 优先客户开场最在意的方向（企业主先讲家企/传承，而不是机械取第一条）", () => {
+  const bizAnswers: Answer[] = [
+    ...answers,
+    {
+      questionId: "opening",
+      dimension: "family",
+      field: "openingText",
+      value: "free_text",
+      freeText: "我自己开公司，儿子刚结婚，最怕企业出问题把给孩子的钱搭进去。",
+      skipped: false,
+    },
+  ];
+  const bizInput = buildIndexInputFromAnswers(bizAnswers);
+  const bizIndices = calcAllIndices(bizInput);
+  const bizRisks = buildRiskItems(bizAnswers, bizIndices);
+  const bizSections = buildReportSections({ answers: bizAnswers, indices: bizIndices, risks: bizRisks, input: bizInput });
+  const pas = bizSections.find((section) => section.title.includes("决策收口"));
+  assert.ok(pas);
+  assert.ok(pas!.paragraphs.join("").includes("家企") || pas!.paragraphs.join("").includes("传承"));
+});
+
 test("知识库片段覆盖指定主题且字段完整", () => {
   assert.ok(KNOWLEDGE_SNIPPETS.length >= 10);
-  assert.ok(KNOWLEDGE_SNIPPETS.length <= 16);
+  assert.ok(KNOWLEDGE_SNIPPETS.length <= 18);
   const ids = new Set(KNOWLEDGE_SNIPPETS.map((snippet) => snippet.id));
   for (const id of [
     "index-safety",
@@ -189,6 +221,7 @@ test("知识库片段覆盖指定主题且字段完整", () => {
     "risk-66",
     "suying-kyc",
     "inheritance-three-questions",
+    "pas",
   ]) {
     assert.ok(ids.has(id), `缺少知识片段：${id}`);
   }

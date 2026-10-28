@@ -44,6 +44,13 @@
     </view>
   </view>
 
+  <view wx:if="{{!full && report.decisionTeaser}}" class="decision">
+    <text class="section">如果只做一件事：PAS 决策收口</text>
+    <text class="decision-p"><text class="decision-label">P 问题：</text>{{report.decisionTeaser.problem}}</text>
+    <text class="decision-p"><text class="decision-label">A 为什么现在处理：</text>{{report.decisionTeaser.consequence}}</text>
+    <text class="decision-p"><text class="decision-label">S 完整版会给你：</text>{{report.decisionTeaser.nextStep}}；以及 90 天行动清单和一张「先处理哪一件」的决策表。</text>
+  </view>
+
   <view wx:if="{{!full}}" class="paywall">
     <text class="paywall-title">解锁完整报告</text>
     <text class="paywall-item">· Top 5 风险完整解析</text>

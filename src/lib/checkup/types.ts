@@ -96,6 +96,12 @@ export interface CheckupReportDetailSection {
   paragraphs: string[];
 }
 
+export interface DecisionTeaser {
+  problem: string;
+  consequence: string;
+  nextStep: string;
+}
+
 export interface CheckupReport {
   profile: {
     familyStructure: string;
@@ -109,6 +115,7 @@ export interface CheckupReport {
   nextStep: string;
   disclaimer: string;
   detailSections?: CheckupReportDetailSection[];
+  decisionTeaser?: DecisionTeaser;
 }
 
 export interface SessionPayload {

@@ -16,6 +16,7 @@ interface RiskItem { title: string; severity: string; phenomenon: string; whyItM
 interface ActionItem { period: string; action: string; owner: string }
 interface BudgetRange { min: number | null; max: number | null; basis: string; disclaimer: string }
 interface ReportDetailSection { title: string; paragraphs: string[] }
+interface DecisionTeaser { problem: string; consequence: string; nextStep: string }
 interface Report {
   profile: { familyStructure: string; lifeStage: string; summary: string };
   wealthIndices: WealthIndex[];
@@ -25,6 +26,7 @@ interface Report {
   nextStep: string;
   disclaimer: string;
   detailSections?: ReportDetailSection[];
+  decisionTeaser?: DecisionTeaser;
 }
 
 const INDEX_COLORS: Record<string, string> = {
@@ -42,6 +44,9 @@ function reportText(report: Report): string {
   if (report.actionPlan.length) {
     lines.push("", "90 天行动清单");
     report.actionPlan.forEach((item) => lines.push(`- ${item.period}：${item.action}`));
+  }
+  if (report.decisionTeaser) {
+    lines.push("", "决策收口", `P：${report.decisionTeaser.problem}`, `A：${report.decisionTeaser.consequence}`, `S：${report.decisionTeaser.nextStep}`);
   }
   if (report.detailSections?.length) {
     lines.push("", "详细解读");
@@ -658,6 +663,15 @@ export default function CheckupPage() {
                   <p className="mt-1 text-[11px] text-gray-400">{fullReport.budgetRange.basis} · {fullReport.budgetRange.disclaimer}</p>
                 </div>
               </>
+            )}
+
+            {!fullReport && report.decisionTeaser && (
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+                <h3 className="text-sm font-semibold text-blue-800">如果只做一件事：PAS 决策收口</h3>
+                <p className="mt-3 text-xs leading-6 text-blue-800"><span className="font-semibold">P 问题：</span>{report.decisionTeaser.problem}</p>
+                <p className="mt-2 text-xs leading-6 text-blue-800"><span className="font-semibold">A 为什么现在处理：</span>{report.decisionTeaser.consequence}</p>
+                <p className="mt-2 text-xs leading-6 text-blue-800"><span className="font-semibold">S 完整版会给你：</span>{report.decisionTeaser.nextStep}；以及 90 天行动清单和一张「先处理哪一件」的决策表。</p>
+              </div>
             )}
 
             {!fullReport && (

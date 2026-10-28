@@ -1,4 +1,5 @@
 import type { IndexInput } from "./indices";
+import { getKnowledgeSnippet } from "./knowledge";
 import type { Answer, RiskItem, WealthIndexScore } from "./types";
 
 export interface ReportSection {
@@ -989,5 +990,155 @@ export function buildReportSections(params: BuildReportSectionsParams): ReportSe
   const businessMarriage = buildBusinessMarriageSection(answers);
   if (businessMarriage) sections.push(businessMarriage);
   sections.push(buildActionSection(risks), buildPreparationSection(), buildBudgetSection(input));
+  sections.push(buildDecisionSection(answers, risks, indices, input));
   return sections;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* PAS 决策收口：Problem → Education（把后果讲透）→ Solution                 */
+/* -------------------------------------------------------------------------- */
+
+function openingWords(answers: Answer[]): string {
+  return (answers.find((answer) => answer.questionId === "opening")?.freeText || "").trim().slice(0, 100);
+}
+
+function lowestIndex(indices: WealthIndexScore[]): WealthIndexScore | null {
+  const scored = indices.filter((item) => item.score !== null);
+  if (scored.length === 0) return null;
+  return [...scored].sort((a, b) => (a.score ?? 100) - (b.score ?? 100))[0];
+}
+
+function mechanismFor(risk: RiskItem | null, index: WealthIndexScore | null): string {
+  const text = `${risk?.title ?? ""} ${risk?.sourceRefs.join(" ") ?? ""} ${index?.name ?? ""}`;
+  if (/传承|继承|受益|给钱|孩子/.test(text)) {
+    const a = getKnowledgeSnippet("civil-code-1127-1128")?.body || "";
+    const b = getKnowledgeSnippet("insurance-law-39-42")?.body || "";
+    return [a, b].filter(Boolean).join(" ");
+  }
+  if (/家企|企业|担保|债务/.test(text)) {
+    return [getKnowledgeSnippet("family-business-isolation")?.body, getKnowledgeSnippet("marriage-debt-1064")?.body].filter(Boolean).join(" ");
+  }
+  if (/婚姻|婚前|婚内|配偶/.test(text)) {
+    return [getKnowledgeSnippet("marriage-property-1062-1063")?.body, getKnowledgeSnippet("marriage-debt-1064")?.body].filter(Boolean).join(" ");
+  }
+  if (/安全|保障|医疗|重疾|意外|应急/.test(text)) {
+    return getKnowledgeSnippet("index-safety")?.body || "";
+  }
+  if (/流动/.test(text)) return getKnowledgeSnippet("index-liquidity")?.body || "";
+  if (/自由|养老|退休/.test(text)) return getKnowledgeSnippet("index-freedom")?.body || "";
+  if (/独立|教育/.test(text)) return getKnowledgeSnippet("index-independence")?.body || "";
+  return getKnowledgeSnippet("risk-66")?.body || "";
+}
+
+function decisionFocus(risk: RiskItem | null): string {
+  if (!risk) return "把已经看清的安排落到文件上";
+  if (/保障|医疗|重疾|安全|应急/.test(risk.title)) return "先把家庭保障缺口补到能承受一场大病和 6–12 个月收入中断";
+  if (/传承|继承/.test(risk.title)) return "先把「给谁、谁管、怎么给」和受益人/遗嘱写清楚";
+  if (/家企|企业|债务/.test(risk.title)) return "先把个人担保、企业负债和家庭资产边界盘清楚";
+  if (/婚姻/.test(risk.title)) return "先把婚前/婚内财产边界和配偶债务确认清楚";
+  if (/教育/.test(risk.title)) return "先把孩子教育金的时间表和缺口算清楚";
+  if (/养老|退休/.test(risk.title)) return "先把退休后的现金流缺口和补充来源算清楚";
+  return "先处理这份报告里排在最前面的那一个风险";
+}
+
+function stripDisclaimer(text: string): string {
+  return text.replace(/以上为风险自查参考.*$/u, "").trim();
+}
+
+/** PAS 的 P 要选“客户最在意 + 风险最高”的那一个，而不是机械按风险排序取第一条。 */
+function pickMainRisk(answers: Answer[], risks: RiskItem[]): RiskItem | null {
+  if (risks.length === 0) return null;
+  const opening = answers.find((answer) => answer.questionId === "opening")?.freeText || "";
+  const field = (id: string) => answers.find((answer) => answer.questionId === id)?.value;
+  const find = (pattern: RegExp) => risks.find((risk) => pattern.test(risk.title)) ?? null;
+
+  if (/(企业|公司|生意|工厂|担保|家企|债务|贷款)/.test(opening)) {
+    const business = find(/家企|企业|债务/);
+    if (business) return business;
+  }
+  if (/(传承|继承|孩子.*结婚|儿子.*结婚|女儿.*结婚|婚姻|给孩子的钱)/.test(opening)) {
+    const inheritance = find(/传承|婚姻/);
+    if (inheritance) return inheritance;
+  }
+  if (/(生病|大病|医疗|健康|住院|手术)/.test(opening)) {
+    const protection = find(/保障|医疗|重疾/);
+    if (protection) return protection;
+  }
+  if (/(退休|养老|养老金)/.test(opening)) {
+    const retirement = find(/养老|退休/);
+    if (retirement) return retirement;
+  }
+  if (/(教育|留学|上学|出国)/.test(opening)) {
+    const education = find(/教育/);
+    if (education) return education;
+  }
+  if (["self", "family"].includes(field("family_business") ?? "")) {
+    const business = find(/家企|企业|债务/);
+    if (business) return business;
+  }
+  if (field("family_children") === "married") {
+    const inheritance = find(/传承|婚姻/);
+    if (inheritance) return inheritance;
+  }
+  return risks[0];
+}
+
+export function buildDecisionTeaser(
+  answers: Answer[],
+  risks: RiskItem[],
+  indices: WealthIndexScore[],
+): { problem: string; consequence: string; nextStep: string } {
+  const risk = pickMainRisk(answers, risks);
+  const index = lowestIndex(indices);
+  const problem = risk
+    ? `${risk.title}。${risk.phenomenon}`
+    : index
+      ? `本次最接近底线的是${index.name}（${index.score} 分），家庭目前没有明显高风险，但安排还没有完全落到文件。`
+      : "本次没有发现明显高风险项，但家庭阶段变化时，现有安排仍需要复核。";
+  const consequence = risk
+    ? `${risk.whyItMatters}${stripDisclaimer(risk.ifIgnored)}`
+    : "家庭阶段变化（孩子结婚、父母年老、企业波动）会让今天的平衡被打破；没有文件安排时，最终按法定规则走，未必符合你的真实意愿。";
+  return {
+    problem,
+    consequence,
+    nextStep: decisionFocus(risk),
+  };
+}
+
+function buildDecisionSection(
+  answers: Answer[],
+  risks: RiskItem[],
+  indices: WealthIndexScore[],
+  input: IndexInput,
+): ReportSection {
+  const risk = pickMainRisk(answers, risks);
+  const index = lowestIndex(indices);
+  const teaser = buildDecisionTeaser(answers, risks, indices);
+  const words = openingWords(answers);
+  const mechanism = mechanismFor(risk, index);
+  const sections: string[] = [];
+
+  // P：用客户自己的话 + 报告里最靠前的问题，把问题钉死
+  const p1 = words
+    ? `P（Problem）：你最开始说：「${words}」。这句话对应的，就是报告里排在最前面的问题——${teaser.problem}`
+    : `P（Problem）：这份报告里排在最前面的问题——${teaser.problem}`;
+  sections.push(p1);
+
+  // A：不是吓客户，而是把规则、时间和家庭代价讲清楚（PAS 的 A=Education）
+  const a1 = `A（Education，把后果讲透，不是制造恐慌）：${teaser.consequence}${mechanism ? ` 背后的机制不是“运气不好”，而是规则和现金流：${mechanism}` : ""}`;
+  const a2 = risk
+    ? `如果今天不处理，它不会停在这里：孩子结婚、父母年老、企业周转、收入波动，任何一个时间点都可能把这个问题放大。A 段不是制造焦虑，而是把“现在处理的成本”和“以后处理的成本”放在同一张桌上比较。`
+    : `如果今天不复核，它不会自动变好：家庭结构、婚姻、企业、政策都会变，今天的“没问题”不等于三年后还没问题。A 段不是制造焦虑，而是把“现在复核的成本”和“以后被动处理的成本”放在同一张桌上比较。`;
+  sections.push(a1, a2);
+
+  // S：给一个能马上做的决定，而不是一堆产品
+  const s1 = `S（Solution）：${decisionFocus(risk)}。${risk?.suggestedAction ?? "先把家庭结构、资产清单和现有保单受益人核对一遍，再决定先做哪一件。"}`;
+  const s2 = `你现在不需要马上买任何产品。你只需要先做一个决定：接下来 30 天，先处理哪一件事？A. 先补保障缺口；B. 先理传承/受益人；C. 先做家企隔离；D. 先补应急金。按这份报告，我建议先选「${decisionFocus(risk)}」。下一步不是“再看看”，而是带着这份报告做一次 30 分钟一对一诊断：把今天的 P 和 A 摊开，把 S 拆成 30/60/90 天能执行的动作；具体产品、费率和合同条款线下核对，本报告不做推荐。`;
+  sections.push(s1, s2);
+
+  return {
+    title: "决策收口：如果只做一件事（PAS）",
+    paragraphs: sections,
+  };
 }
