@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ROUTE_LABELS,
   V32_BRANCHES,
@@ -73,6 +73,14 @@ export default function Checkup10Page() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [testToken, setTestToken] = useState("");
+  const [sessionId, setSessionId] = useState("");
+  const [testSaved, setTestSaved] = useState(false);
+
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("test") || "";
+    if (token) setTestToken(token);
+  }, []);
 
   const slots = buildSlots(route, secondary);
   const current = slots[fixedIndex];
@@ -90,6 +98,8 @@ export default function Checkup10Page() {
     setReport(null);
     setInput("");
     setError("");
+    setSessionId(crypto.randomUUID());
+    setTestSaved(false);
   }
 
   async function classify(text: string) {
@@ -188,11 +198,12 @@ export default function Checkup10Page() {
       const res = await fetch("/api/checkup/v32/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ answers, testToken, sessionId, route }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "报告生成失败");
       setReport(data.report);
+      setTestSaved(Boolean(data.testSaved));
       setScreen("report");
     } catch (e) {
       setError(e instanceof Error ? e.message : "报告生成失败");
@@ -209,11 +220,18 @@ export default function Checkup10Page() {
             <h1 className="text-lg font-bold text-gray-900">AI家庭风险测评</h1>
             <p className="text-[11px] text-gray-400">v3.2 内测 · 6 个固定入口 + 2 个分支 + 2 个 AI 追问</p>
           </div>
-          <span className="rounded-full bg-amber-50 px-2 py-1 text-[11px] text-amber-700">内测版</span>
+          <span className={`rounded-full px-2 py-1 text-[11px] ${testToken ? "bg-purple-50 text-purple-700" : "bg-amber-50 text-amber-700"}`}>
+            {testToken ? "测试模式" : "内测版"}
+          </span>
         </div>
       </header>
 
       <div className="mx-auto max-w-3xl px-4 py-6">
+        {testToken && (
+          <div className="mb-4 rounded-xl border border-purple-100 bg-purple-50 px-4 py-3 text-xs leading-6 text-purple-700">
+            测试模式：本次回答和最终报告会保存到测试记录，仅用于内测复盘；正式客户默认不保存。
+          </div>
+        )}
         {error && <div className="mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
 
         {screen === "intro" && (
@@ -332,6 +350,11 @@ export default function Checkup10Page() {
             <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-xs leading-6 text-amber-700">
               v3.2 内测版：报告直接展示，未走支付；五维只出「有安排 / 空白 / 待确认」，不出分数。
             </div>
+            {testToken && (
+              <div className="rounded-2xl border border-purple-100 bg-purple-50 p-4 text-xs leading-6 text-purple-700">
+                {testSaved ? "测试记录已保存，可让 AI 复盘这次对话和报告。" : "测试记录未保存：测试 token 无效或数据库未连接。"}
+              </div>
+            )}
             <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
               <h2 className="text-xl font-bold text-gray-900">家庭风险筛查报告</h2>
               <div className="mt-3 space-y-2">

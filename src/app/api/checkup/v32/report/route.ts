@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { buildV32Report, type V32Answer } from "@/lib/checkup/v32";
+import { saveCheckupTestSession } from "@/lib/checkup/test-store";
 
 function normalizeAnswers(raw: unknown): V32Answer[] {
   if (!Array.isArray(raw)) return [];
@@ -25,11 +26,24 @@ export async function POST(request: NextRequest) {
   if (answers.length < 8) return NextResponse.json({ error: "请先完成 8 个入口题" }, { status: 400 });
 
   const report = buildV32Report(answers);
+  let testSaved = false;
+  try {
+    testSaved = await saveCheckupTestSession({
+      token: String(body.testToken || ""),
+      sessionId: String(body.sessionId || ""),
+      route: String(body.route || ""),
+      answers,
+      report,
+      userAgent: request.headers.get("user-agent") || "",
+    });
+  } catch {
+    testSaved = false;
+  }
   const text = JSON.stringify(report);
   const banned = ["保本", "稳赚", "保证领取", "复星", "友邦", "国寿", "万欣和"];
   const hits = banned.filter((word) => text.includes(word));
   if (hits.length > 0) {
     report.disclaimer = `${report.disclaimer} 本报告已过滤不合规表述。`;
   }
-  return NextResponse.json({ mode: "v32", report });
+  return NextResponse.json({ mode: "v32", report, testSaved });
 }

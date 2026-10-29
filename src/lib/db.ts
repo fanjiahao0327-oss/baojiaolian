@@ -238,7 +238,19 @@ export async function initDB() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await s`
+    CREATE TABLE IF NOT EXISTS checkup_test_sessions (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      route TEXT DEFAULT '',
+      answers JSONB NOT NULL DEFAULT '[]',
+      report JSONB,
+      user_agent TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
   await s`CREATE INDEX IF NOT EXISTS idx_checkup_orders_session ON checkup_orders(session_id)`;
   await s`CREATE INDEX IF NOT EXISTS idx_checkup_appointments_status ON checkup_appointments(status, created_at DESC)`;
   await s`CREATE INDEX IF NOT EXISTS idx_checkup_events_name ON checkup_events(event_name, created_at DESC)`;
+  await s`CREATE INDEX IF NOT EXISTS idx_checkup_test_sessions_created ON checkup_test_sessions(created_at DESC)`;
 }
