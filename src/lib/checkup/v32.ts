@@ -115,19 +115,41 @@ export interface FollowupCandidate {
   source: string;
 }
 
+export interface V32Facts {
+  hasChildren: boolean;
+  hasPartner: boolean;
+  isBusinessOwner: boolean;
+}
+
+function rawAnswer(answers: V32Answer[], id: string): string {
+  return answers.find((answer) => answer.questionId === id)?.answer || "";
+}
+
+export function detectFacts(answers: V32Answer[]): V32Facts {
+  const family = rawAnswer(answers, "v32_q2");
+  const income = rawAnswer(answers, "v32_q4");
+  const childNegative = /(没有孩子|没孩子|无子女|丁克|不打算要孩子|还没有孩子)/.test(family);
+  const partnerNegative = /(单身|离异|离婚|丧偶|没有伴侣|没结婚)/.test(family);
+  const hasChildren = !childNegative && /(孩子|儿子|女儿|子女)/.test(family);
+  const hasPartner = !partnerNegative && /(老公|老婆|爱人|配偶|伴侣|先生|太太|丈夫|妻子|已婚|夫妻|两口子|我们俩|老伴)/.test(family);
+  const ownerText = `${family} ${income}`;
+  const isBusinessOwner = /(自己开|自己经营|自己办|创业|持股|股东|老板|做生意|开工厂|开公司|企业主|经营工厂|经营公司)/.test(ownerText);
+  return { hasChildren, hasPartner, isBusinessOwner };
+}
+
 function textOf(answers: V32Answer[], ids: string[]): string {
   return answers.filter((a) => ids.includes(a.questionId)).map((a) => a.answer).join(" ");
 }
 
 function hasTime(text: string): boolean {
-  const negative = /(没想过|还没想|说不清|不知道|还没定)/.test(text);
+  const negative = /(没想过|还没想|没想好|说不清|不知道|还没定|没安排)/.test(text);
   const timeWords = /(哪一年|哪年|几岁|什么时候|多久|20\d{2}|\d{2}\s*岁|还有几年|三年|五年|明年|退休年龄)/.test(text);
   if (negative && timeWords) return false;
   return timeWords;
 }
 
 function hasControl(text: string): boolean {
-  const negative = /(没想过|还没想|不知道|还没定)/.test(text);
+  const negative = /(没想过|还没想|没想好|不知道|还没定|没安排)/.test(text);
   const controlWords = /(谁管|谁来管|谁给|谁决定|受益人|一次给|分批|多大给|什么时候给|自己管)/.test(text);
   if (negative && controlWords) return false;
   return controlWords;
@@ -139,9 +161,9 @@ function hasBusiness(text: string): boolean {
 
 export function getFollowupCandidates(answers: V32Answer[]): FollowupCandidate[] {
   const candidates: FollowupCandidate[] = [];
+  const facts = detectFacts(answers);
   const timeText = textOf(answers, ["v32_q4", "v32_q5", "v32_q7"]);
   const controlText = textOf(answers, ["v32_q5", "v32_q6", "v32_q8"]);
-  const businessText = textOf(answers, ["v32_q4"]);
 
   if (timeText && !hasTime(timeText)) {
     candidates.push({
@@ -151,7 +173,7 @@ export function getFollowupCandidates(answers: V32Answer[]): FollowupCandidate[]
       source: "苏颖时间轴；李璞场景/时间/现金流",
     });
   }
-  if (/(孩子|儿子|女儿|伴侣|配偶|老婆|老公|父母)/.test(controlText) && !hasControl(controlText)) {
+  if (facts.hasChildren && /(孩子|儿子|女儿|子女)/.test(controlText) && !hasControl(controlText)) {
     candidates.push({
       id: "B",
       intent: "补人/控制权",
@@ -159,7 +181,7 @@ export function getFollowupCandidates(answers: V32Answer[]): FollowupCandidate[]
       source: "确权三问·谁管；王勇家庭结构图·谁替孩子做决定",
     });
   }
-  if (hasBusiness(businessText)) {
+  if (facts.isBusinessOwner) {
     candidates.push({
       id: "C",
       intent: "补家企隔离",
@@ -188,149 +210,171 @@ export function buildV32Summary(answers: V32Answer[]): V32Summary {
   return { sections, missing };
 }
 
-export interface V32Dimension {
-  name: string;
-  status: "有安排" | "空白" | "待确认";
-  evidence: string;
-  mechanism: string;
-  question: string;
-}
-
-export interface V32Risk {
+export interface V32Issue {
   title: string;
   phenomenon: string;
-  mechanism: string;
+  why: string;
+  solution: string;
+  firstStep: string;
   priority: "高" | "中" | "低";
-  question: string;
 }
 
 export interface V32Report {
-  quotes: string[];
-  dimensions: V32Dimension[];
-  risks: V32Risk[];
-  pending: string[];
-  decision: { problem: string; education: string; solution: string };
+  conclusion: string;
+  heard: string[];
+  issues: V32Issue[];
   nextStep: string;
   disclaimer: string;
+  facts: V32Facts;
 }
 
 function answerOf(answers: V32Answer[], id: string): string {
   return answers.find((a) => a.questionId === id)?.answer || "";
 }
 
-function riskList(answers: V32Answer[]): V32Risk[] {
-  const risks: V32Risk[] = [];
-  const q6 = answerOf(answers, "v32_q6");
+function buildHeard(answers: V32Answer[], facts: V32Facts): string[] {
+  const family = answerOf(answers, "v32_q2");
+  const income = answerOf(answers, "v32_q4");
+  const familyLine = `家里${facts.hasPartner ? "有伴侣" : "目前没有提到伴侣"}，${facts.hasChildren ? "有孩子" : "没有孩子"}${/父母/.test(family) ? "，父母也需要一起考虑" : ""}。`;
+  const incomeLine = facts.isBusinessOwner
+    ? "收入和企业经营绑在一起，生意上的贷款或担保可能会影响家庭。"
+    : /(一个人|主要靠我(?!们)|靠我一个人|只靠我)/.test(income)
+      ? "家庭收入比较集中，主要靠一个人。"
+      : "家庭收入来源相对分散，不是只靠一个人。";
+  const concernLine = /住院|看病|医疗|治疗/.test(answerOf(answers, "v32_q3"))
+    ? "你这次最先提到的是医疗和收入中断。"
+    : /退休|养老/.test(answerOf(answers, "v32_q3") + income)
+      ? "你这次最先提到的是养老和长期现金流。"
+      : "你这次最关心的是家庭现金流和家人安排。";
+  return [familyLine, incomeLine, concernLine];
+}
+
+function buildIssues(answers: V32Answer[], facts: V32Facts): V32Issue[] {
+  const issues: V32Issue[] = [];
   const q8 = answerOf(answers, "v32_q8");
+  const q6 = answerOf(answers, "v32_q6");
   const q4 = answerOf(answers, "v32_q4");
   const q3 = answerOf(answers, "v32_q3");
+  const q2 = answerOf(answers, "v32_q2");
+  const push = (issue: V32Issue) => {
+    if (!issues.some((item) => item.title === issue.title)) issues.push(issue);
+  };
+
+  if (facts.isBusinessOwner) {
+    push({
+      title: "家庭和企业的钱没有完全分开",
+      phenomenon: "你的收入和企业经营绑在一起，可能存在企业贷款、个人担保或账户混用。",
+      why: "企业风险不会只停在公司。个人担保、连带责任、家企账户混用，都可能让企业问题穿透到家庭资产。",
+      solution: "先把个人担保、企业贷款、家庭资产列清楚；企业账户和家庭账户分开；涉及担保和股权的事，找会计和律师核对。",
+      firstStep: "列一张表：企业贷款多少、谁签的担保、家里哪些资产可能被牵连。",
+      priority: "高",
+    });
+  }
+  if (/再婚|前婚|前夫|前妻|继子|继女/.test(q2)) {
+    push({
+      title: "再婚家庭的传承边界需要先理清",
+      phenomenon: "家庭里有前婚子女和现任家庭成员，钱和房产未来怎么分还没有明确安排。",
+      why: "再婚家庭最容易出问题的不是钱不够，而是“谁有份、谁决定、什么时候给”没有提前说清。",
+      solution: "先列清前婚子女、现任子女、房产、保单受益人；再确定分配原则和决策人；涉及遗嘱/协议的部分找律师。",
+      firstStep: "写一页纸：每一笔主要资产想给谁、什么时候给、谁来决定。",
+      priority: "高",
+    });
+  }
+  if (facts.hasChildren && /(两个|三个|一儿一女|两个孩子|三个孩子)/.test(q2)) {
+    push({
+      title: "多子女家庭需要先定分配原则",
+      phenomenon: "家里不止一个孩子，但钱怎么分、谁做决定、什么时候给还没有统一说法。",
+      why: "平均分不一定公平，按需分也不一定服众；没有规则，最后容易变成家庭矛盾。",
+      solution: "先定原则：平均/按需/给照顾多的人；再定决策人和沟通时点；最后才看工具。",
+      firstStep: "把几个孩子的情况和你的真实想法写下来，先不急着定金额。",
+      priority: "高",
+    });
+  }
+  if (facts.hasChildren && q8 && (/(没想过|还没想|没想好|还没定|没安排|不知道)/.test(q8) || !/谁管|分批|几岁|什么时候给/.test(q8))) {
+    push({
+      title: "给孩子的钱，给法还没有答案",
+      phenomenon: "你表达了钱要给孩子，但什么时候给、一次给还是分批、给出去之后谁说了算，还没有想清楚。",
+      why: "给钱的时间和控制方式，决定这笔钱是孩子的保障，还是可能被婚姻、债务或挥霍影响。",
+      solution: "先写清三件事：给谁、什么时候给、谁管；再核对保单受益人、遗嘱或信托是否需要调整。",
+      firstStep: "写下“孩子多大给、一次还是分批、谁替他管”这三句话。",
+      priority: "高",
+    });
+  }
+  if (/(退休|养老)/.test(q4 + q3)) {
+    push({
+      title: "退休后的现金流和照护还没有拆开",
+      phenomenon: "你提到了退休/养老，但退休后每月钱从哪来、失能时谁决定、照护费用从哪出，还没有分开算。",
+      why: "养老不是一笔钱，是日常、医疗照护、品质和给孩子的钱四笔；不拆开，容易低估长期缺口。",
+      solution: "按四笔钱拆：日常、医疗照护、品质、给孩子的钱；先算社保/退休金覆盖多少，再看缺口和照护决策人。",
+      firstStep: "写下退休后每月固定开销，以及社保/退休金大概能覆盖多少。",
+      priority: "中",
+    });
+  }
+  if (/父母/.test(q2) && /(照顾|赡养|照护|身体不好|年纪大|需要人)/.test(q2 + q3)) {
+    push({
+      title: "父母的照护和费用还没落到人",
+      phenomenon: "父母需要一起考虑，但谁照顾、钱从哪出、重大决定谁来做，还没有明确。",
+      why: "照护不是只花钱，还涉及时间、决策和家庭分工；不提前说清，事情来了容易乱。",
+      solution: "先确认父母的医疗/照护费用来源，再确定主要决策人和分担方式；必要时开一次家庭会议。",
+      firstStep: "和父母/兄弟姐妹确认：真到需要照护时，谁做主、谁出钱、谁出力。",
+      priority: "中",
+    });
+  }
   if (/要凑|拿不出|压着|长期产品|房子/.test(q6)) {
-    risks.push({
-      title: "应急流动性可能偏紧",
+    push({
+      title: "急用钱时，现金可能不够快",
       phenomenon: "遇到住院押金、失业过渡这类事，手头的钱可能要凑，或者被房子/长期产品压住。",
-      mechanism: "流动性不是看总资产，而是看急用时能不能不亏本、不求人地拿出来；资产越重、越长期，短期越容易断。",
+      why: "流动性不是看总资产，而是看急用时能不能不亏本、不求人地拿出来；资产越重，短期越容易断。",
+      solution: "先把钱分三类：随时能动、要凑一凑、动不了；优先留出 3–6 个月生活费在随时能动的地方。",
+      firstStep: "算一下家里每月固定开销，乘以 3–6，看看现在能动用的钱够不够。",
       priority: "高",
-      question: "如果三个月内要用一笔钱，你最先会动哪一块？",
     });
   }
-  const q8Negative = /(没想过|还没想|不知道|还没定)/.test(q8);
-  if (/给孩子|留给孩子|给孩子留/.test(q8) && (q8Negative || !/谁管|分批|几岁|什么时候给/.test(q8))) {
-    risks.push({
-      title: "传承控制权还没有答案",
-      phenomenon: "客户表达了“钱给孩子”，但没说什么时候给、一次给还是分批、给出去之后谁说了算。",
-      mechanism: "给钱的时间和控制方式，决定这笔钱是孩子的保障，还是可能被婚姻、债务或挥霍影响。",
-      priority: "高",
-      question: "这笔钱你希望孩子多大拿到？一次给还是分几次？",
-    });
-  }
-  if (hasBusiness(q4)) {
-    risks.push({
-      title: "家企边界需要确认",
-      phenomenon: "家庭收入和企业经营交织，但个人担保、企业负债和家庭资产的边界还没说清。",
-      mechanism: "企业贷款、个人连带担保、家企账户混用，都可能让企业风险穿透到家庭资产。",
-      priority: "高",
-      question: "生意上的贷款或担保，和家里的钱现在是分开的吗？",
-    });
-  }
-  if (/住院|看病|医疗|费用/.test(q3)) {
-    risks.push({
-      title: "医疗费用与收入中断可能同时发生",
-      phenomenon: "客户提到住院/看病的担心，但还没说费用由谁承担、收入中断怎么办。",
-      mechanism: "大病不仅花治疗费，还会让家庭主要收入中断；两件事叠加，才是现金流压力最大的时候。",
-      priority: "中",
-      question: "如果住院时间长一点，收入这块会受多大影响？",
-    });
-  }
-  if (/一个人|主要靠我|靠我/.test(q4)) {
-    risks.push({
-      title: "单一收入来源风险",
+  if (/(一个人|主要靠我(?!们)|靠我一个人|只靠我)/.test(q4)) {
+    push({
+      title: "家庭收入太集中",
       phenomenon: "家庭收入主要靠一个人，这个人一旦不能工作，家庭现金流会同时受影响。",
-      mechanism: "单一收入来源不是收入高低问题，而是家庭抗风险结构问题；收入越集中，中断时越难缓冲。",
-      priority: "中",
-      question: "如果这个人有半年不能工作，家里打算靠什么撑？",
+      why: "收入越集中，中断时越难缓冲；这不是收入高低问题，是家庭抗风险结构问题。",
+      solution: "先算主要收入者半年不能工作的现金流缺口，再看保障、储蓄和家庭分工怎么补。",
+      firstStep: "列出每月必须支出，算一算“半年没有这份收入”会缺多少。",
+      priority: "高",
     });
   }
-  return risks.slice(0, 5);
-}
-
-function dimensionMap(answers: V32Answer[]): V32Dimension[] {
-  const q6 = answerOf(answers, "v32_q6");
-  const q8 = answerOf(answers, "v32_q8");
-  const q4 = answerOf(answers, "v32_q4");
-  const q7 = answerOf(answers, "v32_q7");
-  const liquidityStatus: V32Dimension["status"] = /能|存款|活期/.test(q6) && !/要凑|拿不出/.test(q6) ? "有安排" : /要凑|拿不出|压着/.test(q6) ? "空白" : "待确认";
-  const q8Negative = /(没想过|还没想|不知道|还没定)/.test(q8);
-  const inheritanceStatus: V32Dimension["status"] = q8Negative
-    ? "空白"
-    : /谁管|分批|几岁|什么时候给/.test(q8)
-      ? "有安排"
-      : /给孩子|留给孩子/.test(q8)
-        ? "待确认"
-        : "空白";
-  const freedomStatus: V32Dimension["status"] = q4 ? (/没想过|不知道/.test(q4) ? "空白" : "待确认") : "待确认";
-  return [
-    { name: "安全", status: liquidityStatus === "空白" ? "空白" : "待确认", evidence: q6 || "本次未提供", mechanism: "安全不是看有没有钱，而是看突发支出时家庭现金流会不会断。", question: "如果明天需要 3–6 个月生活费，你最先动哪一块？" },
-    { name: "流动", status: liquidityStatus, evidence: q6 || "本次未提供", mechanism: "流动性看的是能不能马上、不亏本地拿出来，不是总资产多少。", question: "你的钱现在主要放在哪？急用时哪些能动？" },
-    { name: "自由", status: freedomStatus, evidence: q4 || "本次未提供", mechanism: "自由不是收入高低，而是不靠每天上班也有钱进来的程度。", question: "如果不上班，你希望靠什么产生现金流？" },
-    { name: "独立", status: "待确认", evidence: q7 || "本次未提供", mechanism: "独立看的是家庭责任有没有被现有资产和安排覆盖。", question: "未来 3–10 年必须花的钱，现在有专门准备吗？" },
-    { name: "传承", status: inheritanceStatus, evidence: q8 || "本次未提供", mechanism: "传承看的是钱能不能按你的意愿、在你要的时间、给到你要的人。", question: "这笔钱你希望什么时候给、谁管、一次还是分批？" },
-  ];
-}
-
-function pendingList(answers: V32Answer[]): string[] {
-  const pending = [
-    "现有保单清单：投保人、被保险人、受益人分别是谁",
-    "家庭年收入/支出、流动资产、固定资产、负债的大概区间",
-    "遗嘱/信托/婚前协议等法律文件是否已经书面化",
-  ];
-  if (/孩子|儿子|女儿/.test(answerOf(answers, "v32_q2"))) pending.push("孩子的年龄、婚否、未来教育/婚姻安排");
-  if (/父母/.test(answerOf(answers, "v32_q2"))) pending.push("父母赡养/照护责任和遗产分配");
-  if (hasBusiness(answerOf(answers, "v32_q4"))) pending.push("企业贷款、个人担保、股权和接班安排");
-  if (/退休|养老/.test(answerOf(answers, "v32_q3"))) pending.push("退休后每月现金流目标和失能照护安排");
-  return pending.slice(0, 6);
+  if (/住院|看病|医疗|治疗|费用/.test(q3)) {
+    push({
+      title: "医疗费用和收入中断可能一起来",
+      phenomenon: "你担心医疗，但治疗费、自费药、收入中断这几件事还没有分开看。",
+      why: "大病不只花治疗费，还会让家庭主要收入中断；两件事叠加，才是现金流压力最大的时候。",
+      solution: "先核对医保、单位团险、商业医疗的实际覆盖；把治疗费、自费药、收入中断分开算。",
+      firstStep: "找出医保卡、单位团险和已有保单，确认住院能报什么、不能报什么。",
+      priority: "中",
+    });
+  }
+  if (issues.length === 0) {
+    push({
+      title: "这次信息还不够形成判断",
+      phenomenon: "这次回答里没有出现明显的高风险信号，但家庭结构、收入、流动性还有空白。",
+      why: "没有信号不等于没有风险，可能只是这次没有问到；家庭结构、婚姻、企业和政策变化都会改变结论。",
+      solution: "先补三块：家庭成员和年龄、收入结构、急用钱时能不能拿出来；补完再看风险。",
+      firstStep: "把家庭结构、主要收入来源、3–6 个月生活费这三件事写清楚。",
+      priority: "低",
+    });
+  }
+  return issues.slice(0, 3);
 }
 
 export function buildV32Report(answers: V32Answer[]): V32Report {
-  const risks = riskList(answers);
-  const primary = risks[0];
-  const decision = {
-    problem: primary
-      ? `${primary.title}：${primary.phenomenon}`
-      : "这次筛查没有发现明显高风险项，但还有几块信息没有采集。",
-    education: primary
-      ? `${primary.mechanism} 这不是运气问题，是结构和时间的问题；现在处理，成本通常低于事情发生后再补救。`
-      : "没有数据不等于没有风险，只代表这次还没有看到；家庭结构、婚姻、企业、政策变化都可能改变结论。",
-    solution: primary
-      ? `先做一件事：${primary.question} 带着这个问题做一次 30 分钟一对一诊断，把答案落到具体安排上。`
-      : "先约一次 30 分钟诊断，把报告里的待确认清单过一遍；不需要马上做购买决定。",
-  };
+  const facts = detectFacts(answers);
+  const issues = buildIssues(answers, facts);
+  const first = issues[0];
   return {
-    quotes: answers.filter((a) => a.answer.trim()).map((a) => a.answer.trim()).slice(0, 6),
-    dimensions: dimensionMap(answers),
-    risks,
-    pending: pendingList(answers),
-    decision,
-    nextStep: "带上这份报告，约一次 30 分钟一对一诊断；只确认 1–3 个会改变判断的问题，不急着做产品决定。",
+    conclusion: first ? `这次最该先处理的不是产品，而是「${first.title}」。` : "这次信息还不够形成判断，先把家庭结构和现金流补齐。",
+    heard: buildHeard(answers, facts),
+    issues,
+    nextStep: first
+      ? `先做一件事：${first.firstStep} 带着这一步和 1–2 个问题，约一次 30 分钟诊断。`
+      : "先补家庭结构、收入来源和 3–6 个月生活费，再约一次 30 分钟诊断。",
     disclaimer: "本报告为家庭风险筛查参考，不构成诊断、保险产品推荐、投保建议、法律或投资意见。具体安排请与持证专业人士和律师核对。",
+    facts,
   };
 }

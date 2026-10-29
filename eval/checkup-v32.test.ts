@@ -30,19 +30,42 @@ test("风险追问只选时间/人/家企三类", () => {
 });
 
 test("企业主 Q4 才会触发家企追问", () => {
-  const business = [...answers, { questionId: "v32_q4", title: "收入", prompt: "", answer: "我自己开公司，有贷款和担保" }];
+  const business = answers.map((answer) => answer.questionId === "v32_q4" ? { ...answer, answer: "我自己开公司，有贷款和担保" } : answer);
   assert.ok(getFollowupCandidates(business).some((item) => item.id === "C"));
   assert.ok(!getFollowupCandidates(answers).some((item) => item.id === "C"));
 });
 
-test("报告只出三档风险地图，不出分数", () => {
+test("报告是四段结构，有解决动作，不出分数", () => {
   const report = buildV32Report(answers);
-  assert.equal(report.dimensions.length, 5);
-  for (const item of report.dimensions) {
-    assert.ok(["有安排", "空白", "待确认"].includes(item.status));
-    assert.ok(!/分$/.test(item.evidence));
-  }
-  assert.ok(report.risks.length >= 1);
-  assert.ok(report.pending.length >= 3);
+  assert.ok(report.conclusion.length > 5);
+  assert.ok(report.heard.length >= 2);
+  assert.ok(report.issues.length >= 1);
+  assert.ok(report.issues[0].solution.length > 10);
+  assert.ok(report.issues[0].firstStep.length > 5);
+  assert.ok(report.nextStep.length > 10);
   assert.ok(!/\d+\s*分(?!钟)/.test(JSON.stringify(report)));
+});
+
+test("没孩子时不生成孩子/传承问题", () => {
+  const noChild = [
+    { questionId: "v32_q1", title: "t", prompt: "", answer: "我在大厂上班，担心收入和医疗" },
+    { questionId: "v32_q2", title: "t", prompt: "", answer: "42岁，夫妻俩，没有孩子，父母在外地" },
+    { questionId: "v32_q3", title: "t", prompt: "", answer: "担心住院治疗费" },
+    { questionId: "v32_q4", title: "t", prompt: "", answer: "我和老婆都在大厂上班，主要靠我们俩" },
+    { questionId: "v32_q5", title: "t", prompt: "", answer: "要靠存款" },
+    { questionId: "v32_q6", title: "t", prompt: "", answer: "能，存款能覆盖" },
+    { questionId: "v32_q7", title: "t", prompt: "", answer: "先解决医疗" },
+    { questionId: "v32_q8", title: "t", prompt: "", answer: "没有孩子，没想过给谁" },
+  ];
+  const report = buildV32Report(noChild);
+  assert.equal(report.facts.hasChildren, false);
+  assert.ok(!report.issues.some((issue) => /孩子|传承/.test(issue.title)));
+  assert.ok(!report.heard.some((line) => /有孩子/.test(line) && !/没有孩子/.test(line)));
+  assert.ok(!getFollowupCandidates(noChild).some((item) => item.id === "B"));
+});
+
+test("大厂打工人不触发生意/家企追问", () => {
+  const employee = [...answers, { questionId: "v32_q4", title: "收入", prompt: "", answer: "我在大厂上班，公司这两年不稳" }];
+  assert.equal(buildV32Report(employee).facts.isBusinessOwner, false);
+  assert.ok(!getFollowupCandidates(employee).some((item) => item.id === "C"));
 });
